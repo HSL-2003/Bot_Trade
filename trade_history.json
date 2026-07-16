@@ -28,5 +28,15 @@
         "close_price": 4036.63,
         "profit": -72.8,
         "close_time": "2026-07-16T09:10:36.948815"
+    },
+    {
+        "ticket": 6634963,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 1.0,
+        "open_price": 4036.29,
+        "close_price": 4033.29,
+        "profit": -300.0,
+        "close_time": "2026-07-16T11:06:50.143738"
     }
 ]
