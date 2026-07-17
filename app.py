@@ -48,6 +48,10 @@ class ManualTradeModel(BaseModel):
     sl_points: float
     tp_points: float
 
+class ModifySLTPModel(BaseModel):
+    sl: float
+    tp: float
+
 # Serve Dashboard frontend
 @app.get("/")
 async def get_dashboard():
@@ -232,6 +236,14 @@ async def close_position_endpoint(ticket: int):
     # Close order asynchronously
     asyncio.create_task(bot.close_position(ticket))
     return {"status": "close_submitted", "ticket": ticket}
+
+# Modify SL/TP of an open position
+@app.post("/api/modify-sltp/{ticket}")
+async def modify_sltp_endpoint(ticket: int, data: ModifySLTPModel):
+    success = await bot.modify_position_sltp(ticket, data.sl, data.tp)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to modify SL/TP. Position not found or broker rejected.")
+    return {"status": "modified", "ticket": ticket, "sl": data.sl, "tp": data.tp}
 
 # Manual Trigger Circuit Breaker (Lockdown)
 @app.post("/api/circuit-breaker/trigger")

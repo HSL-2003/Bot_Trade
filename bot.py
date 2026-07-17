@@ -1504,6 +1504,16 @@ class MT5TradingBot:
         rsi = self.indicators.get("rsi", 50.0)
         trend = self.indicators.get("trend", "NEUTRAL")
 
+        # ponytail: Wave trading — only trade in trend direction, skip counter-trend signals
+        allowed_direction = None
+        if trend == "BULLISH":
+            allowed_direction = "BUY"
+        elif trend == "BEARISH":
+            allowed_direction = "SELL"
+        else:
+            # NEUTRAL: no clear wave, skip signal generation entirely
+            return
+
         # 1. Fibonacci Confluence zone scanning
         for zone in self.confluence_zones:
             diff = abs(bid - zone["center_price"])
@@ -1517,6 +1527,10 @@ class MT5TradingBot:
                     continue
                     
                 sig_type = "BUY" if is_buy_signal else "SELL"
+
+                # Wave filter: skip counter-trend signals
+                if sig_type != allowed_direction:
+                    continue
                 
                 # Grade logic: base 2 stars
                 stars_val = 2
@@ -1551,8 +1565,9 @@ class MT5TradingBot:
             
             # RSI Reversal Strategy (Relaxed)
             # ponytail: relaxed RSI thresholds as requested by user
-            is_buy = rsi < 35
-            is_sell = rsi > 65
+            # Wave filter: only trigger RSI reversal in trend direction
+            is_buy = rsi < 35 and allowed_direction == "BUY"
+            is_sell = rsi > 65 and allowed_direction == "SELL"
             
             if is_buy or is_sell:
                 sig_type = "BUY" if is_buy else "SELL"
