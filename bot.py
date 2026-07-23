@@ -37,16 +37,18 @@ class MT5TradingBot:
         self.news_restriction_minutes = int(os.getenv("NEWS_RESTRICTION_MINUTES", 30))
 
         # Trailing Stop & Breakeven Parameters
-        self.trailing_stop_points = int(os.getenv("TRAILING_STOP_POINTS", 300))
-        self.trailing_step_points = int(os.getenv("TRAILING_STEP_POINTS", 50))
-        self.trailing_stop_offset_points = int(os.getenv("TRAILING_STOP_OFFSET_POINTS", 150))
-        self.breakeven_trigger_points = int(os.getenv("BREAKEVEN_TRIGGER_POINTS", 300))
-        self.breakeven_buffer_points = int(os.getenv("BREAKEVEN_BUFFER_POINTS", 10))
+        # ponytail: 5 giá = 500 points, 10 giá = 1000 points on Gold
+        self.trailing_stop_points = int(os.getenv("TRAILING_STOP_POINTS", 500))
+        self.trailing_step_points = int(os.getenv("TRAILING_STEP_POINTS", 500))
+        self.trailing_stop_offset_points = int(os.getenv("TRAILING_STOP_OFFSET_POINTS", 1000))
+        self.breakeven_trigger_points = int(os.getenv("BREAKEVEN_TRIGGER_POINTS", 500))
+        self.breakeven_buffer_points = int(os.getenv("BREAKEVEN_BUFFER_POINTS", 0))
         self.auto_trading = os.getenv("AUTO_TRADING", "true").lower() == "true"
 
         # Freqtrade-inspired parameters
-        self.max_open_trades = int(os.getenv("MAX_OPEN_TRADES", 3))
+        self.max_open_trades = int(os.getenv("MAX_OPEN_TRADES", 3000))
         self.cooldown_duration = int(os.getenv("COOLDOWN_DURATION", 300))
+        self.daily_profit_target_percent = float(os.getenv("DAILY_PROFIT_TARGET_PERCENT", 7.0)) # ponytail: daily profit target 7%
         self.roi_enabled = os.getenv("ROI_ENABLED", "true").lower() == "true"
         roi_table_str = os.getenv("ROI_TABLE", "0:0.04,30:0.015,60:0.005,120:0.0")
         self.roi_table = {}
@@ -75,7 +77,7 @@ class MT5TradingBot:
         
         # Real-time state fields
         self.current_price = {"bid": 2350.00, "ask": 2350.15, "spread": 15}
-        self.watchlist_symbols = ["XAUUSD", "EURUSD", "GBPUSD"]
+        self.watchlist_symbols = ["XAUUSD", "EURUSD", "GBPUSD", "USOIL"]
         self.watchlist_data = {
             sym: {"bid": 0.0, "ask": 0.0, "spread": 0, "change": 0.0, "change_abs": 0.0}
             for sym in self.watchlist_symbols
@@ -118,6 +120,30 @@ class MT5TradingBot:
         except Exception:
             pass
 
+    def get_pip_size(self, symbol: str) -> float:
+        s = symbol.upper()
+        if "XAU" in s:
+            return 0.10
+        elif "OIL" in s or "USO" in s:
+            return 0.01
+        elif "JPY" in s:
+            return 0.01
+        else:
+            return 0.0001
+
+    def calculate_trade_pips(self, trade: Dict[str, Any]) -> float:
+        symbol = trade.get("symbol", "XAUUSD")
+        open_price = float(trade.get("open_price", 0.0))
+        close_price = float(trade.get("close_price", 0.0))
+        t_type = trade.get("type", "BUY")
+        pip_size = self.get_pip_size(symbol)
+        
+        if t_type == "BUY":
+            pips = (close_price - open_price) / pip_size
+        else:
+            pips = (open_price - close_price) / pip_size
+        return round(pips, 1)
+
     def get_statistics(self) -> Dict[str, Any]:
         total = len(self.history)
         if total == 0:
@@ -127,25 +153,119 @@ class MT5TradingBot:
                 "losses": 0,
                 "win_rate": 0.0,
                 "total_profit": 0.0,
-                "profit_factor": 0.0
+                "gross_profit": 0.0,
+                "gross_loss": 0.0,
+                "profit_factor": 0.0,
+                "total_pips": 0.0,
+                "avg_pips": 0.0,
+                "avg_win": 0.0,
+                "avg_loss": 0.0,
+                "risk_reward_ratio": 0.0,
+                "expectancy": 0.0
             }
-        wins = sum(1 for t in self.history if t["profit"] > 0)
-        losses = sum(1 for t in self.history if t["profit"] <= 0)
-        win_rate = round((wins / total) * 100, 2)
-        total_profit = round(sum(t["profit"] for t in self.history), 2)
+        wins = [t for t in self.history if t.get("profit", 0) > 0]
+        losses = [t for t in self.history if t.get("profit", 0) <= 0]
         
-        gross_profit = sum(t["profit"] for t in self.history if t["profit"] > 0)
-        gross_loss = sum(abs(t["profit"]) for t in self.history if t["profit"] < 0)
+        wins_count = len(wins)
+        losses_count = len(losses)
+        win_rate = round((wins_count / total) * 100, 2)
+        
+        gross_profit = sum(t.get("profit", 0) for t in wins)
+        gross_loss = sum(abs(t.get("profit", 0)) for t in losses)
+        net_profit = round(gross_profit - gross_loss, 2)
         
         profit_factor = round(gross_profit / gross_loss, 2) if gross_loss > 0 else (round(gross_profit, 2) if gross_profit > 0 else 0.0)
         
+        total_pips = round(sum(self.calculate_trade_pips(t) for t in self.history), 1)
+        avg_pips = round(total_pips / total, 1) if total > 0 else 0.0
+        
+        avg_win = round(gross_profit / wins_count, 2) if wins_count > 0 else 0.0
+        avg_loss = round(gross_loss / losses_count, 2) if losses_count > 0 else 0.0
+        rr_ratio = round(avg_win / avg_loss, 2) if avg_loss > 0 else (round(avg_win, 2) if avg_win > 0 else 0.0)
+        
+        # Expectancy ($ per trade) = (Win Rate % * Avg Win) - (Loss Rate % * Avg Loss)
+        win_prob = wins_count / total
+        loss_prob = losses_count / total
+        expectancy = round((win_prob * avg_win) - (loss_prob * avg_loss), 2)
+        
         return {
             "total_trades": total,
-            "wins": wins,
-            "losses": losses,
+            "wins": wins_count,
+            "losses": losses_count,
             "win_rate": win_rate,
-            "total_profit": total_profit,
-            "profit_factor": profit_factor
+            "total_profit": net_profit,
+            "gross_profit": round(gross_profit, 2),
+            "gross_loss": round(gross_loss, 2),
+            "profit_factor": profit_factor,
+            "total_pips": total_pips,
+            "avg_pips": avg_pips,
+            "avg_win": avg_win,
+            "avg_loss": avg_loss,
+            "risk_reward_ratio": rr_ratio,
+            "expectancy": expectancy
+        }
+
+    def get_history_analytics(self, period: str = "all") -> Dict[str, Any]:
+        now = datetime.now()
+        filtered = []
+        
+        for t in self.history:
+            close_time_str = t.get("close_time")
+            if not close_time_str:
+                if period == "all": filtered.append(t)
+                continue
+            try:
+                dt = datetime.fromisoformat(close_time_str)
+            except Exception:
+                if period == "all": filtered.append(t)
+                continue
+                
+            if period == "day" and dt.date() == now.date():
+                filtered.append(t)
+            elif period == "week" and dt >= (now - timedelta(days=7)):
+                filtered.append(t)
+            elif period == "month" and (dt.year == now.year and dt.month == now.month):
+                filtered.append(t)
+            elif period == "all":
+                filtered.append(t)
+                
+        total_trades = len(filtered)
+        wins = [t for t in filtered if t.get("profit", 0) > 0]
+        losses = [t for t in filtered if t.get("profit", 0) <= 0]
+        
+        gross_profit = round(sum(t.get("profit", 0) for t in wins), 2)
+        gross_loss = round(sum(abs(t.get("profit", 0)) for t in losses), 2)
+        net_profit = round(gross_profit - gross_loss, 2)
+        
+        total_pips = round(sum(self.calculate_trade_pips(t) for t in filtered), 1)
+        win_rate = round((len(wins) / total_trades * 100), 2) if total_trades > 0 else 0.0
+        profit_factor = round(gross_profit / gross_loss, 2) if gross_loss > 0 else (round(gross_profit, 2) if gross_profit > 0 else 0.0)
+        
+        # Calculate estimated account balance at the time
+        initial_balance = 10000.0
+        if self.account_info and "balance" in self.account_info and self.account_info["balance"] > 0:
+            current_bal = self.account_info["balance"]
+        else:
+            current_bal = initial_balance + sum(t.get("profit", 0) for t in self.history)
+            
+        return {
+            "period": period,
+            "total_trades": total_trades,
+            "wins": len(wins),
+            "losses": len(losses),
+            "gross_profit": gross_profit,
+            "gross_loss": gross_loss,
+            "net_profit": net_profit,
+            "total_pips": total_pips,
+            "win_rate": win_rate,
+            "profit_factor": profit_factor,
+            "account_balance": round(current_bal, 2),
+            "trades": [
+                {
+                    **t,
+                    "pips": self.calculate_trade_pips(t)
+                } for t in reversed(filtered) # latest first
+            ]
         }
 
     async def log_event(self, event_type: str, message: str, details: Optional[Dict[str, Any]] = None):
@@ -215,14 +335,17 @@ class MT5TradingBot:
         if self.simulation_mode:
             # Calculate floating profit on simulated positions
             floating_profit = 0.0
-            bid = self.current_price["bid"]
-            ask = self.current_price["ask"]
-            
             for pos in self.positions:
                 symbol = pos["symbol"]
-                multiplier = 100.0 if "XAU" in symbol else 100000.0
+                sym_data = self.watchlist_data.get(symbol)
+                if not sym_data:
+                    continue
+                bid = sym_data["bid"]
+                ask = sym_data["ask"]
+                
+                multiplier = self.get_symbol_multiplier(symbol)
                 current_price = bid if pos["type"] == "BUY" else ask
-                pos["current_price"] = round(current_price, 2 if "XAU" in symbol else 5)
+                pos["current_price"] = round(current_price, 2 if "XAU" in symbol or "USO" in symbol or "OIL" in symbol else 5)
                 
                 if pos["type"] == "BUY":
                     pos["profit"] = round((bid - pos["open_price"]) * pos["volume"] * multiplier, 2)
@@ -237,6 +360,18 @@ class MT5TradingBot:
             # Daily drawdown calculation
             drawdown = self.account_info["daily_start_equity"] - self.account_info["equity"]
             self.account_info["daily_drawdown_percent"] = round(max(0.0, (drawdown / self.account_info["daily_start_equity"]) * 100), 2)
+            
+            # Check daily profit and loss circuit breakers (simulation mode)
+            if self.daily_start_equity > 0 and not self.system_locked:
+                profit_percent = ((self.account_info["equity"] - self.daily_start_equity) / self.daily_start_equity) * 100
+                if profit_percent >= self.daily_profit_target_percent:
+                    self.system_locked = True
+                    await self.log_event("CIRCUIT_BREAKER", f"DAILY PROFIT TARGET REACHED! Profit: {profit_percent:.2f}% (Target: {self.daily_profit_target_percent}%). Locking system and closing all trades.")
+                    await self.emergency_lockdown()
+                elif self.account_info["daily_drawdown_percent"] >= self.max_daily_loss_percent:
+                    self.system_locked = True
+                    await self.log_event("CIRCUIT_BREAKER", f"DAILY DRAWDOWN LIMIT BREACHED! Drawdown: {self.account_info['daily_drawdown_percent']}%. Locking system and closing all trades.")
+                    await self.emergency_lockdown()
             return
 
         # MT5 mode
@@ -284,15 +419,20 @@ class MT5TradingBot:
                 "open_time": pos_open_time
             })
 
-        # Check for closed positions in MT5 mode to trigger pair lock cooldown
-        old_positions_dict = {p["ticket"]: p for p in self.positions}
-        new_tickets = {p["ticket"] for p in updated_positions}
-        for ticket, pos in old_positions_dict.items():
-            if ticket not in new_tickets:
-                symbol = pos["symbol"]
-                self.pair_locks[symbol] = time.time() + self.cooldown_duration
-                await self.log_event("COOLDOWN_LOCK", f"Symbol {symbol} closed (Ticket #{ticket}). Cooldown lock for {self.cooldown_duration}s.")
+        # Check daily profit and loss circuit breakers (MT5 mode)
+        if self.daily_start_equity > 0 and not self.system_locked:
+            profit_percent = ((self.account_info["equity"] - self.daily_start_equity) / self.daily_start_equity) * 100
+            if profit_percent >= self.daily_profit_target_percent:
+                self.system_locked = True
+                await self.log_event("CIRCUIT_BREAKER", f"DAILY PROFIT TARGET REACHED! Profit: {profit_percent:.2f}% (Target: {self.daily_profit_target_percent}%). Locking system and closing all trades.")
+                await self.emergency_lockdown()
+            elif self.account_info["daily_drawdown_percent"] >= self.max_daily_loss_percent:
+                self.system_locked = True
+                await self.log_event("CIRCUIT_BREAKER", f"DAILY DRAWDOWN LIMIT BREACHED! Drawdown: {self.account_info['daily_drawdown_percent']}%. Locking system and closing all trades.")
+                await self.emergency_lockdown()
 
+        # Check for closed positions in MT5 mode (cooldown locks disabled as requested by user)
+        # ponytail: disabled pair locks on trade close
         self.positions = updated_positions
 
     async def parse_news_data(self, data):
@@ -524,30 +664,33 @@ class MT5TradingBot:
                             "center_price": round((fib_val + sr_val) / 2, dec)
                         })
 
-    async def execute_market_trade(self, order_type: str, lot_size: float, sl_points: float, tp_points: float, snapshot_price: Optional[Dict[str, float]] = None):
+    async def execute_market_trade(self, order_type: str, lot_size: float, sl_points: float, tp_points: float, snapshot_price: Optional[Dict[str, float]] = None, symbol: Optional[str] = None):
         """Execution & Self-Healing Layer: Thread-safe order placement with exponential retry backoff.
         snapshot_price: Optional dict {"bid": ..., "ask": ...} captured at signal detection time to prevent slippage.
         """
+        if symbol is None:
+            symbol = self.symbol
+
         if self.is_pending_order:
             await self.log_event("EXECUTION_BLOCKED", "Cannot place order: Another order is already pending.")
             return
 
         self.is_pending_order = True
         
-        # Anti-slippage: use snapshot price if provided, otherwise fallback to current live price
-        exec_price = snapshot_price if snapshot_price else self.current_price
+        # Anti-slippage: use snapshot price if provided, otherwise fallback to current live price for this specific symbol
+        exec_price = snapshot_price if snapshot_price else self.watchlist_data.get(symbol, self.current_price)
         
         # Slippage guard: reject if price drifted too far from snapshot
         if snapshot_price:
-            max_slip = 50 * self.get_symbol_point(self.symbol)  # ponytail: 50 pts = 0.5 USD for Gold
-            live_ref = self.current_price["ask"] if order_type == "BUY" else self.current_price["bid"]
+            max_slip = 50 * self.get_symbol_point(symbol)  # ponytail: 50 pts = 0.5 USD for Gold/Oil
+            live_ref = self.watchlist_data.get(symbol, self.current_price)["ask"] if order_type == "BUY" else self.watchlist_data.get(symbol, self.current_price)["bid"]
             snap_ref = snapshot_price["ask"] if order_type == "BUY" else snapshot_price["bid"]
             if abs(live_ref - snap_ref) > max_slip:
                 self.is_pending_order = False
                 await self.log_event("SLIPPAGE_REJECT", f"Order rejected: price drifted {abs(live_ref - snap_ref):.2f} from snapshot (max {max_slip:.2f}). Snap={snap_ref}, Live={live_ref}")
                 return
         
-        await self.log_event("EXECUTION", f"Initiating order send: {order_type} {lot_size} Lots on {self.symbol}")
+        await self.log_event("EXECUTION", f"Initiating order send: {order_type} {lot_size} Lots on {symbol}")
 
         # Exponential backoff retry parameters
         max_retries = 3
@@ -561,14 +704,14 @@ class MT5TradingBot:
                     ticket = random.randint(1000000, 9999999)
                     open_price = exec_price["ask"] if order_type == "BUY" else exec_price["bid"]
                     
-                    point = self.get_symbol_point(self.symbol)
-                    dec = 2 if "XAU" in self.symbol else 5
+                    point = self.get_symbol_point(symbol)
+                    dec = 2 if "XAU" in symbol or "USO" in symbol or "OIL" in symbol else 5
                     sl_price = open_price - (sl_points * point) if order_type == "BUY" else open_price + (sl_points * point)
                     tp_price = open_price + (tp_points * point) if order_type == "BUY" else open_price - (tp_points * point)
 
                     new_pos = {
                         "ticket": ticket,
-                        "symbol": self.symbol,
+                        "symbol": symbol,
                         "type": order_type,
                         "volume": lot_size,
                         "open_price": round(open_price, dec),
@@ -588,9 +731,9 @@ class MT5TradingBot:
                 # Prepare MT5 order request structure
                 def _place_order():
                     # Check Filling Mode automatically to prevent rejection
-                    symbol_info = mt5.symbol_info(self.symbol)
+                    symbol_info = mt5.symbol_info(symbol)
                     if not symbol_info:
-                        return {"success": False, "error": "Symbol not found in MT5"}
+                        return {"success": False, "error": f"Symbol {symbol} not found in MT5"}
                     
                     # Filling mode mapping
                     filling_mode = mt5.ORDER_FILLING_FOK
@@ -601,13 +744,13 @@ class MT5TradingBot:
                     else:
                         filling_mode = mt5.ORDER_FILLING_RETURN
 
-                    price = mt5.symbol_info_tick(self.symbol).ask if order_type == "BUY" else mt5.symbol_info_tick(self.symbol).bid
+                    price = mt5.symbol_info_tick(symbol).ask if order_type == "BUY" else mt5.symbol_info_tick(symbol).bid
                     sl = price - (sl_points * symbol_info.point) if order_type == "BUY" else price + (sl_points * symbol_info.point)
                     tp = price + (tp_points * symbol_info.point) if order_type == "BUY" else price - (tp_points * symbol_info.point)
 
                     request = {
                         "action": mt5.TRADE_ACTION_DEAL,
-                        "symbol": self.symbol,
+                        "symbol": symbol,
                         "volume": lot_size,
                         "type": mt5.ORDER_TYPE_BUY if order_type == "BUY" else mt5.ORDER_TYPE_SELL,
                         "price": price,
@@ -667,6 +810,18 @@ class MT5TradingBot:
         self.is_pending_order = False
         await self.log_event("TRADE_ERROR", "Order execution failed after maximum retries.")
 
+    def get_current_price_for_symbol(self, symbol: str) -> Dict[str, float]:
+        """Get symbol-specific bid/ask tick from watchlist_data or current_price fallback"""
+        if hasattr(self, "watchlist_data") and symbol in self.watchlist_data:
+            w_data = self.watchlist_data[symbol]
+            if w_data.get("bid", 0.0) > 0:
+                return {
+                    "bid": w_data["bid"],
+                    "ask": w_data["ask"],
+                    "spread": w_data.get("spread", 0)
+                }
+        return self.current_price
+
     async def close_position(self, ticket: int):
         """Close an active position"""
         if self.simulation_mode:
@@ -676,10 +831,12 @@ class MT5TradingBot:
                     pos_to_close = p
                     break
             if pos_to_close:
-                bid = self.current_price["bid"]
-                ask = self.current_price["ask"]
+                sym = pos_to_close["symbol"]
+                sym_price = self.get_current_price_for_symbol(sym)
+                bid = sym_price["bid"]
+                ask = sym_price["ask"]
                 close_price = bid if pos_to_close["type"] == "BUY" else ask
-                multiplier = 100.0 if "XAU" in pos_to_close["symbol"] else 100000.0
+                multiplier = self.get_symbol_multiplier(sym)
                 
                 if pos_to_close["type"] == "BUY":
                     profit = round((close_price - pos_to_close["open_price"]) * pos_to_close["volume"] * multiplier, 2)
@@ -688,9 +845,9 @@ class MT5TradingBot:
                 
                 self.positions.remove(pos_to_close)
                 
-                # Pair Lock cooldown
-                symbol = pos_to_close["symbol"]
-                self.pair_locks[symbol] = time.time() + self.cooldown_duration
+                # Pair Lock cooldown (disabled)
+                # symbol = pos_to_close["symbol"]
+                # self.pair_locks[symbol] = time.time() + self.cooldown_duration
                 
                 self.account_info["balance"] = round(self.account_info["balance"] + profit, 2)
                 self.history.append({
@@ -704,8 +861,7 @@ class MT5TradingBot:
                     "close_time": datetime.now().isoformat()
                 })
                 self.save_history()
-                await self.log_event("TRADE_CLOSE", f"Simulated position closed: Ticket {ticket} with profit {profit}")
-                await self.log_event("COOLDOWN_LOCK", f"Symbol {symbol} locked in cooldown for {self.cooldown_duration}s.")
+                await self.log_event("TRADE_CLOSE", f"Simulated position closed: Ticket {ticket} ({sym}) at price {close_price} with profit {profit}")
             return
 
         # MT5 mode close
@@ -746,14 +902,7 @@ class MT5TradingBot:
 
         success = await asyncio.to_thread(_close)
         if success:
-            symbol = self.symbol
-            for p in self.positions:
-                if p["ticket"] == ticket:
-                    symbol = p["symbol"]
-                    break
-            self.pair_locks[symbol] = time.time() + self.cooldown_duration
             await self.log_event("TRADE_CLOSE", f"Position {ticket} closed successfully.")
-            await self.log_event("COOLDOWN_LOCK", f"Symbol {symbol} locked in cooldown for {self.cooldown_duration}s.")
         else:
             await self.log_event("ERROR", f"Failed to close position {ticket} on MT5.")
 
@@ -770,8 +919,24 @@ class MT5TradingBot:
             return 0.001
         elif "XAU" in symbol_upper:
             return 0.01
+        elif "USO" in symbol_upper or "OIL" in symbol_upper:
+            return 0.01
         else:
             return 0.00001
+
+    def get_symbol_multiplier(self, symbol: str) -> float:
+        """Helper to get contract size / profit multiplier for a symbol"""
+        if not self.simulation_mode and MT5_AVAILABLE:
+            info = mt5.symbol_info(symbol)
+            if info:
+                return float(info.trade_contract_size)
+        
+        # Fallback / Simulation Mode
+        symbol_upper = symbol.upper()
+        if "XAU" in symbol_upper or "USO" in symbol_upper or "OIL" in symbol_upper:
+            return 100.0
+        else:
+            return 100000.0
 
     async def modify_position_sltp(self, ticket: int, new_sl: float, new_tp: float) -> bool:
         """Modify SL/TP of an active position (Execution Layer)"""
@@ -822,12 +987,10 @@ class MT5TradingBot:
             current_sl = pos["sl"]
             current_tp = pos["tp"]
             
-            if symbol != self.symbol:
-                continue
-
+            sym_price = self.get_current_price_for_symbol(symbol)
             point = self.get_symbol_point(symbol)
-            bid = self.current_price["bid"]
-            ask = self.current_price["ask"]
+            bid = sym_price["bid"]
+            ask = sym_price["ask"]
 
             # 1. Time-based ROI Exit check
             if self.roi_enabled and pos.get("open_time"):
@@ -904,28 +1067,21 @@ class MT5TradingBot:
                             await self.modify_position_sltp(ticket, target_trail_sl, current_tp)
                             pos["sl"] = target_trail_sl
 
-    async def check_filters(self, signal_type: str, is_manual: bool = False) -> bool:
+    async def check_filters(self, signal_type: str, is_manual: bool = False, symbol: str = None) -> bool:
         """Risk & Filter Layer: Validate spread and news restrictions (drawdown lock disabled)"""
-        # Circuit Breaker check disabled (ponytail: skipped as requested by user)
-        # if self.account_info["daily_drawdown_percent"] >= self.max_daily_loss_percent:
-        #     self.system_locked = True
-        #     await self.log_event("CIRCUIT_BREAKER", f"DAILY DRAWDOWN CIRCUIT BREAKER TRIGGERED! Drawdown: {self.account_info['daily_drawdown_percent']}%. System Locked.")
-        #     # Emergency close all orders
-        #     await self.emergency_lockdown()
-        #     return False
-
-        # if self.system_locked:
-        #     await self.log_event("FILTER_BLOCKED", "Trade ignored. System is currently locked due to daily risk breach.")
-        #     return False
-
         # Bypass spread and news checks for manual trades
         if is_manual:
             return True
 
-        # Spread Filter check
-        spread = self.current_price["spread"]
-        if spread > self.max_spread:
-            await self.log_event("FILTER_BLOCKED", f"Trade ignored. High Spread: {spread} points (Max allowed: {self.max_spread})")
+        # Symbol-specific Spread Filter check
+        sym = symbol or self.symbol
+        sym_price = self.get_current_price_for_symbol(sym)
+        spread = sym_price.get("spread", 0)
+        
+        # ponytail: Higher spread tolerance (100 pts) for Commodities/Gold/Oil
+        max_allowed = 100 if ("USO" in sym or "OIL" in sym or "XAU" in sym) else self.max_spread
+        if spread > max_allowed:
+            await self.log_event("FILTER_BLOCKED", f"Trade ignored for {sym}. High Spread: {spread} points (Max allowed: {max_allowed})")
             return False
 
         # News Filter check (No trading 30 mins before or after High Impact News)
@@ -946,8 +1102,7 @@ class MT5TradingBot:
         tickets = [pos["ticket"] for pos in self.positions]
         for ticket in tickets:
             await self.close_position(ticket)
-        self.is_running = False
-        await self.log_event("EMERGENCY", "All positions closed. Bot execution halted.")
+        await self.log_event("EMERGENCY", "All positions closed. Trading system locked.")
 
     def calculate_lot_size(self, sl_points: float, risk_percent: float = None, stars_count: int = 1) -> float:
         """Calculate position size dynamically based on account balance and risk parameters"""
@@ -963,8 +1118,13 @@ class MT5TradingBot:
             else:
                 return 0.02
         elif balance <= 200.0:
-            # Stable small account: consistent safe size
-            return 0.01
+            # Stable small account: scale with star count but keep it conservative
+            if stars_count >= 3:
+                return 0.03
+            elif stars_count == 2:
+                return 0.02
+            else:
+                return 0.01
         else:
             # Standard account size: scale lot dynamically with risk settings
             rp = risk_percent if risk_percent is not None else self.risk_percent
@@ -1015,7 +1175,7 @@ class MT5TradingBot:
                 url = "https://scanner.tradingview.com/cfd/scan"
                 payload = {
                     "symbols": {
-                        "tickers": ["OANDA:XAUUSD"],
+                        "tickers": ["OANDA:XAUUSD", "FX:USOIL"],
                         "query": { "types": [] }
                     },
                     "columns": [
@@ -1027,9 +1187,13 @@ class MT5TradingBot:
                     r = await client.post(url, json=payload, timeout=5.0)
                     if r.status_code == 200:
                         res = r.json()
-                        if res.get("data") and len(res["data"]) > 0:
-                            return "XAUUSD", res["data"][0]["d"]
-                return "XAUUSD", None
+                        results = {}
+                        for d in res.get("data", []):
+                            ticker = d["s"]
+                            sym = "XAUUSD" if "XAUUSD" in ticker else "USOIL"
+                            results[sym] = d["d"]
+                        return results
+                return {}
 
             async def fetch_forex():
                 url = "https://scanner.tradingview.com/forex/scan"
@@ -1056,53 +1220,54 @@ class MT5TradingBot:
 
             cfd_res, forex_res = await asyncio.gather(fetch_cfd(), fetch_forex())
             
-            # Process XAUUSD
-            sym_xau, quote_xau = cfd_res
-            if quote_xau:
-                close = float(quote_xau[0])
-                change = float(quote_xau[3]) if quote_xau[3] is not None else 0.0
-                change_abs = float(quote_xau[4]) if quote_xau[4] is not None else 0.0
-                
-                point = self.get_symbol_point("XAUUSD")
-                spread = 15
-                bid = close
-                ask = round(close + (spread * point), 2)
-                
-                # Indicators
-                rsi_val = float(quote_xau[5]) if quote_xau[5] is not None else 50.0
-                ema_10_val = float(quote_xau[6]) if quote_xau[6] is not None else close
-                ema_34_val = float(quote_xau[7]) if quote_xau[7] is not None else close
-                ema_89_val = float(quote_xau[8]) if quote_xau[8] is not None else close
-                ema_144_val = float(quote_xau[9]) if quote_xau[9] is not None else close
-                ema_300_val = float(quote_xau[10]) if quote_xau[10] is not None else close
-                
-                # Calculate trend
-                if close > ema_300_val and ema_10_val > ema_34_val:
-                    trend_val = "BULLISH"
-                elif close < ema_300_val and ema_10_val < ema_34_val:
-                    trend_val = "BEARISH"
-                else:
-                    trend_val = "NEUTRAL"
-                
-                self.watchlist_data["XAUUSD"] = {
-                    "bid": bid,
-                    "ask": ask,
-                    "spread": spread,
-                    "change": round(change, 2),
-                    "change_abs": round(change_abs, 2),
-                    "indicators": {
-                        "rsi": round(rsi_val, 2),
-                        "ema_10": round(ema_10_val, 2),
-                        "ema_34": round(ema_34_val, 2),
-                        "ema_89": round(ema_89_val, 2),
-                        "ema_144": round(ema_144_val, 2),
-                        "ema_300": round(ema_300_val, 2),
-                        "trend": trend_val
+            # Process XAUUSD & USOIL from cfd_res
+            for sym in ["XAUUSD", "USOIL"]:
+                quote = cfd_res.get(sym)
+                if quote:
+                    close = float(quote[0])
+                    change = float(quote[3]) if quote[3] is not None else 0.0
+                    change_abs = float(quote[4]) if quote[4] is not None else 0.0
+                    
+                    point = self.get_symbol_point(sym)
+                    spread = 15 if sym == "XAUUSD" else 4
+                    bid = close
+                    ask = round(close + (spread * point), 2)
+                    
+                    # Indicators
+                    rsi_val = float(quote[5]) if quote[5] is not None else 50.0
+                    ema_10_val = float(quote[6]) if quote[6] is not None else close
+                    ema_34_val = float(quote[7]) if quote[7] is not None else close
+                    ema_89_val = float(quote[8]) if quote[8] is not None else close
+                    ema_144_val = float(quote[9]) if quote[9] is not None else close
+                    ema_300_val = float(quote[10]) if quote[10] is not None else close
+                    
+                    # Calculate trend
+                    if close > ema_300_val and ema_10_val > ema_34_val:
+                        trend_val = "BULLISH"
+                    elif close < ema_300_val and ema_10_val < ema_34_val:
+                        trend_val = "BEARISH"
+                    else:
+                        trend_val = "NEUTRAL"
+                    
+                    self.watchlist_data[sym] = {
+                        "bid": bid,
+                        "ask": ask,
+                        "spread": spread,
+                        "change": round(change, 2),
+                        "change_abs": round(change_abs, 2),
+                        "indicators": {
+                            "rsi": round(rsi_val, 2),
+                            "ema_10": round(ema_10_val, 2),
+                            "ema_34": round(ema_34_val, 2),
+                            "ema_89": round(ema_89_val, 2),
+                            "ema_144": round(ema_144_val, 2),
+                            "ema_300": round(ema_300_val, 2),
+                            "trend": trend_val
+                        }
                     }
-                }
-                if self.symbol == "XAUUSD":
-                    self.current_price = {"bid": bid, "ask": ask, "spread": spread}
-                    self.indicators = self.watchlist_data["XAUUSD"]["indicators"]
+                    if self.symbol == sym:
+                        self.current_price = {"bid": bid, "ask": ask, "spread": spread}
+                        self.indicators = self.watchlist_data[sym]["indicators"]
 
             # Process Forex
             typical_spreads = {
@@ -1209,7 +1374,8 @@ class MT5TradingBot:
         symbols_map = {
             "XAUUSD": "PAXGUSDT",
             "EURUSD": "EURUSDT",
-            "GBPUSD": "GBPUSDT"
+            "GBPUSD": "GBPUSDT",
+            "USOIL": "PAXGUSDT"
         }
         b_sym = symbols_map.get(self.symbol, "PAXGUSDT")
         url = f"https://api.binance.com/api/v3/klines?symbol={b_sym}&interval=15m&limit=350"
@@ -1224,7 +1390,7 @@ class MT5TradingBot:
                     closes = [float(k[4]) for k in data]
                     
                     if highs and lows:
-                        dec = 2 if "XAU" in self.symbol else 5
+                        dec = 2 if "XAU" in self.symbol or "USO" in self.symbol or "OIL" in self.symbol else 5
                         
                         # Calculate basis adjustment relative to live TradingView OANDA quote
                         current_live = self.current_price["bid"]
@@ -1305,13 +1471,16 @@ class MT5TradingBot:
         while self.is_running and self.simulation_mode:
             # Update simulated positions and monitor stop loss / take profit
             for pos in list(self.positions):
-                bid = self.current_price["bid"]
-                ask = self.current_price["ask"]
                 symbol = pos["symbol"]
+                sym_data = self.watchlist_data.get(symbol)
+                if not sym_data:
+                    continue
+                bid = sym_data["bid"]
+                ask = sym_data["ask"]
                 
                 # Check exits
-                multiplier = 100.0 if "XAU" in symbol else 100000.0
-                pos["current_price"] = round(bid if pos["type"] == "BUY" else ask, 2 if "XAU" in symbol else 5)
+                multiplier = self.get_symbol_multiplier(symbol)
+                pos["current_price"] = round(bid if pos["type"] == "BUY" else ask, 2 if "XAU" in symbol or "USO" in symbol or "OIL" in symbol else 5)
                 
                 if pos["type"] == "BUY":
                     pos["profit"] = round((bid - pos["open_price"]) * pos["volume"] * multiplier, 2)
@@ -1319,7 +1488,6 @@ class MT5TradingBot:
                         profit = round((pos["sl"] - pos["open_price"]) * pos["volume"] * multiplier, 2)
                         await self.log_event("POSITION_EXIT", f"Simulated SL Hit for Position {pos['ticket']} at {pos['sl']}", pos)
                         self.positions.remove(pos)
-                        self.pair_locks[symbol] = time.time() + self.cooldown_duration
                         self.account_info["balance"] = round(self.account_info["balance"] + profit, 2)
                         self.history.append({
                             "ticket": pos["ticket"],
@@ -1332,12 +1500,10 @@ class MT5TradingBot:
                             "close_time": datetime.now().isoformat()
                         })
                         self.save_history()
-                        await self.log_event("COOLDOWN_LOCK", f"Symbol {symbol} locked in cooldown for {self.cooldown_duration}s.")
                     elif bid >= pos["tp"]:
                         profit = round((pos["tp"] - pos["open_price"]) * pos["volume"] * multiplier, 2)
                         await self.log_event("POSITION_EXIT", f"Simulated TP Hit for Position {pos['ticket']} at {pos['tp']}", pos)
                         self.positions.remove(pos)
-                        self.pair_locks[symbol] = time.time() + self.cooldown_duration
                         self.account_info["balance"] = round(self.account_info["balance"] + profit, 2)
                         self.history.append({
                             "ticket": pos["ticket"],
@@ -1350,14 +1516,12 @@ class MT5TradingBot:
                             "close_time": datetime.now().isoformat()
                         })
                         self.save_history()
-                        await self.log_event("COOLDOWN_LOCK", f"Symbol {symbol} locked in cooldown for {self.cooldown_duration}s.")
                 elif pos["type"] == "SELL":
                     pos["profit"] = round((pos["open_price"] - ask) * pos["volume"] * multiplier, 2)
                     if ask >= pos["sl"]:
                         profit = round((pos["open_price"] - pos["sl"]) * pos["volume"] * multiplier, 2)
                         await self.log_event("POSITION_EXIT", f"Simulated SL Hit for Position {pos['ticket']} at {pos['sl']}", pos)
                         self.positions.remove(pos)
-                        self.pair_locks[symbol] = time.time() + self.cooldown_duration
                         self.account_info["balance"] = round(self.account_info["balance"] + profit, 2)
                         self.history.append({
                             "ticket": pos["ticket"],
@@ -1370,12 +1534,10 @@ class MT5TradingBot:
                             "close_time": datetime.now().isoformat()
                         })
                         self.save_history()
-                        await self.log_event("COOLDOWN_LOCK", f"Symbol {symbol} locked in cooldown for {self.cooldown_duration}s.")
                     elif ask <= pos["tp"]:
                         profit = round((pos["open_price"] - pos["tp"]) * pos["volume"] * multiplier, 2)
                         await self.log_event("POSITION_EXIT", f"Simulated TP Hit for Position {pos['ticket']} at {pos['tp']}", pos)
                         self.positions.remove(pos)
-                        self.pair_locks[symbol] = time.time() + self.cooldown_duration
                         self.account_info["balance"] = round(self.account_info["balance"] + profit, 2)
                         self.history.append({
                             "ticket": pos["ticket"],
@@ -1388,7 +1550,6 @@ class MT5TradingBot:
                             "close_time": datetime.now().isoformat()
                         })
                         self.save_history()
-                        await self.log_event("COOLDOWN_LOCK", f"Symbol {symbol} locked in cooldown for {self.cooldown_duration}s.")
             
             await asyncio.sleep(1.0)
 
@@ -1403,23 +1564,36 @@ class MT5TradingBot:
         # Initial simulation history load
         if self.simulation_mode:
             try:
-                await self.update_simulation_history()
+                # Load simulation history for ALL symbols initially!
+                backup_symbol = self.symbol
+                for sym in self.watchlist_symbols:
+                    self.symbol = sym
+                    self.current_price = {
+                        "bid": self.watchlist_data[sym]["bid"],
+                        "ask": self.watchlist_data[sym]["ask"],
+                        "spread": self.watchlist_data[sym]["spread"]
+                    }
+                    await self.update_simulation_history()
+                    self.watchlist_data[sym]["sr_levels_all"] = self.sr_levels_all
+                    self.watchlist_data[sym]["sr_levels"] = self.sr_levels
+                    self.watchlist_data[sym]["fib_levels"] = self.fib_levels
+                
+                self.symbol = backup_symbol
+                self.current_price = {
+                    "bid": self.watchlist_data[self.symbol]["bid"],
+                    "ask": self.watchlist_data[self.symbol]["ask"],
+                    "spread": self.watchlist_data[self.symbol]["spread"]
+                }
+                self.sr_levels_all = self.watchlist_data[self.symbol].get("sr_levels_all", [])
+                self.sr_levels = self.watchlist_data[self.symbol].get("sr_levels", [])
+                self.fib_levels = self.watchlist_data[self.symbol].get("fib_levels", {})
             except Exception as e:
                 logger.error(f"Failed initial simulation history load: {e}")
         
         last_history_update = time.time()
-        current_loop_symbol = self.symbol
         
         while True:
             try:
-                # Check if symbol changed dynamically
-                if self.simulation_mode and self.symbol != current_loop_symbol:
-                    logger.info(f"Symbol changed from {current_loop_symbol} to {self.symbol}. Forcing history update.")
-                    current_loop_symbol = self.symbol
-                    await self.update_live_price()
-                    await self.update_simulation_history()
-                    last_history_update = time.time()
-
                 # 1. Update Quotes & Indicators
                 # Always fetch indicators and prices from TradingView first
                 await self.update_live_price()
@@ -1428,7 +1602,27 @@ class MT5TradingBot:
                     # Update history every 5 minutes (300 seconds)
                     now = time.time()
                     if now - last_history_update >= 300.0:
-                        await self.update_simulation_history()
+                        backup_symbol = self.symbol
+                        for sym in self.watchlist_symbols:
+                            self.symbol = sym
+                            self.current_price = {
+                                "bid": self.watchlist_data[sym]["bid"],
+                                "ask": self.watchlist_data[sym]["ask"],
+                                "spread": self.watchlist_data[sym]["spread"]
+                            }
+                            await self.update_simulation_history()
+                            self.watchlist_data[sym]["sr_levels_all"] = self.sr_levels_all
+                            self.watchlist_data[sym]["sr_levels"] = self.sr_levels
+                            self.watchlist_data[sym]["fib_levels"] = self.fib_levels
+                        self.symbol = backup_symbol
+                        self.current_price = {
+                            "bid": self.watchlist_data[self.symbol]["bid"],
+                            "ask": self.watchlist_data[self.symbol]["ask"],
+                            "spread": self.watchlist_data[self.symbol]["spread"]
+                        }
+                        self.sr_levels_all = self.watchlist_data[self.symbol].get("sr_levels_all", [])
+                        self.sr_levels = self.watchlist_data[self.symbol].get("sr_levels", [])
+                        self.fib_levels = self.watchlist_data[self.symbol].get("fib_levels", {})
                         last_history_update = now
                 else:
                     # MT5 mode: Overwrite prices with broker's execution price, but keep TradingView indicators!
@@ -1477,12 +1671,44 @@ class MT5TradingBot:
                                 }
                                 self.indicators = tv_indicators
 
-                # 2. Run Market Analysis (Updates Fib/SR and Confluence zones)
-                self.run_market_analysis()
-
-                # 3. Scan signals immediately after fresh price + analysis (tighter than 5s core loop)
-                if self.is_running:
-                    await self.scan_market_signals()
+                # 2. Run Market Analysis and Scan signals for ALL watchlist symbols
+                backup_symbol = self.symbol
+                self.active_signals = []
+                for sym in self.watchlist_symbols:
+                    self.symbol = sym
+                    self.current_price = {
+                        "bid": self.watchlist_data[sym]["bid"],
+                        "ask": self.watchlist_data[sym]["ask"],
+                        "spread": self.watchlist_data[sym]["spread"]
+                    }
+                    self.indicators = self.watchlist_data[sym]["indicators"]
+                    self.sr_levels_all = self.watchlist_data[sym].get("sr_levels_all", [])
+                    self.sr_levels = self.watchlist_data[sym].get("sr_levels", [])
+                    self.fib_levels = self.watchlist_data[sym].get("fib_levels", {})
+                    self.confluence_zones = self.watchlist_data[sym].get("confluence_zones", [])
+                    
+                    self.run_market_analysis()
+                    
+                    self.watchlist_data[sym]["sr_levels_all"] = self.sr_levels_all
+                    self.watchlist_data[sym]["sr_levels"] = self.sr_levels
+                    self.watchlist_data[sym]["fib_levels"] = self.fib_levels
+                    self.watchlist_data[sym]["confluence_zones"] = self.confluence_zones
+                    
+                    if self.is_running:
+                        await self.scan_market_signals()
+                
+                # Restore the active selected symbol for the web dashboard displays
+                self.symbol = backup_symbol
+                self.current_price = {
+                    "bid": self.watchlist_data[self.symbol]["bid"],
+                    "ask": self.watchlist_data[self.symbol]["ask"],
+                    "spread": self.watchlist_data[self.symbol]["spread"]
+                }
+                self.indicators = self.watchlist_data[self.symbol]["indicators"]
+                self.sr_levels_all = self.watchlist_data[self.symbol].get("sr_levels_all", [])
+                self.sr_levels = self.watchlist_data[self.symbol].get("sr_levels", [])
+                self.fib_levels = self.watchlist_data[self.symbol].get("fib_levels", {})
+                self.confluence_zones = self.watchlist_data[self.symbol].get("confluence_zones", [])
 
             except Exception as e:
                 logger.error(f"Error in continuous price feed loop: {e}")
@@ -1495,31 +1721,26 @@ class MT5TradingBot:
         bid = self.current_price["bid"]
         ask = self.current_price["ask"]
         point = self.get_symbol_point(self.symbol)
-        dec = 2 if "XAU" in self.symbol else 5
-        
-        # Clear signals
-        self.active_signals = []
+        dec = 2 if "XAU" in self.symbol or "USO" in self.symbol or "OIL" in self.symbol else 5
 
         # Indicators helper
         rsi = self.indicators.get("rsi", 50.0)
         trend = self.indicators.get("trend", "NEUTRAL")
 
-        # ponytail: Wave trading — only trade in trend direction, skip counter-trend signals
+        # ponytail: Wave trading — only trade in trend direction, allow both on NEUTRAL trends
         allowed_direction = None
         if trend == "BULLISH":
             allowed_direction = "BUY"
         elif trend == "BEARISH":
             allowed_direction = "SELL"
-        else:
-            # NEUTRAL: no clear wave, skip signal generation entirely
-            return
+        # If NEUTRAL, allowed_direction remains None, enabling both directions.
 
         # 1. Fibonacci Confluence zone scanning
         for zone in self.confluence_zones:
             diff = abs(bid - zone["center_price"])
             
-            # If price hits Confluence Zone (within 100 points range)
-            if diff <= (100 * point):
+            # ponytail: Expand trigger window to 150 points (matching zone tolerance) to catch more entries, keep only 50% and 61.8%
+            if diff <= (150 * point):
                 is_buy_signal = bid > zone["sr_price"] and zone["fib_level"] in ["50.0%", "61.8%"]
                 is_sell_signal = bid < zone["sr_price"] and zone["fib_level"] in ["50.0%", "61.8%"]
                 
@@ -1528,8 +1749,8 @@ class MT5TradingBot:
                     
                 sig_type = "BUY" if is_buy_signal else "SELL"
 
-                # Wave filter: skip counter-trend signals
-                if sig_type != allowed_direction:
+                # Wave filter: skip counter-trend signals (allow all if trend is NEUTRAL)
+                if allowed_direction is not None and sig_type != allowed_direction:
                     continue
                 
                 # Grade logic: base 2 stars
@@ -1547,27 +1768,32 @@ class MT5TradingBot:
                 stars_val = min(3, stars_val)
                 
                 signal = {
+                    "symbol": self.symbol,
                     "type": sig_type,
                     "price": round(bid, dec),
                     "fib_level": zone["fib_level"],
                     "fib_price": zone["fib_price"],
                     "sr_price": zone["sr_price"],
                     "strength": "High" if stars_val == 3 else "Medium",
-                    "strength_stars": "⭐" * stars_val
+                    "strength_stars": "⭐" * stars_val,
+                    "win_probability": 92 if stars_val >= 3 else (78 if stars_val == 2 else 65)
                 }
                 
-                self.active_signals.append(signal)
+                if not any(s["symbol"] == self.symbol and s["type"] == sig_type and s["price"] == round(bid, dec) for s in self.active_signals):
+                    self.active_signals.append(signal)
 
         # 2. Multi-Indicator Setup (Fallback strategy)
-        if len(self.active_signals) == 0 and rsi is not None:
+        # Check if we already have a signal for THIS specific symbol
+        has_symbol_signal = any(sig["symbol"] == self.symbol for sig in self.active_signals)
+        if not has_symbol_signal and rsi is not None:
             ema_10 = self.indicators.get("ema_10", 0.0)
             ema_34 = self.indicators.get("ema_34", 0.0)
             
             # RSI Reversal Strategy (Relaxed)
             # ponytail: relaxed RSI thresholds as requested by user
-            # Wave filter: only trigger RSI reversal in trend direction
-            is_buy = rsi < 35 and allowed_direction == "BUY"
-            is_sell = rsi > 65 and allowed_direction == "SELL"
+            # Wave filter: only trigger RSI reversal in trend direction (or if trend is NEUTRAL)
+            is_buy = rsi < 35 and (allowed_direction == "BUY" or allowed_direction is None)
+            is_sell = rsi > 65 and (allowed_direction == "SELL" or allowed_direction is None)
             
             if is_buy or is_sell:
                 sig_type = "BUY" if is_buy else "SELL"
@@ -1578,18 +1804,21 @@ class MT5TradingBot:
                     stars_val = 2
                     
                 signal = {
+                    "symbol": self.symbol,
                     "type": sig_type,
                     "price": round(bid, dec),
                     "fib_level": "RSI Reversal",
                     "fib_price": ema_10,
                     "sr_price": ema_34,
                     "strength": "Medium" if stars_val == 2 else "Low",
-                    "strength_stars": "⭐" * stars_val
+                    "strength_stars": "⭐" * stars_val,
+                    "win_probability": 78 if stars_val == 2 else 65
                 }
-                self.active_signals.append(signal)
+                if not any(s["symbol"] == self.symbol and s["type"] == sig_type and s["price"] == round(bid, dec) for s in self.active_signals):
+                    self.active_signals.append(signal)
 
-        # 3. Process Active Signals
-        for sig in self.active_signals:
+        # 3. Process Active Signals for THIS symbol
+        for sig in [s for s in self.active_signals if s["symbol"] == self.symbol]:
             sig_type = sig["type"]
             stars_str = sig.get("strength_stars", "⭐")
             stars_count = len(stars_str)
@@ -1602,40 +1831,30 @@ class MT5TradingBot:
             now_ts = time.time()
             cooldown_passed = (now_ts - self.last_trade_time) >= 15.0
             
-            # Determine minimum distance between entries to avoid excessive spam
-            min_dist = 2.0 if "XAU" in self.symbol else 0.0020
+            # ponytail: nhồi lệnh allowed — no distance guard, stacking enabled
             
-            # Check if we already have a position too close to this price
-            position_too_close = False
-            for pos in self.positions:
-                if pos["type"] == sig_type and abs(bid - pos["open_price"]) < min_dist:
-                    position_too_close = True
-                    break
-            
-            if cooldown_passed and not position_too_close and not self.is_pending_order:
+            if cooldown_passed and not self.is_pending_order:
                 # 1. Max Open Trades Guard
                 if len(self.positions) >= self.max_open_trades:
                     await self.log_event("EXECUTION_BLOCKED", f"Signal {sig_type} blocked: Max open trades limit reached ({len(self.positions)}/{self.max_open_trades})")
                     continue
 
-                # 2. Pair Lock / Symbol Cooldown Guard
-                unlock_time = self.pair_locks.get(self.symbol, 0)
-                if time.time() < unlock_time:
-                    remaining = int(unlock_time - time.time())
-                    await self.log_event("EXECUTION_BLOCKED", f"Signal {sig_type} blocked: Symbol {self.symbol} is in cooldown lock for another {remaining}s.")
-                    continue
-
                 if not self.auto_trading:
                     await self.log_event("SIGNAL", f"{sig_type} ({stars_str}) setup detected at {sig['price']}. Auto Trading is OFF, skipping entry.")
                 else:
-                    passed = await self.check_filters(sig_type)
+                    passed = await self.check_filters(sig_type, symbol=self.symbol)
                     if passed:
-                        # 300 points Stop Loss, 600 points Take Profit (Risk:Reward = 1:2)
-                        sl_points = 300
-                        tp_points = 600
+                        # ponytail: R:R = 1:3 (SL = 5 giá = 500 points, TP = 15 giá = 1500 points)
+                        sl_points = 500
+                        tp_points = 1500
                         
-                        # Dynamically scale risk: 3 stars = 100% risk, 2 stars = 50% risk
-                        scaled_risk = self.risk_percent if stars_count == 3 else (self.risk_percent * 0.5)
+                        # Dynamically scale risk based on star count: 3 stars = 100%, 2 stars = 66%, 1 star = 33%
+                        if stars_count >= 3:
+                            scaled_risk = self.risk_percent
+                        elif stars_count == 2:
+                            scaled_risk = self.risk_percent * 0.66
+                        else:
+                            scaled_risk = self.risk_percent * 0.33
                         lot_size = self.calculate_lot_size(sl_points, scaled_risk, stars_count)
                         
                         # Update last trade time to block concurrent spam
@@ -1650,7 +1869,8 @@ class MT5TradingBot:
                             lot_size=lot_size,
                             sl_points=sl_points,
                             tp_points=tp_points,
-                            snapshot_price=price_snapshot
+                            snapshot_price=price_snapshot,
+                            symbol=self.symbol
                         ))
 
     async def start(self):

@@ -13,19 +13,19 @@
     
     <style>
         :root {
-            --bg-base: #060913;
-            --bg-card: rgba(13, 20, 38, 0.7);
-            --border-color: rgba(255, 255, 255, 0.05);
-            --text-primary: #f3f4f6;
-            --text-secondary: #9ca3af;
-            --accent-primary: #6366f1; /* Indigo */
-            --accent-secondary: #06b6d4; /* Cyan */
-            --accent-success: #10b981; /* Emerald Green */
-            --accent-danger: #ef4444; /* Red */
-            --accent-warning: #f59e0b; /* Amber */
+            --bg-base: #090d16;
+            --bg-card: #111726;
+            --border-color: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #64748b;
+            --accent-primary: #38bdf8; /* Single Sky-Blue Accent */
+            --accent-secondary: #38bdf8;
+            --accent-success: #22c55e; /* Emerald Green */
+            --accent-danger: #ef4444; /* Crimson Red */
+            --accent-warning: #38bdf8;
             --font-main: 'Outfit', sans-serif;
             --font-mono: 'JetBrains Mono', monospace;
-            --glass-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.5);
+            --glass-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.4);
         }
 
         * {
@@ -42,10 +42,6 @@
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
-            background-image: 
-                radial-gradient(circle at 5% 5%, rgba(99, 102, 241, 0.1) 0%, transparent 35%),
-                radial-gradient(circle at 95% 95%, rgba(6, 182, 212, 0.1) 0%, transparent 35%);
-            background-attachment: fixed;
         }
 
         /* Layout Header */
@@ -210,37 +206,32 @@
             width: 100%;
         }
 
-        /* Glassmorphism Cards */
+        /* Cards */
         .card {
-            background: rgba(10, 15, 30, 0.65);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            background: var(--bg-card);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
             padding: 1rem;
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .card:hover {
-            border-color: rgba(99, 102, 241, 0.35);
-            box-shadow: 0 8px 32px 0 rgba(99, 102, 241, 0.08);
+            border-color: rgba(56, 189, 248, 0.3);
         }
 
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid var(--border-color);
             padding-bottom: 0.5rem;
         }
 
         .card-title {
-            font-size: 0.95rem;
-            font-weight: 700;
+            font-size: 0.85rem;
+            font-weight: 800;
             display: flex;
             align-items: center;
             gap: 0.4rem;
@@ -287,9 +278,12 @@
         }
 
         .metric-value {
-            font-size: 1.15rem;
+            font-size: 1.1rem;
             font-weight: 800;
             font-family: var(--font-mono);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* Drawdown gauge */
@@ -435,35 +429,34 @@
         }
 
         .btn-primary {
-            background: linear-gradient(to right, var(--accent-primary), #4f46e5);
-            color: white;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+            background-color: var(--accent-primary);
+            color: #090d16;
+            font-weight: 800;
         }
 
         .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.5);
+            background-color: #0284c7;
+            color: #ffffff;
         }
 
         .btn-secondary {
-            background-color: rgba(255, 255, 255, 0.05);
-            color: #ffffff;
-            border: 1px solid rgba(255, 255, 255, 0.03);
+            background-color: rgba(255, 255, 255, 0.04);
+            color: #f8fafc;
+            border: 1px solid var(--border-color);
         }
 
         .btn-secondary:hover {
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: rgba(255, 255, 255, 0.08);
         }
 
         .btn-danger {
             background-color: var(--accent-danger);
-            color: white;
-            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+            color: #ffffff;
+            font-weight: 800;
         }
 
         .btn-danger:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.5);
+            background-color: #dc2626;
         }
 
         /* Chart */
@@ -494,20 +487,13 @@
         }
 
         .signal-alert {
-            background: linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
-            border: 1px solid rgba(99, 102, 241, 0.25);
+            background-color: rgba(56, 189, 248, 0.04);
+            border: 1px solid rgba(56, 189, 248, 0.2);
             border-radius: 6px;
             padding: 0.5rem 0.75rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            animation: pulse-bg 2.5s infinite;
-        }
-
-        @keyframes pulse-bg {
-            0% { background-color: rgba(99, 102, 241, 0.05); }
-            50% { background-color: rgba(99, 102, 241, 0.15); }
-            100% { background-color: rgba(99, 102, 241, 0.05); }
         }
 
         .signal-title {
@@ -745,10 +731,7 @@
 
     <header>
         <div class="header-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-secondary)" stroke-width="2.5">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-            </svg>
-            <h1>CONFLUENCE ALGO BOT</h1>
+            <h1 style="font-size: 1.1rem; font-weight: 800; color: var(--accent-primary); letter-spacing: 0.5px;">CONFLUENCE ALGO BOT</h1>
         </div>
         <div class="header-right">
             <!-- Auto Trading Switch -->
@@ -799,10 +782,7 @@
                 <div class="card">
                     <div class="card-header">
                         <div class="card-title">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                            </svg>
-                            Live Entry Signals
+                            LIVE ENTRY SIGNALS
                         </div>
                     </div>
                     <div class="signals-box" id="signals-box">
@@ -814,10 +794,7 @@
                 <div class="card">
                     <div class="card-header">
                         <div class="card-title">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M19 4v12h-12a2 2 0 0 0-2 2v2H20v-2a2 2 0 0 0-2-2"/><path d="M15 12h-4"/><path d="M15 8h-4"/><path d="M19 4v16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/>
-                            </svg>
-                            ForexFactory news events
+                            FOREXFACTORY NEWS EVENTS
                         </div>
                     </div>
                     <div class="news-list" id="news-list">
@@ -835,11 +812,8 @@
             <!-- Live Ticks / Watchlist -->
             <div class="card">
                 <div class="card-header">
-                    <div class="card-title" style="display: flex; align-items: center; gap: 0.4rem;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-secondary)" stroke-width="2">
-                            <path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/>
-                        </svg>
-                        Watchlist
+                    <div class="card-title">
+                        WATCHLIST
                     </div>
                 </div>
                 
@@ -929,7 +903,7 @@
                         <button id="btn-reset-cb" class="btn-secondary" style="margin-left: auto; padding: 0.25rem 0.5rem; font-size: 0.7rem; font-weight: 700;" onclick="resetCircuitBreaker()">Reset Drawdown</button>
                     </div>
                 </div>
-                <!-- Stats Pane -->
+                <!-- Stats Pane (Forex Performance Dashboard) -->
                 <div id="pane-stats" style="display: none; flex-direction: column; gap: 0.65rem;">
                     <div class="metric-grid">
                         <div class="metric-box">
@@ -941,18 +915,34 @@
                             <div id="stat-profitfactor" class="metric-value" style="color: var(--accent-secondary);">0.00</div>
                         </div>
                         <div class="metric-box">
-                            <div class="metric-label">Total Trades</div>
-                            <div id="stat-total" class="metric-value">0</div>
+                            <div class="metric-label">Total Pips</div>
+                            <div id="stat-totalpips" class="metric-value" style="color: #a78bfa;">+0.0 pips</div>
                         </div>
                         <div class="metric-box">
-                            <div class="metric-label">Wins / Losses</div>
-                            <div id="stat-ratio" class="metric-value" style="font-size: 1rem;">0 / 0</div>
+                            <div class="metric-label">Avg Pips / Trade</div>
+                            <div id="stat-avgpips" class="metric-value">0.0 pips</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-label">Avg Win / Loss</div>
+                            <div id="stat-avgwinloss" class="metric-value" style="font-size: 0.95rem;">$0 / $0</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-label">Risk-Reward Ratio</div>
+                            <div id="stat-rr" class="metric-value" style="color: var(--accent-warning)">1:0.00</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-label">Expectancy / Trade</div>
+                            <div id="stat-expectancy" class="metric-value">$0.00</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-label">Total Trades (W / L)</div>
+                            <div id="stat-ratio" class="metric-value" style="font-size: 0.95rem;">0 (0 / 0)</div>
                         </div>
                     </div>
-                    <div class="drawdown-container" style="background-color: rgba(16, 185, 129, 0.02); border-color: rgba(16, 185, 129, 0.06);">
+                    <div class="drawdown-container" style="background-color: rgba(16, 185, 129, 0.03); border-color: rgba(16, 185, 129, 0.15);">
                         <div>
                             <div style="font-size: 0.65rem; font-weight: 700; color: var(--accent-success); text-transform: uppercase;">Net Profit Realized</div>
-                            <div id="stat-netprofit" class="metric-value" style="font-size: 1.1rem; color: var(--accent-success)">$0.00</div>
+                            <div id="stat-netprofit" class="metric-value" style="font-size: 1.25rem; color: var(--accent-success)">$0.00</div>
                         </div>
                     </div>
                 </div>
@@ -1032,9 +1022,31 @@
         <!-- Positions & History Card (12 cols) -->
         <div class="card col-12">
             <div class="card-header" style="padding-bottom: 0.25rem;">
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <button id="tab-positions" class="btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="switchTableTab('positions')">Active Positions</button>
-                    <button id="tab-history" class="btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="switchTableTab('history')">Closed Trades History</button>
+                <div style="display: flex; gap: 0.5rem; align-items: center; width: 100%; justify-content: space-between; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <button id="tab-positions" class="btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="switchTableTab('positions')">Active Positions</button>
+                        <button id="tab-history" class="btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="switchTableTab('history')">Closed Trades History</button>
+                    </div>
+                    
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <!-- Symbol Search Bar -->
+                        <div style="position: relative; display: flex; align-items: center;">
+                            <input id="trade-search-input" type="text" placeholder="SEARCH SYMBOL (E.G. XAUUSD)" 
+                                   oninput="filterTradesBySymbol()" 
+                                   style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.72rem; color: #ffffff; width: 200px; font-family: var(--font-mono); outline: none; transition: border-color 0.2s;"
+                                   onfocus="this.style.borderColor='var(--accent-primary)'" 
+                                   onblur="this.style.borderColor='var(--border-color)'">
+                        </div>
+
+                        <!-- Period Filter Controls (visible when history tab is active) -->
+                        <div id="history-period-controls" style="display: none; gap: 0.35rem; align-items: center;">
+                            <span style="font-size: 0.65rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Mốc thời gian:</span>
+                            <button id="btn-period-all" class="btn-primary" style="padding: 0.2rem 0.5rem; font-size: 0.68rem;" onclick="setHistoryPeriod('all')">Tất cả</button>
+                            <button id="btn-period-day" class="btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.68rem;" onclick="setHistoryPeriod('day')">Hôm nay</button>
+                            <button id="btn-period-week" class="btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.68rem;" onclick="setHistoryPeriod('week')">7 Ngày</button>
+                            <button id="btn-period-month" class="btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.68rem;" onclick="setHistoryPeriod('month')">Tháng này</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -1043,15 +1055,15 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Ticket</th>
-                            <th>Symbol</th>
-                            <th>Type</th>
-                            <th>Lots</th>
-                            <th>Open Price</th>
-                            <th>Current Price</th>
-                            <th>Stop Loss (SL)</th>
-                            <th>Take Profit (TP)</th>
-                            <th>Profit/Loss ($)</th>
+                            <th onclick="sortTable('positions', 'ticket', 'num')" style="cursor: pointer; user-select: none;">Ticket <span id="sort-pos-ticket">⇅</span></th>
+                            <th onclick="sortTable('positions', 'symbol', 'str')" style="cursor: pointer; user-select: none;">Symbol <span id="sort-pos-symbol">⇅</span></th>
+                            <th onclick="sortTable('positions', 'type', 'str')" style="cursor: pointer; user-select: none;">Type <span id="sort-pos-type">⇅</span></th>
+                            <th onclick="sortTable('positions', 'volume', 'num')" style="cursor: pointer; user-select: none;">Lots <span id="sort-pos-volume">⇅</span></th>
+                            <th onclick="sortTable('positions', 'open_price', 'num')" style="cursor: pointer; user-select: none;">Open Price <span id="sort-pos-open_price">⇅</span></th>
+                            <th onclick="sortTable('positions', 'current_price', 'num')" style="cursor: pointer; user-select: none;">Current Price <span id="sort-pos-current_price">⇅</span></th>
+                            <th onclick="sortTable('positions', 'sl', 'num')" style="cursor: pointer; user-select: none;">Stop Loss (SL) <span id="sort-pos-sl">⇅</span></th>
+                            <th onclick="sortTable('positions', 'tp', 'num')" style="cursor: pointer; user-select: none;">Take Profit (TP) <span id="sort-pos-tp">⇅</span></th>
+                            <th onclick="sortTable('positions', 'profit', 'num')" style="cursor: pointer; user-select: none;">Profit/Loss ($) <span id="sort-pos-profit">⇅</span></th>
                             <th>Manual Action</th>
                         </tr>
                     </thead>
@@ -1063,27 +1075,59 @@
                 </table>
             </div>
 
-            <!-- Closed Trades Table -->
-            <div class="table-container" id="table-history-container" style="display: none;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Ticket</th>
-                            <th>Symbol</th>
-                            <th>Type</th>
-                            <th>Lots</th>
-                            <th>Open Price</th>
-                            <th>Close Price</th>
-                            <th>Closed Profit/Loss ($)</th>
-                            <th>Closed Time</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history-tbody">
-                        <tr>
-                            <td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">No historical trades recorded</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- Closed Trades Pane -->
+            <div id="table-history-container" style="display: none; flex-direction: column; gap: 0.5rem;">
+                <!-- History Period Analytics Bar -->
+                <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.4rem; background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 0.5rem;">
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Lợi Nhuận (Gross)</span>
+                        <span id="hist-gross-profit" style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-success);">$0.00</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Tổng Lỗ (Gross)</span>
+                        <span id="hist-gross-loss" style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-danger);">$0.00</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Net Profit</span>
+                        <span id="hist-net-profit" style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-success);">$0.00</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Tổng Pips</span>
+                        <span id="hist-total-pips" style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: #a78bfa;">0.0 pips</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Win Rate / PF</span>
+                        <span id="hist-winrate-pf" style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-secondary);">0% / 0.0</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 0.6rem; color: var(--accent-warning); font-weight: 800; text-transform: uppercase;">Số Dư Tài Khoản</span>
+                        <span id="hist-account-balance" style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: #ffffff;">$10,000</span>
+                    </div>
+                </div>
+
+                <!-- History Table -->
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th onclick="sortTable('history', 'ticket', 'num')" style="cursor: pointer; user-select: none;">Ticket <span id="sort-hist-ticket">⇅</span></th>
+                                <th onclick="sortTable('history', 'symbol', 'str')" style="cursor: pointer; user-select: none;">Symbol <span id="sort-hist-symbol">⇅</span></th>
+                                <th onclick="sortTable('history', 'type', 'str')" style="cursor: pointer; user-select: none;">Type <span id="sort-hist-type">⇅</span></th>
+                                <th onclick="sortTable('history', 'volume', 'num')" style="cursor: pointer; user-select: none;">Lots <span id="sort-hist-volume">⇅</span></th>
+                                <th onclick="sortTable('history', 'open_price', 'num')" style="cursor: pointer; user-select: none;">Open Price <span id="sort-hist-open_price">⇅</span></th>
+                                <th onclick="sortTable('history', 'close_price', 'num')" style="cursor: pointer; user-select: none;">Close Price <span id="sort-hist-close_price">⇅</span></th>
+                                <th onclick="sortTable('history', 'pips', 'num')" style="cursor: pointer; user-select: none;">Pips <span id="sort-hist-pips">⇅</span></th>
+                                <th onclick="sortTable('history', 'profit', 'num')" style="cursor: pointer; user-select: none;">Closed Profit/Loss ($) <span id="sort-hist-profit">⇅</span></th>
+                                <th onclick="sortTable('history', 'close_time', 'time')" style="cursor: pointer; user-select: none;">Closed Time <span id="sort-hist-close_time">⇅</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            <tr>
+                                <td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">No historical trades recorded</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Manual Trade Panel -->
@@ -1136,6 +1180,18 @@
         let lastPriceBid = 0;
         let currentBotState = {};
         
+        function formatUSD(value, showPlus = false) {
+            if (value === undefined || value === null) return '$0';
+            const hasDecimals = value % 1 !== 0;
+            const options = {
+                minimumFractionDigits: hasDecimals ? 2 : 0,
+                maximumFractionDigits: 2
+            };
+            const formatted = Math.abs(value).toLocaleString('en-US', options);
+            const sign = value > 0 && showPlus ? '+' : (value < 0 ? '-' : '');
+            return sign + '$' + formatted;
+        }
+        
         let activeChartTab = 'tv';
         let activeTelemetryTab = 'telemetry';
         let activeTableTab = 'positions';
@@ -1179,16 +1235,297 @@
             document.getElementById('pane-stats').style.display = tab === 'stats' ? 'flex' : 'none';
         }
 
+        let currentHistoryPeriod = 'all';
+        let cachedAnalyticsData = null;
+        let latestPositionsData = [];
+
+        let sortState = {
+            positions: { col: null, dir: 'asc' },
+            history: { col: null, dir: 'desc' }
+        };
+
+        function sortTable(tableType, colName, dataType) {
+            const stateObj = sortState[tableType];
+            if (stateObj.col === colName) {
+                stateObj.dir = stateObj.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                stateObj.col = colName;
+                stateObj.dir = (colName === 'profit' || colName === 'close_time' || colName === 'pips') ? 'desc' : 'asc';
+            }
+            updateSortIcons(tableType);
+
+            if (tableType === 'positions') {
+                if (latestPositionsData && latestPositionsData.length > 0) {
+                    sortPositionsData(latestPositionsData, colName, dataType, stateObj.dir);
+                    renderPositionsTable(latestPositionsData);
+                    filterTradesBySymbol();
+                }
+            } else if (tableType === 'history') {
+                if (cachedAnalyticsData && cachedAnalyticsData.trades) {
+                    sortHistoryData(cachedAnalyticsData.trades, colName, dataType, stateObj.dir);
+                    filterTradesBySymbol();
+                }
+            }
+        }
+
+        function updateSortIcons(tableType) {
+            const prefix = tableType === 'positions' ? 'sort-pos-' : 'sort-hist-';
+            const stateObj = sortState[tableType];
+            const allIcons = document.querySelectorAll(`[id^="${prefix}"]`);
+            allIcons.forEach(el => el.innerText = '⇅');
+            if (stateObj.col) {
+                const activeEl = document.getElementById(`${prefix}${stateObj.col}`);
+                if (activeEl) {
+                    activeEl.innerText = stateObj.dir === 'asc' ? '▲' : '▼';
+                    activeEl.style.color = 'var(--accent-primary)';
+                }
+            }
+        }
+
+        function sortPositionsData(arr, colName, dataType, dir) {
+            arr.sort((a, b) => {
+                let valA = a[colName];
+                let valB = b[colName];
+                if (dataType === 'num') {
+                    valA = parseFloat(valA || 0);
+                    valB = parseFloat(valB || 0);
+                } else if (dataType === 'str') {
+                    valA = String(valA || '').toUpperCase();
+                    valB = String(valB || '').toUpperCase();
+                }
+                if (valA < valB) return dir === 'asc' ? -1 : 1;
+                if (valA > valB) return dir === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        function sortHistoryData(arr, colName, dataType, dir) {
+            arr.sort((a, b) => {
+                let valA = a[colName];
+                let valB = b[colName];
+                if (colName === 'pips') {
+                    valA = a.pips !== undefined ? a.pips : calculatePips(a);
+                    valB = b.pips !== undefined ? b.pips : calculatePips(b);
+                }
+                if (dataType === 'num') {
+                    valA = parseFloat(valA || 0);
+                    valB = parseFloat(valB || 0);
+                } else if (dataType === 'str') {
+                    valA = String(valA || '').toUpperCase();
+                    valB = String(valB || '').toUpperCase();
+                } else if (dataType === 'time') {
+                    valA = strToTime(valA);
+                    valB = strToTime(valB);
+                }
+                if (valA < valB) return dir === 'asc' ? -1 : 1;
+                if (valA > valB) return dir === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        function strToTime(str) {
+            if (!str) return 0;
+            return new Date(str).getTime() || 0;
+        }
+
+        function renderPositionsTable(positions) {
+            const tbody = document.getElementById('positions-tbody');
+            if (positions && positions.length > 0) {
+                tbody.innerHTML = '';
+                positions.forEach(pos => {
+                    const row = document.createElement('tr');
+                    const colorClass = pos.profit >= 0 ? 'flash-up' : 'flash-down';
+                    const dec = getDecimals(pos.symbol);
+                    row.innerHTML = `
+                        <td>${pos.ticket}</td>
+                        <td>${pos.symbol}</td>
+                        <td style="color: ${pos.type === 'BUY' ? 'var(--accent-success)' : 'var(--accent-danger)'}; font-weight: 800;">${pos.type}</td>
+                        <td>${pos.volume.toFixed(2)}</td>
+                        <td>${pos.open_price.toFixed(dec)}</td>
+                        <td>${pos.current_price.toFixed(dec)}</td>
+                        <td>${pos.sl.toFixed(dec)}</td>
+                        <td>${pos.tp.toFixed(dec)}</td>
+                        <td class="${colorClass}" style="font-weight: 800">${formatUSD(pos.profit, true)}</td>
+                        <td>
+                            <button class="btn-primary" style="padding: 0.2rem 0.5rem; font-size: 0.68rem; margin-right: 0.25rem;" onclick="openModifySLTP(${pos.ticket}, ${pos.sl}, ${pos.tp}, '${pos.symbol}')">EDIT</button>
+                            <button class="btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.68rem;" onclick="closePosition(${pos.ticket})">CLOSE</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">No active positions</td></tr>`;
+            }
+        }
+
+        function getDecimals(symbol) {
+            if (!symbol) return 5;
+            const s = symbol.toUpperCase();
+            if (s.includes("XAU") || s.includes("OIL") || s.includes("USO")) return 2;
+            if (s.includes("JPY")) return 3;
+            return 5;
+        }
+
+        function getPipSize(symbol) {
+            if (!symbol) return 0.0001;
+            const s = symbol.toUpperCase();
+            if (s.includes("XAU")) return 0.10;
+            if (s.includes("OIL") || s.includes("USO") || s.includes("JPY")) return 0.01;
+            return 0.0001;
+        }
+
+        function calculatePips(trade) {
+            if (trade.pips !== undefined) return trade.pips;
+            const symbol = trade.symbol || "XAUUSD";
+            const pipSize = getPipSize(symbol);
+            const openP = parseFloat(trade.open_price || 0);
+            const closeP = parseFloat(trade.close_price || 0);
+            const isBuy = trade.type === "BUY";
+            const pips = isBuy ? (closeP - openP) / pipSize : (openP - closeP) / pipSize;
+            return Math.round(pips * 10) / 10;
+        }
+
         function switchTableTab(tab) {
             activeTableTab = tab;
             document.getElementById('tab-positions').className = tab === 'positions' ? 'btn-primary' : 'btn-secondary';
             document.getElementById('tab-history').className = tab === 'history' ? 'btn-primary' : 'btn-secondary';
             document.getElementById('table-positions-container').style.display = tab === 'positions' ? 'block' : 'none';
-            document.getElementById('table-history-container').style.display = tab === 'history' ? 'block' : 'none';
+            document.getElementById('table-history-container').style.display = tab === 'history' ? 'flex' : 'none';
+            document.getElementById('history-period-controls').style.display = tab === 'history' ? 'flex' : 'none';
+            
+            if (tab === 'history') {
+                fetchHistoryAnalytics(currentHistoryPeriod);
+            } else {
+                filterTradesBySymbol();
+            }
+        }
+
+        function setHistoryPeriod(period) {
+            currentHistoryPeriod = period;
+            ['all', 'day', 'week', 'month'].forEach(p => {
+                const btn = document.getElementById(`btn-period-${p}`);
+                if (btn) btn.className = p === period ? 'btn-primary' : 'btn-secondary';
+            });
+            fetchHistoryAnalytics(period);
+        }
+
+        async function fetchHistoryAnalytics(period) {
+            try {
+                const res = await fetch(`/api/history/analytics?period=${period}`);
+                if (res.ok) {
+                    cachedAnalyticsData = await res.json();
+                    const query = (document.getElementById('trade-search-input').value || '').trim();
+                    if (query) {
+                        filterTradesBySymbol();
+                    } else {
+                        renderHistoryAnalytics(cachedAnalyticsData);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch history analytics:", err);
+            }
+        }
+
+        function filterTradesBySymbol() {
+            const query = (document.getElementById('trade-search-input') ? document.getElementById('trade-search-input').value : '').trim().toUpperCase();
+            
+            // 1. Filter Active Positions Table
+            const pRows = document.querySelectorAll('#positions-tbody tr');
+            pRows.forEach(row => {
+                const symbolCell = row.cells[1];
+                if (symbolCell) {
+                    const sym = symbolCell.innerText.trim().toUpperCase();
+                    if (!query || sym.includes(query)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+
+            // 2. Filter Closed Trades History Pane & Recalculate Metrics
+            if (cachedAnalyticsData) {
+                if (!query) {
+                    renderHistoryAnalytics(cachedAnalyticsData);
+                } else {
+                    const filteredTrades = (cachedAnalyticsData.trades || []).filter(t => t.symbol && t.symbol.toUpperCase().includes(query));
+                    
+                    let grossProfit = 0, grossLoss = 0, totalPips = 0, wins = 0, losses = 0;
+                    filteredTrades.forEach(t => {
+                        const p = t.profit || 0;
+                        if (p > 0) { grossProfit += p; wins++; }
+                        else if (p < 0) { grossLoss += Math.abs(p); losses++; }
+                        totalPips += (t.pips !== undefined ? t.pips : calculatePips(t));
+                    });
+                    const netProfit = grossProfit - grossLoss;
+                    const winRate = filteredTrades.length > 0 ? (wins / filteredTrades.length) * 100 : 0;
+                    const pf = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? 999.0 : 0);
+
+                    const filteredData = {
+                        ...cachedAnalyticsData,
+                        gross_profit: grossProfit,
+                        gross_loss: grossLoss,
+                        net_profit: netProfit,
+                        total_pips: totalPips,
+                        win_rate: winRate,
+                        profit_factor: pf,
+                        trades: filteredTrades
+                    };
+                    renderHistoryAnalytics(filteredData);
+                }
+            }
+        }
+
+        function renderHistoryAnalytics(data) {
+            // Update Period Telemetry Bar
+            document.getElementById('hist-gross-profit').innerText = formatUSD(data.gross_profit, true);
+            document.getElementById('hist-gross-loss').innerText = formatUSD(-data.gross_loss);
+            
+            const netEl = document.getElementById('hist-net-profit');
+            netEl.innerText = formatUSD(data.net_profit, true);
+            netEl.style.color = data.net_profit >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)';
+            
+            const pipsEl = document.getElementById('hist-total-pips');
+            pipsEl.innerText = `${data.total_pips >= 0 ? '+' : ''}${data.total_pips.toFixed(1)} pips`;
+            pipsEl.style.color = data.total_pips >= 0 ? '#a78bfa' : 'var(--accent-danger)';
+            
+            document.getElementById('hist-winrate-pf').innerText = `${data.win_rate.toFixed(1)}% / PF ${data.profit_factor.toFixed(2)}`;
+            document.getElementById('hist-account-balance').innerText = formatUSD(data.account_balance);
+
+            // Update History Table
+            const hbody = document.getElementById('history-tbody');
+            if (data.trades && data.trades.length > 0) {
+                hbody.innerHTML = '';
+                // Render top 30 trades for selected period
+                const sliceTrades = data.trades.slice(0, 30);
+                sliceTrades.forEach(h => {
+                    const row = document.createElement('tr');
+                    const colorClass = h.profit > 0 ? 'flash-up' : (h.profit < 0 ? 'flash-down' : '');
+                    const dec = getDecimals(h.symbol);
+                    const pips = h.pips !== undefined ? h.pips : calculatePips(h);
+                    const pipsClass = pips >= 0 ? 'flash-up' : 'flash-down';
+                    
+                    row.innerHTML = `
+                        <td>${h.ticket}</td>
+                        <td>${h.symbol}</td>
+                        <td style="color: ${h.type === 'BUY' ? 'var(--accent-success)' : 'var(--accent-danger)'}; font-weight: 800;">${h.type}</td>
+                        <td>${h.volume.toFixed(2)}</td>
+                        <td>${h.open_price.toFixed(dec)}</td>
+                        <td>${h.close_price.toFixed(dec)}</td>
+                        <td class="${pipsClass}" style="font-weight: 700">${pips >= 0 ? '+' : ''}${pips.toFixed(1)}</td>
+                        <td class="${colorClass}" style="font-weight: 800">${formatUSD(h.profit, true)}</td>
+                        <td>${h.close_time ? h.close_time.split('T')[1].substring(0,8) : '--:--:--'}</td>
+                    `;
+                    hbody.appendChild(row);
+                });
+            } else {
+                hbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">Không tìm thấy lịch sử lệnh phù hợp</td></tr>`;
+            }
         }
 
         function getTradingViewSymbol(symbol) {
             if (symbol === "XAUUSD") return "OANDA:XAUUSD";
+            if (symbol === "USOIL") return "FX:USOIL";
             return "FX:" + symbol;
         }
 
@@ -1458,15 +1795,15 @@
             }
 
             // Metrics
-            document.getElementById('acc-balance').innerText = `$${state.account_info.balance.toLocaleString()}`;
-            document.getElementById('acc-equity').innerText = `$${state.account_info.equity.toLocaleString()}`;
+            document.getElementById('acc-balance').innerText = formatUSD(state.account_info.balance);
+            document.getElementById('acc-equity').innerText = formatUSD(state.account_info.equity);
             
             const pnlVal = state.account_info.profit;
             const pnlEl = document.getElementById('acc-pnl');
-            pnlEl.innerText = `${pnlVal >= 0 ? '+' : ''}$${pnlVal.toLocaleString()}`;
+            pnlEl.innerText = formatUSD(pnlVal, true);
             pnlEl.className = `metric-value ${pnlVal >= 0 ? 'flash-up' : 'flash-down'}`;
 
-            document.getElementById('acc-margin').innerText = `$${state.account_info.free_margin.toLocaleString()}`;
+            document.getElementById('acc-margin').innerText = formatUSD(state.account_info.free_margin);
             
             const ddPercent = state.account_info.daily_drawdown_percent;
             document.getElementById('drawdown-value').innerText = `${ddPercent.toFixed(2)}%`;
@@ -1475,13 +1812,43 @@
             const offset = 100 - (ddPercent / state.max_daily_loss_percent) * 100;
             ring.style.strokeDashoffset = Math.max(0, offset);
 
-            // Sync Statistics values
+            // Sync Statistics values (Forex Performance Dashboard)
             if (state.statistics) {
                 document.getElementById('stat-winrate').innerText = `${state.statistics.win_rate.toFixed(2)}%`;
                 document.getElementById('stat-profitfactor').innerText = state.statistics.profit_factor.toFixed(2);
-                document.getElementById('stat-total').innerText = state.statistics.total_trades;
-                document.getElementById('stat-ratio').innerText = `${state.statistics.wins} W / ${state.statistics.losses} L`;
-                document.getElementById('stat-netprofit').innerText = `${state.statistics.total_profit >= 0 ? '+' : ''}$${state.statistics.total_profit.toLocaleString()}`;
+                
+                const totalPips = state.statistics.total_pips || 0;
+                const pipsEl = document.getElementById('stat-totalpips');
+                if (pipsEl) {
+                    pipsEl.innerText = `${totalPips >= 0 ? '+' : ''}${totalPips.toFixed(1)} pips`;
+                    pipsEl.style.color = totalPips >= 0 ? '#a78bfa' : 'var(--accent-danger)';
+                }
+                
+                const avgPipsEl = document.getElementById('stat-avgpips');
+                if (avgPipsEl) {
+                    const avgP = state.statistics.avg_pips || 0;
+                    avgPipsEl.innerText = `${avgP >= 0 ? '+' : ''}${avgP.toFixed(1)} pips`;
+                }
+
+                const avgWinLossEl = document.getElementById('stat-avgwinloss');
+                if (avgWinLossEl) {
+                    avgWinLossEl.innerText = `${formatUSD(state.statistics.avg_win)} / ${formatUSD(-state.statistics.avg_loss)}`;
+                }
+
+                const rrEl = document.getElementById('stat-rr');
+                if (rrEl) {
+                    rrEl.innerText = `1:${(state.statistics.risk_reward_ratio || 0).toFixed(2)}`;
+                }
+
+                const expEl = document.getElementById('stat-expectancy');
+                if (expEl) {
+                    const expVal = state.statistics.expectancy || 0;
+                    expEl.innerText = formatUSD(expVal, true);
+                    expEl.style.color = expVal >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)';
+                }
+
+                document.getElementById('stat-ratio').innerText = `${state.statistics.total_trades} (${state.statistics.wins} W / ${state.statistics.losses} L)`;
+                document.getElementById('stat-netprofit').innerText = formatUSD(state.statistics.total_profit, true);
                 document.getElementById('stat-netprofit').style.color = state.statistics.total_profit >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)';
             }
 
@@ -1529,42 +1896,26 @@
             }
 
             // Active Positions Table
-            const tbody = document.getElementById('positions-tbody');
-            if (state.positions && state.positions.length > 0) {
-                tbody.innerHTML = '';
-                state.positions.forEach(pos => {
-                    const row = document.createElement('tr');
-                    const colorClass = pos.profit >= 0 ? 'flash-up' : 'flash-down';
-                    row.innerHTML = `
-                        <td>${pos.ticket}</td>
-                        <td>${pos.symbol}</td>
-                        <td style="color: ${pos.type === 'BUY' ? 'var(--accent-success)' : 'var(--accent-danger)'}; font-weight: 800;">${pos.type}</td>
-                        <td>${pos.volume.toFixed(2)}</td>
-                        <td>${pos.open_price.toFixed(dec)}</td>
-                        <td>${pos.current_price.toFixed(dec)}</td>
-                        <td>${pos.sl.toFixed(dec)}</td>
-                        <td>${pos.tp.toFixed(dec)}</td>
-                        <td class="${colorClass}" style="font-weight: 800">${pos.profit >= 0 ? '+' : ''}$${pos.profit.toFixed(2)}</td>
-                        <td>
-                            <button class="btn-primary" style="padding: 0.15rem 0.4rem; font-size: 0.65rem; margin-right: 0.2rem;" onclick="openModifySLTP(${pos.ticket}, ${pos.sl}, ${pos.tp}, '${pos.symbol}')">✏️ EDIT</button>
-                            <button class="btn-danger" style="padding: 0.15rem 0.4rem; font-size: 0.65rem;" onclick="closePosition(${pos.ticket})">CLOSE</button>
-                        </td>
-                    `;
-                    tbody.appendChild(row);
-                });
-            } else {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">No active positions</td></tr>`;
+            latestPositionsData = state.positions || [];
+            if (sortState.positions.col) {
+                sortPositionsData(latestPositionsData, sortState.positions.col, 'num', sortState.positions.dir);
             }
+            renderPositionsTable(latestPositionsData);
 
             // History Table
             const hbody = document.getElementById('history-tbody');
-            if (state.trade_history && state.trade_history.length > 0) {
+            if (activeTableTab === 'positions' && state.trade_history && state.trade_history.length > 0) {
                 hbody.innerHTML = '';
                 // Render last 10 historical items
                 const sliceHistory = state.trade_history.slice(-10).reverse();
                 sliceHistory.forEach(h => {
                     const row = document.createElement('tr');
                     const colorClass = h.profit > 0 ? 'flash-up' : (h.profit < 0 ? 'flash-down' : '');
+                    const dec = getDecimals(h.symbol);
+                    const pips = calculatePips(h);
+                    const pipsClass = pips >= 0 ? 'flash-up' : 'flash-down';
+                    const closeTimeFormatted = h.close_time ? (h.close_time.includes('T') ? h.close_time.split('T')[1].substring(0,8) : h.close_time) : '--:--:--';
+
                     row.innerHTML = `
                         <td>${h.ticket}</td>
                         <td>${h.symbol}</td>
@@ -1572,33 +1923,45 @@
                         <td>${h.volume.toFixed(2)}</td>
                         <td>${h.open_price.toFixed(dec)}</td>
                         <td>${h.close_price.toFixed(dec)}</td>
-                        <td class="${colorClass}" style="font-weight: 800">${h.profit >= 0 ? '+' : ''}$${h.profit.toFixed(2)}</td>
-                        <td>${h.close_time.split('T')[1].substring(0,8)}</td>
+                        <td class="${pipsClass}" style="font-weight: 700">${pips >= 0 ? '+' : ''}${pips.toFixed(1)}</td>
+                        <td class="${colorClass}" style="font-weight: 800">${formatUSD(h.profit, true)}</td>
+                        <td>${closeTimeFormatted}</td>
                     `;
                     hbody.appendChild(row);
                 });
-            } else {
-                hbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">No historical trades recorded</td></tr>`;
             }
 
-            // Live signals
+            // Re-apply search filter if user typed a query
+            if (document.getElementById('trade-search-input') && document.getElementById('trade-search-input').value.trim() !== '') {
+                filterTradesBySymbol();
+            }
+
+            // Live signals (Deduplicated & Win Probability Badge)
             const sigBox = document.getElementById('signals-box');
             if (state.active_signals && state.active_signals.length > 0) {
                 sigBox.innerHTML = '';
+                const uniqueSignals = [];
+                const seenKeys = new Set();
                 state.active_signals.forEach(sig => {
+                    const key = `${sig.symbol}_${sig.type}_${sig.price}`;
+                    if (!seenKeys.has(key)) {
+                        seenKeys.add(key);
+                        uniqueSignals.push(sig);
+                    }
+                });
+
+                uniqueSignals.forEach(sig => {
                     const alert = document.createElement('div');
                     alert.className = 'signal-alert';
-                    const stars = sig.strength_stars || '⭐';
+                    const winProb = sig.win_probability || (sig.strength_stars === '⭐⭐⭐' ? 92 : (sig.strength_stars === '⭐⭐' ? 78 : 65));
+
                     alert.innerHTML = `
-                        <div class="signal-title" style="width: 100%;">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-secondary)" stroke-width="2.5">
-                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-                            </svg>
-                            <span>${sig.type} SIGNAL</span>
-                            <span style="margin-left: auto; color: var(--accent-warning); letter-spacing: 1px;">${stars}</span>
+                        <div class="signal-title" style="width: 100%; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-weight: 700; color: #f8fafc; font-size: 0.8rem;">${sig.symbol || 'ASSET'} - ${sig.type} SIGNAL</span>
+                            <span style="color: var(--accent-primary); background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 800; font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.5px;">${winProb}% WIN RATE</span>
                         </div>
-                        <div style="font-size: 0.75rem; margin-top: 0.25rem;">
-                            Price: <span style="font-family: var(--font-mono)">${sig.price}</span> (Fib ${sig.fib_level})
+                        <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                            PRICE: <span style="font-family: var(--font-mono); color: #ffffff; font-weight: 700;">${sig.price}</span> | FIB LEVEL: ${sig.fib_level}
                         </div>
                     `;
                     sigBox.appendChild(alert);

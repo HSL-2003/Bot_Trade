@@ -176,6 +176,13 @@ async def get_state():
         "watchlist": bot.watchlist_data
     }
 
+# History Analytics API with period filter (day, week, month, all)
+@app.get("/api/history/analytics")
+async def get_history_analytics(period: str = "all"):
+    if period not in ["day", "week", "month", "all"]:
+        period = "all"
+    return bot.get_history_analytics(period)
+
 # Update Settings API
 @app.post("/api/settings")
 async def update_settings(settings: SettingsModel):
@@ -226,7 +233,8 @@ async def manual_trade(trade: ManualTradeModel):
         order_type=trade.type,
         lot_size=trade.lot_size,
         sl_points=trade.sl_points,
-        tp_points=trade.tp_points
+        tp_points=trade.tp_points,
+        symbol=bot.symbol
     ))
     return {"status": "order_submitted"}
 
