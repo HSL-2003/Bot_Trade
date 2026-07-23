@@ -105,7 +105,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 "watchlist": bot.watchlist_data
             }
             await websocket.send_json(state)
-            await asyncio.sleep(0.5)
+            # ponytail: 50ms stream interval (20 FPS UI refresh rate) for smooth live streaming
+            await asyncio.sleep(0.05)
     except WebSocketDisconnect:
         active_connections.remove(websocket)
     except Exception as e:
