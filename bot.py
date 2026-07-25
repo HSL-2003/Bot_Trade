@@ -65,6 +65,7 @@ class MT5TradingBot:
         self.simulation_mode = not MT5_AVAILABLE
         self.system_locked = False
         self.is_pending_order = False
+        self.pending_orders = []
         self.account_info = {
             "balance": 10000.0,
             "equity": 10000.0,
@@ -337,11 +338,11 @@ class MT5TradingBot:
             floating_profit = 0.0
             for pos in self.positions:
                 symbol = pos["symbol"]
-                sym_data = self.watchlist_data.get(symbol)
-                if not sym_data:
+                sym_price = self.get_current_price_for_symbol(symbol)
+                bid = sym_price.get("bid", 0.0)
+                ask = sym_price.get("ask", 0.0)
+                if bid <= 0 or ask <= 0:
                     continue
-                bid = sym_data["bid"]
-                ask = sym_data["ask"]
                 
                 multiplier = self.get_symbol_multiplier(symbol)
                 current_price = bid if pos["type"] == "BUY" else ask
@@ -361,17 +362,8 @@ class MT5TradingBot:
             drawdown = self.account_info["daily_start_equity"] - self.account_info["equity"]
             self.account_info["daily_drawdown_percent"] = round(max(0.0, (drawdown / self.account_info["daily_start_equity"]) * 100), 2)
             
-            # Check daily profit and loss circuit breakers (simulation mode)
-            if self.daily_start_equity > 0 and not self.system_locked:
-                profit_percent = ((self.account_info["equity"] - self.daily_start_equity) / self.daily_start_equity) * 100
-                if profit_percent >= self.daily_profit_target_percent:
-                    self.system_locked = True
-                    await self.log_event("CIRCUIT_BREAKER", f"DAILY PROFIT TARGET REACHED! Profit: {profit_percent:.2f}% (Target: {self.daily_profit_target_percent}%). Locking system and closing all trades.")
-                    await self.emergency_lockdown()
-                elif self.account_info["daily_drawdown_percent"] >= self.max_daily_loss_percent:
-                    self.system_locked = True
-                    await self.log_event("CIRCUIT_BREAKER", f"DAILY DRAWDOWN LIMIT BREACHED! Drawdown: {self.account_info['daily_drawdown_percent']}%. Locking system and closing all trades.")
-                    await self.emergency_lockdown()
+            # ponytail: disabled automatic circuit breaker lockdown as requested by user
+            self.system_locked = False
             return
 
         # MT5 mode
@@ -419,21 +411,104 @@ class MT5TradingBot:
                 "open_time": pos_open_time
             })
 
-        # Check daily profit and loss circuit breakers (MT5 mode)
-        if self.daily_start_equity > 0 and not self.system_locked:
-            profit_percent = ((self.account_info["equity"] - self.daily_start_equity) / self.daily_start_equity) * 100
-            if profit_percent >= self.daily_profit_target_percent:
-                self.system_locked = True
-                await self.log_event("CIRCUIT_BREAKER", f"DAILY PROFIT TARGET REACHED! Profit: {profit_percent:.2f}% (Target: {self.daily_profit_target_percent}%). Locking system and closing all trades.")
-                await self.emergency_lockdown()
-            elif self.account_info["daily_drawdown_percent"] >= self.max_daily_loss_percent:
-                self.system_locked = True
-                await self.log_event("CIRCUIT_BREAKER", f"DAILY DRAWDOWN LIMIT BREACHED! Drawdown: {self.account_info['daily_drawdown_percent']}%. Locking system and closing all trades.")
-                await self.emergency_lockdown()
+        # ponytail: disabled automatic circuit breaker lockdown in MT5 mode
+        self.system_locked = False
 
         # Check for closed positions in MT5 mode (cooldown locks disabled as requested by user)
         # ponytail: disabled pair locks on trade close
         self.positions = updated_positions
+
+        # Check pending limit/stop orders execution trigger
+        await self.check_pending_orders()
+
+    async def add_pending_order(self, order_type: str, lot_size: float, trigger_price: float, sl_points: float = 0.0, tp_points: float = 0.0, sl_price: float = 0.0, tp_price: float = 0.0, symbol: str = None) -> dict:
+        """Add a limit/stop pending order to the queue"""
+        sym = symbol or self.symbol
+        ticket = random.randint(1000000, 9999999)
+        dec = 2 if ("XAU" in sym or "USO" in sym or "OIL" in sym) else 5
+        
+        pending = {
+            "ticket": ticket,
+            "symbol": sym,
+            "type": order_type.upper(),
+            "volume": lot_size,
+            "trigger_price": round(trigger_price, dec),
+            "sl": round(sl_price, dec) if sl_price else 0.0,
+            "tp": round(tp_price, dec) if tp_price else 0.0,
+            "sl_points": sl_points,
+            "tp_points": tp_points,
+            "created_at": datetime.now().isoformat()
+        }
+        self.pending_orders.append(pending)
+        await self.log_event("PENDING_ORDER", f"Pending Order Created! Ticket #{ticket} - {pending['type']} {lot_size} Lots at {pending['trigger_price']} on {sym}", pending)
+        return pending
+
+    async def cancel_pending_order(self, ticket: int) -> bool:
+        """Cancel a pending order by ticket ID"""
+        initial_len = len(self.pending_orders)
+        self.pending_orders = [p for p in self.pending_orders if p["ticket"] != ticket]
+        if len(self.pending_orders) < initial_len:
+            await self.log_event("PENDING_ORDER", f"Pending Order #{ticket} cancelled by User.")
+            return True
+        return False
+
+    async def check_pending_orders(self):
+        """Check if market price touched trigger level of any pending orders"""
+        if not self.pending_orders:
+            return
+
+        to_remove = []
+        for p in list(self.pending_orders):
+            sym = p["symbol"]
+            sym_price = self.get_current_price_for_symbol(sym)
+            bid = sym_price.get("bid", 0)
+            ask = sym_price.get("ask", 0)
+            trig = p["trigger_price"]
+            order_type = p["type"]
+            
+            should_trigger = False
+            exec_type = "BUY"
+            
+            if "BUY" in order_type:
+                exec_type = "BUY"
+                if "STOP" in order_type:
+                    if ask >= trig and ask > 0:
+                        should_trigger = True
+                else:
+                    if ask <= trig and ask > 0:
+                        should_trigger = True
+            elif "SELL" in order_type:
+                exec_type = "SELL"
+                if "STOP" in order_type:
+                    if bid <= trig and bid > 0:
+                        should_trigger = True
+                else:
+                    if bid >= trig and bid > 0:
+                        should_trigger = True
+
+            if should_trigger:
+                to_remove.append(p["ticket"])
+                await self.log_event("PENDING_TRIGGERED", f"Pending Order #{p['ticket']} triggered at {trig}! Executing Market {exec_type}...")
+                point = self.get_symbol_point(sym)
+                open_price = ask if exec_type == "BUY" else bid
+                
+                sl_pts = p["sl_points"]
+                tp_pts = p["tp_points"]
+                if p.get("sl", 0) > 0:
+                    sl_pts = round(abs(open_price - p["sl"]) / point, 1)
+                if p.get("tp", 0) > 0:
+                    tp_pts = round(abs(open_price - p["tp"]) / point, 1)
+
+                asyncio.create_task(self.execute_market_trade(
+                    order_type=exec_type,
+                    lot_size=p["volume"],
+                    sl_points=sl_pts,
+                    tp_points=tp_pts,
+                    symbol=sym
+                ))
+
+        if to_remove:
+            self.pending_orders = [p for p in self.pending_orders if p["ticket"] not in to_remove]
 
     async def parse_news_data(self, data):
         now_utc = datetime.now(timezone.utc)
@@ -706,8 +781,8 @@ class MT5TradingBot:
                     
                     point = self.get_symbol_point(symbol)
                     dec = 2 if "XAU" in symbol or "USO" in symbol or "OIL" in symbol else 5
-                    sl_price = open_price - (sl_points * point) if order_type == "BUY" else open_price + (sl_points * point)
-                    tp_price = open_price + (tp_points * point) if order_type == "BUY" else open_price - (tp_points * point)
+                    sl_price = (open_price - (sl_points * point) if order_type == "BUY" else open_price + (sl_points * point)) if (sl_points and sl_points > 0) else 0.0
+                    tp_price = (open_price + (tp_points * point) if order_type == "BUY" else open_price - (tp_points * point)) if (tp_points and tp_points > 0) else 0.0
 
                     new_pos = {
                         "ticket": ticket,
@@ -745,8 +820,8 @@ class MT5TradingBot:
                         filling_mode = mt5.ORDER_FILLING_RETURN
 
                     price = mt5.symbol_info_tick(symbol).ask if order_type == "BUY" else mt5.symbol_info_tick(symbol).bid
-                    sl = price - (sl_points * symbol_info.point) if order_type == "BUY" else price + (sl_points * symbol_info.point)
-                    tp = price + (tp_points * symbol_info.point) if order_type == "BUY" else price - (tp_points * symbol_info.point)
+                    sl = (price - (sl_points * symbol_info.point) if order_type == "BUY" else price + (sl_points * symbol_info.point)) if (sl_points and sl_points > 0) else 0.0
+                    tp = (price + (tp_points * symbol_info.point) if order_type == "BUY" else price - (tp_points * symbol_info.point)) if (tp_points and tp_points > 0) else 0.0
 
                     request = {
                         "action": mt5.TRADE_ACTION_DEAL,
@@ -905,6 +980,13 @@ class MT5TradingBot:
             await self.log_event("TRADE_CLOSE", f"Position {ticket} closed successfully.")
         else:
             await self.log_event("ERROR", f"Failed to close position {ticket} on MT5.")
+
+    async def close_all_positions(self):
+        """Close all active open positions"""
+        await self.log_event("SYSTEM", "Closing all open positions by user request...")
+        tickets = [pos["ticket"] for pos in list(self.positions)]
+        for ticket in tickets:
+            await self.close_position(ticket)
 
     def get_symbol_point(self, symbol: str) -> float:
         """Helper to get symbol point size"""
@@ -1468,15 +1550,15 @@ class MT5TradingBot:
 
     async def generate_simulated_ticks(self):
         """Monitor simulated positions and SL/TP when the bot is running in Simulation Mode"""
-        while self.is_running and self.simulation_mode:
+        while self.simulation_mode:
             # Update simulated positions and monitor stop loss / take profit
             for pos in list(self.positions):
                 symbol = pos["symbol"]
-                sym_data = self.watchlist_data.get(symbol)
-                if not sym_data:
+                sym_price = self.get_current_price_for_symbol(symbol)
+                bid = sym_price.get("bid", 0.0)
+                ask = sym_price.get("ask", 0.0)
+                if bid <= 0 or ask <= 0:
                     continue
-                bid = sym_data["bid"]
-                ask = sym_data["ask"]
                 
                 # Check exits
                 multiplier = self.get_symbol_multiplier(symbol)
@@ -1484,7 +1566,7 @@ class MT5TradingBot:
                 
                 if pos["type"] == "BUY":
                     pos["profit"] = round((bid - pos["open_price"]) * pos["volume"] * multiplier, 2)
-                    if bid <= pos["sl"]:
+                    if pos["sl"] > 0 and bid <= pos["sl"]:
                         profit = round((pos["sl"] - pos["open_price"]) * pos["volume"] * multiplier, 2)
                         await self.log_event("POSITION_EXIT", f"Simulated SL Hit for Position {pos['ticket']} at {pos['sl']}", pos)
                         self.positions.remove(pos)
@@ -1500,7 +1582,7 @@ class MT5TradingBot:
                             "close_time": datetime.now().isoformat()
                         })
                         self.save_history()
-                    elif bid >= pos["tp"]:
+                    elif pos["tp"] > 0 and bid >= pos["tp"]:
                         profit = round((pos["tp"] - pos["open_price"]) * pos["volume"] * multiplier, 2)
                         await self.log_event("POSITION_EXIT", f"Simulated TP Hit for Position {pos['ticket']} at {pos['tp']}", pos)
                         self.positions.remove(pos)
@@ -1518,7 +1600,7 @@ class MT5TradingBot:
                         self.save_history()
                 elif pos["type"] == "SELL":
                     pos["profit"] = round((pos["open_price"] - ask) * pos["volume"] * multiplier, 2)
-                    if ask >= pos["sl"]:
+                    if pos["sl"] > 0 and ask >= pos["sl"]:
                         profit = round((pos["open_price"] - pos["sl"]) * pos["volume"] * multiplier, 2)
                         await self.log_event("POSITION_EXIT", f"Simulated SL Hit for Position {pos['ticket']} at {pos['sl']}", pos)
                         self.positions.remove(pos)
@@ -1534,7 +1616,7 @@ class MT5TradingBot:
                             "close_time": datetime.now().isoformat()
                         })
                         self.save_history()
-                    elif ask <= pos["tp"]:
+                    elif pos["tp"] > 0 and ask <= pos["tp"]:
                         profit = round((pos["open_price"] - pos["tp"]) * pos["volume"] * multiplier, 2)
                         await self.log_event("POSITION_EXIT", f"Simulated TP Hit for Position {pos['ticket']} at {pos['tp']}", pos)
                         self.positions.remove(pos)
@@ -1709,6 +1791,14 @@ class MT5TradingBot:
                 self.sr_levels = self.watchlist_data[self.symbol].get("sr_levels", [])
                 self.fib_levels = self.watchlist_data[self.symbol].get("fib_levels", {})
                 self.confluence_zones = self.watchlist_data[self.symbol].get("confluence_zones", [])
+
+                # Ensure simulated tick monitoring task is active for manual positions
+                if self.simulation_mode and (not hasattr(self, "_sim_tick_task") or self._sim_tick_task.done()):
+                    self._sim_tick_task = asyncio.create_task(self.generate_simulated_ticks())
+
+                # Always update position PnL, current_price, and check pending order triggers 24/7
+                await self.update_account_state()
+                await self.check_pending_orders()
 
             except Exception as e:
                 logger.error(f"Error in continuous price feed loop: {e}")

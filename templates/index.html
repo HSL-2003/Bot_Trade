@@ -564,7 +564,7 @@
         .table-container {
             width: 100%;
             overflow-x: auto;
-            max-height: 220px;
+            max-height: 360px;
             overflow-y: auto;
         }
 
@@ -1025,10 +1025,14 @@
                 <div style="display: flex; gap: 0.5rem; align-items: center; width: 100%; justify-content: space-between; flex-wrap: wrap;">
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                         <button id="tab-positions" class="btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="switchTableTab('positions')">Active Positions</button>
+                        <button id="tab-pending" class="btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="switchTableTab('pending')">Pending Orders (<span id="pending-count">0</span>)</button>
                         <button id="tab-history" class="btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="switchTableTab('history')">Closed Trades History</button>
                     </div>
                     
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <!-- Close All Positions Button -->
+                        <button class="btn-danger" id="btn-close-all" onclick="closeAllPositions()" style="padding: 0.3rem 0.75rem; font-size: 0.72rem; font-weight: 700; background: rgba(239, 68, 68, 0.15); color: var(--accent-danger); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 6px; cursor: pointer; transition: all 0.2s;">⚡ Đóng toàn bộ lệnh</button>
+
                         <!-- Symbol Search Bar -->
                         <div style="position: relative; display: flex; align-items: center;">
                             <input id="trade-search-input" type="text" placeholder="SEARCH SYMBOL (E.G. XAUUSD)" 
@@ -1075,6 +1079,30 @@
                 </table>
             </div>
 
+            <!-- Pending Orders Table -->
+            <div class="table-container" id="table-pending-container" style="display: none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ticket</th>
+                            <th>Symbol</th>
+                            <th>Order Type</th>
+                            <th>Lots</th>
+                            <th>Trigger Price (Giá chờ)</th>
+                            <th>Stop Loss (SL)</th>
+                            <th>Take Profit (TP)</th>
+                            <th>Created At</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pending-tbody">
+                        <tr>
+                            <td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">Không có lệnh chờ nào</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
             <!-- Closed Trades Pane -->
             <div id="table-history-container" style="display: none; flex-direction: column; gap: 0.5rem;">
                 <!-- History Period Analytics Bar -->
@@ -1100,30 +1128,30 @@
                         <span id="hist-winrate-pf" style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-secondary);">0% / 0.0</span>
                     </div>
                     <div style="display: flex; flex-direction: column;">
-                        <span style="font-size: 0.6rem; color: var(--accent-warning); font-weight: 800; text-transform: uppercase;">Số Dư Tài Khoản</span>
-                        <span id="hist-account-balance" style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: #ffffff;">$10,000</span>
+                        <span style="font-size: 0.6rem; color: var(--accent-warning); font-weight: 800; text-transform: uppercase;">Balance Thống Kê</span>
+                        <span id="hist-account-balance" style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: #ffffff;">$0.00</span>
                     </div>
                 </div>
 
                 <!-- History Table -->
-                <div class="table-container">
+                <div class="table-container" style="display: block;">
                     <table>
                         <thead>
                             <tr>
-                                <th onclick="sortTable('history', 'ticket', 'num')" style="cursor: pointer; user-select: none;">Ticket <span id="sort-hist-ticket">⇅</span></th>
-                                <th onclick="sortTable('history', 'symbol', 'str')" style="cursor: pointer; user-select: none;">Symbol <span id="sort-hist-symbol">⇅</span></th>
-                                <th onclick="sortTable('history', 'type', 'str')" style="cursor: pointer; user-select: none;">Type <span id="sort-hist-type">⇅</span></th>
-                                <th onclick="sortTable('history', 'volume', 'num')" style="cursor: pointer; user-select: none;">Lots <span id="sort-hist-volume">⇅</span></th>
-                                <th onclick="sortTable('history', 'open_price', 'num')" style="cursor: pointer; user-select: none;">Open Price <span id="sort-hist-open_price">⇅</span></th>
-                                <th onclick="sortTable('history', 'close_price', 'num')" style="cursor: pointer; user-select: none;">Close Price <span id="sort-hist-close_price">⇅</span></th>
-                                <th onclick="sortTable('history', 'pips', 'num')" style="cursor: pointer; user-select: none;">Pips <span id="sort-hist-pips">⇅</span></th>
-                                <th onclick="sortTable('history', 'profit', 'num')" style="cursor: pointer; user-select: none;">Closed Profit/Loss ($) <span id="sort-hist-profit">⇅</span></th>
-                                <th onclick="sortTable('history', 'close_time', 'time')" style="cursor: pointer; user-select: none;">Closed Time <span id="sort-hist-close_time">⇅</span></th>
+                                <th>Ticket</th>
+                                <th>Symbol</th>
+                                <th>Type</th>
+                                <th>Lots</th>
+                                <th>Open Price</th>
+                                <th>Close Price</th>
+                                <th>Pips</th>
+                                <th>Profit/Loss ($)</th>
+                                <th>Close Time</th>
                             </tr>
                         </thead>
                         <tbody id="history-tbody">
                             <tr>
-                                <td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">No historical trades recorded</td>
+                                <td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">Không tìm thấy lịch sử lệnh phù hợp</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1131,25 +1159,86 @@
             </div>
 
             <!-- Manual Trade Panel -->
-            <div style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); border-radius: 6px; padding: 0.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
-                <div style="font-weight: 700; font-size: 0.7rem; color: var(--accent-secondary); text-transform: uppercase;">Manual Order injection</div>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <label style="font-size: 0.65rem;">Lots</label>
-                    <input id="manual-lots" type="number" step="0.01" value="0.10" min="0.01" style="width: 70px; padding: 0.25rem;">
-                    
-                    <label style="font-size: 0.65rem; margin-left: 0.5rem;">SL (Pts)</label>
-                    <input id="manual-sl" type="number" value="300" min="50" style="width: 70px; padding: 0.25rem;">
-                    
-                    <label style="font-size: 0.65rem; margin-left: 0.5rem;">TP (Pts)</label>
-                    <input id="manual-tp" type="number" value="600" min="50" style="width: 70px; padding: 0.25rem;">
-                    
-                    <label style="font-size: 0.65rem; margin-left: 0.5rem;">Dir</label>
-                    <select id="manual-dir" style="padding: 0.25rem;">
-                        <option value="BUY">BUY</option>
-                        <option value="SELL">SELL</option>
-                    </select>
-                    
-                    <button class="btn-primary" style="padding: 0.35rem 1rem; font-size: 0.75rem; margin-left: 0.5rem;" onclick="submitManualTrade()">Inject Order</button>
+            <div style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); border-radius: 6px; padding: 0.6rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-weight: 800; font-size: 0.75rem; color: var(--accent-secondary); text-transform: uppercase;">Manual Order Injection</span>
+                        <select id="manual-symbol" onchange="updateManualCalculations()" style="padding: 0.2rem 0.4rem; font-size: 0.72rem; font-weight: 800; border-color: var(--accent-primary); background: var(--bg-card); color: var(--accent-primary); border-radius: 4px; outline: none; cursor: pointer;">
+                            <option value="XAUUSD">XAUUSD</option>
+                            <option value="EURUSD">EURUSD</option>
+                            <option value="GBPUSD">GBPUSD</option>
+                            <option value="USOIL">USOIL</option>
+                        </select>
+                        <span id="manual-open-ref" style="font-size: 0.68rem; font-family: var(--font-mono); color: var(--text-secondary); background: rgba(255,255,255,0.03); padding: 0.15rem 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);">Entry: --</span>
+                    </div>
+
+                    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                        <label style="font-size: 0.65rem;">Khớp lệnh</label>
+                        <select id="manual-exec-type" onchange="toggleManualExecType()" style="padding: 0.25rem; font-size: 0.72rem; font-weight: 700; border-color: var(--accent-primary);">
+                            <option value="MARKET">Trực tiếp (Market)</option>
+                            <option value="LIMIT">Lệnh Chờ (Limit/Stop)</option>
+                        </select>
+
+                        <label style="font-size: 0.65rem; margin-left: 0.3rem;">Chế độ SL/TP</label>
+                        <select id="manual-mode" onchange="toggleManualMode()" style="padding: 0.25rem; font-size: 0.72rem; font-weight: 700; border-color: var(--accent-primary);">
+                            <option value="price">Theo Giá (Price)</option>
+                            <option value="points">Theo Points / Pips</option>
+                        </select>
+
+                        <label style="font-size: 0.65rem; margin-left: 0.3rem;">Loại Lệnh</label>
+                        <select id="manual-dir" onchange="updateManualCalculations()" style="padding: 0.25rem; font-weight: 800;">
+                            <option value="BUY">BUY</option>
+                            <option value="SELL">SELL</option>
+                            <option value="BUY_LIMIT" style="display:none;">BUY LIMIT</option>
+                            <option value="SELL_LIMIT" style="display:none;">SELL LIMIT</option>
+                            <option value="BUY_STOP" style="display:none;">BUY STOP</option>
+                            <option value="SELL_STOP" style="display:none;">SELL STOP</option>
+                        </select>
+
+                        <label style="font-size: 0.65rem; margin-left: 0.3rem;">Lots</label>
+                        <input id="manual-lots" type="number" step="0.01" value="0.10" min="0.01" style="width: 65px; padding: 0.25rem;">
+                    </div>
+                </div>
+
+                <!-- Input fields for Trigger Price (visible when exec_type == LIMIT) -->
+                <div id="manual-trigger-container" style="display: none; background: rgba(56, 189, 248, 0.06); padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.2); align-items: center; gap: 0.5rem;">
+                    <label style="font-size: 0.68rem; color: var(--accent-primary); font-weight: 800;">Giá Chờ Kích Hoạt (Trigger Price):</label>
+                    <input id="manual-trigger-price" type="number" step="0.01" placeholder="Ví dụ: 2345.00" oninput="updateManualCalculations()" style="width: 140px; padding: 0.25rem; font-family: var(--font-mono); font-weight: 700; border-color: var(--accent-primary);">
+                    <span style="font-size: 0.65rem; color: var(--text-secondary);">(Tự động kích hoạt khi giá thị trường chạy tới mốc này)</span>
+                </div>
+
+                <!-- Input fields for PRICE Mode -->
+                <div id="manual-price-inputs" style="display: flex; gap: 0.75rem; align-items: center; background: rgba(0,0,0,0.25); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <label style="font-size: 0.65rem; color: var(--accent-danger);">SL Giá</label>
+                        <input id="manual-sl-price" type="number" step="0.01" placeholder="Ví dụ: 2340.50" oninput="updateManualCalculations()" style="width: 120px; padding: 0.25rem; font-family: var(--font-mono);">
+                        <span id="manual-sl-info" style="font-size: 0.68rem; font-family: var(--font-mono); color: var(--accent-danger); font-weight: 700;">-- pips</span>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 0.4rem; margin-left: 0.5rem;">
+                        <label style="font-size: 0.65rem; color: var(--accent-success);">TP Giá</label>
+                        <input id="manual-tp-price" type="number" step="0.01" placeholder="Ví dụ: 2370.50" oninput="updateManualCalculations()" style="width: 120px; padding: 0.25rem; font-family: var(--font-mono);">
+                        <span id="manual-tp-info" style="font-size: 0.68rem; font-family: var(--font-mono); color: var(--accent-success); font-weight: 700;">-- pips</span>
+                    </div>
+
+                    <button class="btn-primary" style="padding: 0.35rem 1.2rem; font-size: 0.75rem; margin-left: auto;" onclick="submitManualTrade()">Inject Order</button>
+                </div>
+
+                <!-- Input fields for POINTS Mode -->
+                <div id="manual-pts-inputs" style="display: none; gap: 0.75rem; align-items: center; background: rgba(0,0,0,0.25); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <label style="font-size: 0.65rem;">SL (Pts)</label>
+                        <input id="manual-sl" type="number" value="300" min="10" oninput="updateManualCalculations()" style="width: 75px; padding: 0.25rem; font-family: var(--font-mono);">
+                        <span id="manual-sl-pts-info" style="font-size: 0.68rem; font-family: var(--font-mono); color: var(--text-secondary);"></span>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 0.4rem; margin-left: 0.5rem;">
+                        <label style="font-size: 0.65rem;">TP (Pts)</label>
+                        <input id="manual-tp" type="number" value="600" min="10" oninput="updateManualCalculations()" style="width: 75px; padding: 0.25rem; font-family: var(--font-mono);">
+                        <span id="manual-tp-pts-info" style="font-size: 0.68rem; font-family: var(--font-mono); color: var(--text-secondary);"></span>
+                    </div>
+
+                    <button class="btn-primary" style="padding: 0.35rem 1.2rem; font-size: 0.75rem; margin-left: auto;" onclick="submitManualTrade()">Inject Order</button>
                 </div>
             </div>
         </div>
@@ -1240,9 +1329,15 @@
         let latestPositionsData = [];
 
         let sortState = {
-            positions: { col: null, dir: 'asc' },
-            history: { col: null, dir: 'desc' }
+            positions: { col: null, dir: 'asc', dataType: 'num' },
+            history: { col: null, dir: 'desc', dataType: 'num' }
         };
+
+        function closeAllPositions() {
+            if (confirm("Bro có chắc chắn muốn đóng TOÀN BỘ lệnh đang mở không?")) {
+                fetch('/api/close-all', { method: 'POST' }).catch(err => console.error(err));
+            }
+        }
 
         function sortTable(tableType, colName, dataType) {
             const stateObj = sortState[tableType];
@@ -1250,7 +1345,8 @@
                 stateObj.dir = stateObj.dir === 'asc' ? 'desc' : 'asc';
             } else {
                 stateObj.col = colName;
-                stateObj.dir = (colName === 'profit' || colName === 'close_time' || colName === 'pips') ? 'desc' : 'asc';
+                stateObj.dataType = dataType;
+                stateObj.dir = (colName === 'profit' || colName === 'close_time' || colName === 'pips' || colName === 'ticket') ? 'desc' : 'asc';
             }
             updateSortIcons(tableType);
 
@@ -1387,12 +1483,27 @@
 
         function switchTableTab(tab) {
             activeTableTab = tab;
-            document.getElementById('tab-positions').className = tab === 'positions' ? 'btn-primary' : 'btn-secondary';
-            document.getElementById('tab-history').className = tab === 'history' ? 'btn-primary' : 'btn-secondary';
-            document.getElementById('table-positions-container').style.display = tab === 'positions' ? 'block' : 'none';
-            document.getElementById('table-history-container').style.display = tab === 'history' ? 'flex' : 'none';
-            document.getElementById('history-period-controls').style.display = tab === 'history' ? 'flex' : 'none';
-            
+            const btnPos = document.getElementById('tab-positions');
+            const btnPending = document.getElementById('tab-pending');
+            const btnHist = document.getElementById('tab-history');
+
+            const containerPos = document.getElementById('table-positions-container');
+            const containerPending = document.getElementById('table-pending-container');
+            const containerHist = document.getElementById('table-history-container');
+            const periodControls = document.getElementById('history-period-controls');
+
+            if (btnPos) btnPos.className = tab === 'positions' ? 'btn-primary' : 'btn-secondary';
+            if (btnPending) btnPending.className = tab === 'pending' ? 'btn-primary' : 'btn-secondary';
+            if (btnHist) btnHist.className = tab === 'history' ? 'btn-primary' : 'btn-secondary';
+
+            if (containerPos) containerPos.style.display = tab === 'positions' ? 'block' : 'none';
+            if (containerPending) containerPending.style.display = tab === 'pending' ? 'block' : 'none';
+            if (containerHist) containerHist.style.display = tab === 'history' ? 'flex' : 'none';
+
+            if (periodControls) {
+                periodControls.style.display = tab === 'history' ? 'flex' : 'none';
+            }
+
             if (tab === 'history') {
                 fetchHistoryAnalytics(currentHistoryPeriod);
             } else {
@@ -1895,12 +2006,54 @@
                 document.getElementById('toggle-trading-label').style.color = state.auto_trading ? "var(--accent-success)" : "var(--text-secondary)";
             }
 
-            // Active Positions Table
-            latestPositionsData = state.positions || [];
+            // Manual trade symbol badge update
+            const manualBadge = document.getElementById('manual-symbol-badge');
+            if (manualBadge && state.symbol) {
+                manualBadge.innerText = `Manual Order Injection [${state.symbol}]`;
+            }
+
+            // Active Positions Table (Default: Newest orders at the top)
+            latestPositionsData = state.positions ? state.positions.slice() : [];
             if (sortState.positions.col) {
-                sortPositionsData(latestPositionsData, sortState.positions.col, 'num', sortState.positions.dir);
+                sortPositionsData(latestPositionsData, sortState.positions.col, sortState.positions.dataType || 'num', sortState.positions.dir);
+            } else {
+                latestPositionsData.reverse();
             }
             renderPositionsTable(latestPositionsData);
+            updateSortIcons('positions');
+
+            // Pending Orders Table
+            const pendingOrders = state.pending_orders || [];
+            const pendingTbody = document.getElementById('pending-tbody');
+            const pendingCountEl = document.getElementById('pending-count');
+            if (pendingCountEl) pendingCountEl.innerText = pendingOrders.length;
+
+            if (pendingTbody) {
+                if (pendingOrders.length === 0) {
+                    pendingTbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">Không có lệnh chờ nào</td></tr>`;
+                } else {
+                    pendingTbody.innerHTML = '';
+                    pendingOrders.forEach(p => {
+                        const row = document.createElement('tr');
+                        const dec = getDecimals(p.symbol);
+                        const typeColor = p.type.includes('BUY') ? 'var(--accent-success)' : 'var(--accent-danger)';
+                        const createdTime = p.created_at ? (p.created_at.includes('T') ? p.created_at.split('T')[1].substring(0, 8) : p.created_at) : '--:--:--';
+                        
+                        row.innerHTML = `
+                            <td>${p.ticket}</td>
+                            <td style="font-weight: 700;">${p.symbol}</td>
+                            <td style="color: ${typeColor}; font-weight: 800;">${p.type}</td>
+                            <td>${p.volume.toFixed(2)}</td>
+                            <td style="font-family: var(--font-mono); font-weight: 800; color: var(--accent-primary);">${p.trigger_price.toFixed(dec)}</td>
+                            <td style="font-family: var(--font-mono); color: var(--accent-danger);">${p.sl > 0 ? p.sl.toFixed(dec) : '--'}</td>
+                            <td style="font-family: var(--font-mono); color: var(--accent-success);">${p.tp > 0 ? p.tp.toFixed(dec) : '--'}</td>
+                            <td>${createdTime}</td>
+                            <td><button class="btn-danger" style="padding: 0.2rem 0.6rem; font-size: 0.68rem;" onclick="cancelPendingOrder(${p.ticket})">Huỷ Lệnh ❌</button></td>
+                        `;
+                        pendingTbody.appendChild(row);
+                    });
+                }
+            }
 
             // History Table
             const hbody = document.getElementById('history-tbody');
@@ -2022,6 +2175,156 @@
                     terminal.scrollTop = terminal.scrollHeight;
                 }
             }
+
+            // Sync manual trade calculation preview
+            updateManualCalculations();
+        }
+
+        function getPoint(symbol) {
+            if (!symbol) return 0.00001;
+            const s = symbol.toUpperCase();
+            if (s.includes("XAU") || s.includes("OIL") || s.includes("USO")) return 0.01;
+            if (s.includes("JPY")) return 0.001;
+            return 0.00001;
+        }
+
+        function toggleManualExecType() {
+            const execType = document.getElementById('manual-exec-type') ? document.getElementById('manual-exec-type').value : 'MARKET';
+            const triggerContainer = document.getElementById('manual-trigger-container');
+            const dirSelect = document.getElementById('manual-dir');
+
+            if (triggerContainer) {
+                triggerContainer.style.display = execType === 'LIMIT' ? 'flex' : 'none';
+            }
+
+            if (dirSelect) {
+                const opts = dirSelect.options;
+                for (let i = 0; i < opts.length; i++) {
+                    if (opts[i].value.includes('LIMIT') || opts[i].value.includes('STOP')) {
+                        opts[i].style.display = execType === 'LIMIT' ? 'block' : 'none';
+                    }
+                }
+                if (execType === 'LIMIT' && !dirSelect.value.includes('LIMIT') && !dirSelect.value.includes('STOP')) {
+                    dirSelect.value = 'BUY_LIMIT';
+                } else if (execType === 'MARKET' && (dirSelect.value.includes('LIMIT') || dirSelect.value.includes('STOP'))) {
+                    dirSelect.value = 'BUY';
+                }
+            }
+            updateManualCalculations();
+        }
+
+        function toggleManualMode() {
+            const mode = document.getElementById('manual-mode').value;
+            const pricePane = document.getElementById('manual-price-inputs');
+            const ptsPane = document.getElementById('manual-pts-inputs');
+            if (pricePane && ptsPane) {
+                pricePane.style.display = mode === 'price' ? 'flex' : 'none';
+                ptsPane.style.display = mode === 'points' ? 'flex' : 'none';
+            }
+            updateManualCalculations();
+        }
+
+        function updateManualCalculations() {
+            if (!currentBotState) return;
+            const dirEl = document.getElementById('manual-dir');
+            const modeEl = document.getElementById('manual-mode');
+            const execEl = document.getElementById('manual-exec-type');
+            if (!dirEl || !modeEl) return;
+
+            const dir = dirEl.value;
+            const mode = modeEl.value;
+            const execType = execEl ? execEl.value : 'MARKET';
+            
+            const manualSymEl = document.getElementById('manual-symbol');
+            const symbol = manualSymEl ? manualSymEl.value : (currentBotState.symbol || 'XAUUSD');
+            
+            let symData = null;
+            if (currentBotState.watchlist_data && currentBotState.watchlist_data[symbol]) {
+                symData = currentBotState.watchlist_data[symbol];
+            } else if (symbol === currentBotState.symbol && currentBotState.current_price) {
+                symData = currentBotState.current_price;
+            }
+
+            const point = getPoint(symbol);
+            const pipSize = getPipSize(symbol);
+            const dec = getDecimals(symbol);
+
+            const bid = symData ? (symData.bid || 0) : 0;
+            const ask = symData ? (symData.ask || 0) : 0;
+            
+            let openPrice = dir.includes('BUY') ? ask : bid;
+            const trigVal = document.getElementById('manual-trigger-price') ? parseFloat(document.getElementById('manual-trigger-price').value) : NaN;
+
+            if (execType === 'LIMIT' && !isNaN(trigVal) && trigVal > 0) {
+                openPrice = trigVal;
+            }
+
+            const openRefEl = document.getElementById('manual-open-ref');
+            if (openRefEl) {
+                if (execType === 'LIMIT') {
+                    openRefEl.innerText = `Trigger: ${openPrice > 0 ? openPrice.toFixed(dec) : '--'}`;
+                } else {
+                    openRefEl.innerText = `Entry (${symbol}): ${openPrice > 0 ? openPrice.toFixed(dec) : '--'}`;
+                }
+            }
+
+            if (mode === 'price') {
+                const slVal = document.getElementById('manual-sl-price') ? parseFloat(document.getElementById('manual-sl-price').value) : NaN;
+                const tpVal = document.getElementById('manual-tp-price') ? parseFloat(document.getElementById('manual-tp-price').value) : NaN;
+
+                const slInfo = document.getElementById('manual-sl-info');
+                if (slInfo) {
+                    if (!isNaN(slVal) && slVal > 0 && openPrice > 0) {
+                        const diff = Math.abs(openPrice - slVal);
+                        const pts = Math.round(diff / point);
+                        const pips = (diff / pipSize).toFixed(1);
+                        slInfo.innerText = `${pips} pips (${pts} pts)`;
+                    } else {
+                        slInfo.innerText = `-- pips`;
+                    }
+                }
+
+                const tpInfo = document.getElementById('manual-tp-info');
+                if (tpInfo) {
+                    if (!isNaN(tpVal) && tpVal > 0 && openPrice > 0) {
+                        const diff = Math.abs(openPrice - tpVal);
+                        const pts = Math.round(diff / point);
+                        const pips = (diff / pipSize).toFixed(1);
+                        tpInfo.innerText = `${pips} pips (${pts} pts)`;
+                    } else {
+                        tpInfo.innerText = `-- pips`;
+                    }
+                }
+            } else {
+                const slPts = document.getElementById('manual-sl') ? parseFloat(document.getElementById('manual-sl').value) : NaN;
+                const tpPts = document.getElementById('manual-tp') ? parseFloat(document.getElementById('manual-tp').value) : NaN;
+
+                const slPtsInfo = document.getElementById('manual-sl-pts-info');
+                if (slPtsInfo) {
+                    if (!isNaN(slPts) && slPts > 0 && openPrice > 0) {
+                        const slPriceEst = dir.includes('BUY') ? openPrice - (slPts * point) : openPrice + (slPts * point);
+                        const pips = (slPts * point / pipSize).toFixed(1);
+                        slPtsInfo.innerText = `Giá: ${slPriceEst.toFixed(dec)} (${pips} pips)`;
+                    } else {
+                        slPtsInfo.innerText = ``;
+                    }
+                }
+
+                const tpPtsInfo = document.getElementById('manual-tp-pts-info');
+                if (tpPtsInfo) {
+                    if (!isNaN(tpPts) && tpPts > 0 && openPrice > 0) {
+                        const tpPriceEst = dir.includes('BUY') ? openPrice + (tpPts * point) : openPrice - (tpPts * point);
+                        const pips = (tpPts * point / pipSize).toFixed(1);
+                        tpPtsInfo.innerText = `Giá: ${tpPriceEst.toFixed(dec)} (${pips} pips)`;
+                    } else {
+                        tpPtsInfo.innerText = ``;
+                    }
+                }
+            }
+        }
+
+        function cancelPendingOrder(ticket) {
+            fetch(`/api/pending/cancel/${ticket}`, { method: 'POST' }).catch(err => console.error(err));
         }
 
         function toggleBot() {
@@ -2112,12 +2415,48 @@
         }
 
         function submitManualTrade() {
+            const execType = document.getElementById('manual-exec-type') ? document.getElementById('manual-exec-type').value : 'MARKET';
+            const mode = document.getElementById('manual-mode').value;
+            const dir = document.getElementById('manual-dir').value;
+            const lots = parseFloat(document.getElementById('manual-lots').value);
+            const trigPrice = document.getElementById('manual-trigger-price') ? parseFloat(document.getElementById('manual-trigger-price').value) : NaN;
+
+            if (isNaN(lots) || lots <= 0) {
+                alert('Vui lòng nhập Lot size hợp lệ!');
+                return;
+            }
+
+            if (execType === 'LIMIT' && (isNaN(trigPrice) || trigPrice <= 0)) {
+                alert('Vui lòng nhập Giá Chờ Kích Hoạt (Trigger Price) hợp lệ!');
+                return;
+            }
+
+            const manualSymEl = document.getElementById('manual-symbol');
+            const selectedSymbol = manualSymEl ? manualSymEl.value : (currentBotState ? currentBotState.symbol : null);
+
             const payload = {
-                type: document.getElementById('manual-dir').value,
-                lot_size: parseFloat(document.getElementById('manual-lots').value),
-                sl_points: parseFloat(document.getElementById('manual-sl').value),
-                tp_points: parseFloat(document.getElementById('manual-tp').value)
+                type: dir,
+                lot_size: lots,
+                exec_type: execType,
+                trigger_price: !isNaN(trigPrice) ? trigPrice : 0,
+                sl_points: 0,
+                tp_points: 0,
+                sl_price: 0,
+                tp_price: 0,
+                symbol: selectedSymbol
             };
+
+            if (mode === 'price') {
+                const slP = parseFloat(document.getElementById('manual-sl-price').value);
+                const tpP = parseFloat(document.getElementById('manual-tp-price').value);
+                if (!isNaN(slP) && slP > 0) payload.sl_price = slP;
+                if (!isNaN(tpP) && tpP > 0) payload.tp_price = tpP;
+            } else {
+                const slPts = parseFloat(document.getElementById('manual-sl').value);
+                const tpPts = parseFloat(document.getElementById('manual-tp').value);
+                if (!isNaN(slPts) && slPts > 0) payload.sl_points = slPts;
+                if (!isNaN(tpPts) && tpPts > 0) payload.tp_points = tpPts;
+            }
 
             fetch('/api/trade', {
                 method: 'POST',
@@ -2131,11 +2470,48 @@
             }).catch(err => console.error(err));
         }
 
+        let currentModifyingTicket = null;
+
+        function openModifySLTP(ticket, sl, tp, symbol) {
+            currentModifyingTicket = ticket;
+            document.getElementById('modify-ticket-display').innerText = `#${ticket} (${symbol})`;
+            document.getElementById('modify-sl-input').value = sl || 0;
+            document.getElementById('modify-tp-input').value = tp || 0;
+            const modal = document.getElementById('modify-sltp-modal');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeModifyModal() {
+            currentModifyingTicket = null;
+            const modal = document.getElementById('modify-sltp-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function submitModifySLTP() {
+            if (!currentModifyingTicket) return;
+            const sl = parseFloat(document.getElementById('modify-sl-input').value) || 0;
+            const tp = parseFloat(document.getElementById('modify-tp-input').value) || 0;
+
+            fetch(`/api/modify-sltp/${currentModifyingTicket}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sl, tp })
+            }).then(async res => {
+                if (res.ok) {
+                    closeModifyModal();
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || 'Lỗi khi sửa SL/TP');
+                }
+            }).catch(err => console.error(err));
+        }
+
         connectWS();
         
         // Initial setup for default tab active loadings
         setTimeout(() => {
             if (activeChartTab === 'tv') loadTradingViewWidget();
+            toggleManualMode();
         }, 500);
     </script>
 

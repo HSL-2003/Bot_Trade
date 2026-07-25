@@ -1,3 +1,4 @@
+from typing import Optional
 import os
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
@@ -43,10 +44,15 @@ class SettingsModel(BaseModel):
     roi_table: str
 
 class ManualTradeModel(BaseModel):
-    type: str # BUY or SELL
+    type: str # BUY, SELL, BUY_LIMIT, SELL_LIMIT, BUY_STOP, SELL_STOP
     lot_size: float
-    sl_points: float
-    tp_points: float
+    exec_type: Optional[str] = "MARKET" # MARKET or LIMIT
+    trigger_price: Optional[float] = 0.0
+    sl_points: Optional[float] = 0.0
+    tp_points: Optional[float] = 0.0
+    sl_price: Optional[float] = 0.0
+    tp_price: Optional[float] = 0.0
+    symbol: Optional[str] = None
 
 class ModifySLTPModel(BaseModel):
     sl: float
@@ -88,11 +94,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 "max_open_trades": bot.max_open_trades,
                 "cooldown_duration": bot.cooldown_duration,
                 "roi_enabled": bot.roi_enabled,
-                "roi_table": ",".join([f"{k}:{v}" for k, v in bot.roi_table.items()]),
+                "roi_table": bot.roi_table,
                 "pair_locks": bot.pair_locks,
                 "current_price": bot.current_price,
                 "account_info": bot.account_info,
                 "positions": bot.positions,
+                "pending_orders": bot.pending_orders,
                 "news_events": bot.news_events,
                 "recent_logs": bot.recent_logs,
                 "sr_levels": bot.sr_levels,
@@ -221,23 +228,63 @@ async def update_settings(settings: SettingsModel):
 # Trigger Manual Trade
 @app.post("/api/trade")
 async def manual_trade(trade: ManualTradeModel):
-    if bot.system_locked:
-        raise HTTPException(status_code=400, detail="System is locked due to daily risk limit breach.")
+    # ponytail: system_locked check removed as requested by user
+    bot.system_locked = False
     
-    # Run filter check
-    passed = await bot.check_filters(trade.type)
+    # Run filter check for manual trade
+    passed = await bot.check_filters(trade.type, is_manual=True)
     if not passed:
         raise HTTPException(status_code=400, detail="Trade rejected by risk filters (spread/drawdown/news).")
+
+    sym = trade.symbol or bot.symbol
+    point = bot.get_symbol_point(sym)
+    sym_price = bot.get_current_price_for_symbol(sym)
+    
+    # Check if this is a Limit / Pending order
+    is_limit = trade.exec_type == "LIMIT" or (trade.trigger_price and trade.trigger_price > 0) or ("LIMIT" in trade.type) or ("STOP" in trade.type)
+
+    if is_limit:
+        trig_price = trade.trigger_price or (sym_price["ask"] if "BUY" in trade.type else sym_price["bid"])
+        pending = await bot.add_pending_order(
+            order_type=trade.type,
+            lot_size=trade.lot_size,
+            trigger_price=trig_price,
+            sl_points=trade.sl_points or 0.0,
+            tp_points=trade.tp_points or 0.0,
+            sl_price=trade.sl_price or 0.0,
+            tp_price=trade.tp_price or 0.0,
+            symbol=sym
+        )
+        return {"status": "pending_order_submitted", "ticket": pending["ticket"]}
+
+    open_price = sym_price["ask"] if trade.type == "BUY" else sym_price["bid"]
+
+    sl_pts = trade.sl_points or 0.0
+    tp_pts = trade.tp_points or 0.0
+
+    if trade.sl_price and trade.sl_price > 0:
+        sl_pts = round(abs(open_price - trade.sl_price) / point, 1)
+
+    if trade.tp_price and trade.tp_price > 0:
+        tp_pts = round(abs(open_price - trade.tp_price) / point, 1)
 
     # Place order as background task (non-blocking)
     asyncio.create_task(bot.execute_market_trade(
         order_type=trade.type,
         lot_size=trade.lot_size,
-        sl_points=trade.sl_points,
-        tp_points=trade.tp_points,
-        symbol=bot.symbol
+        sl_points=sl_pts,
+        tp_points=tp_pts,
+        symbol=sym
     ))
-    return {"status": "order_submitted"}
+    return {"status": "order_submitted", "sl_points": sl_pts, "tp_points": tp_pts}
+
+# Cancel Pending Order
+@app.post("/api/pending/cancel/{ticket}")
+async def cancel_pending_order_endpoint(ticket: int):
+    success = await bot.cancel_pending_order(ticket)
+    if not success:
+        raise HTTPException(status_code=404, detail="Pending order not found.")
+    return {"status": "success", "ticket": ticket}
 
 # Force Close Position
 @app.post("/api/close/{ticket}")
@@ -245,6 +292,12 @@ async def close_position_endpoint(ticket: int):
     # Close order asynchronously
     asyncio.create_task(bot.close_position(ticket))
     return {"status": "close_submitted", "ticket": ticket}
+
+# Force Close All Positions
+@app.post("/api/close-all")
+async def close_all_positions_endpoint():
+    asyncio.create_task(bot.close_all_positions())
+    return {"status": "close_all_submitted"}
 
 # Modify SL/TP of an open position
 @app.post("/api/modify-sltp/{ticket}")
