@@ -1625,7 +1625,7 @@
                         <td>${h.close_price.toFixed(dec)}</td>
                         <td class="${pipsClass}" style="font-weight: 700">${pips >= 0 ? '+' : ''}${pips.toFixed(1)}</td>
                         <td class="${colorClass}" style="font-weight: 800">${formatUSD(h.profit, true)}</td>
-                        <td>${h.close_time ? h.close_time.split('T')[1].substring(0,8) : '--:--:--'}</td>
+                        <td>${h.close_time ? h.close_time.replace('T', ' ').substring(0,19) : '--:--:--'}</td>
                     `;
                     hbody.appendChild(row);
                 });

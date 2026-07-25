@@ -1157,6 +1157,12 @@ class MT5TradingBot:
 
         # Symbol-specific Spread Filter check
         sym = symbol or self.symbol
+
+        # Weekend Market Filter check (Saturday=5, Sunday=6)
+        if not is_manual and datetime.now().weekday() in [5, 6]:
+            await self.log_event("FILTER_BLOCKED", f"Auto-trading signal ignored for {sym}. Forex market is closed on Weekends (Saturday & Sunday).")
+            return False
+
         sym_price = self.get_current_price_for_symbol(sym)
         spread = sym_price.get("spread", 0)
         
