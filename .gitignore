@@ -50,3 +50,6 @@ venv.bak/
 *.log
 logs/
 state_db.json
+.understand-anything-repo/
+.understand-anything/
+.ua/

@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ Confluence Algo Bot Dashboard</title>
-    <!-- Outfit Google Font -->
+    <title>Confluence Algo Bot — Terminal & Documentation</title>
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- TradingView Widget script -->
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     
@@ -18,10 +18,10 @@
             --border-color: #1e293b;
             --text-primary: #f8fafc;
             --text-secondary: #64748b;
-            --accent-primary: #38bdf8; /* Single Sky-Blue Accent */
+            --accent-primary: #38bdf8;
             --accent-secondary: #38bdf8;
-            --accent-success: #22c55e; /* Emerald Green */
-            --accent-danger: #ef4444; /* Crimson Red */
+            --accent-success: #22c55e;
+            --accent-danger: #ef4444;
             --accent-warning: #38bdf8;
             --font-main: 'Outfit', sans-serif;
             --font-mono: 'JetBrains Mono', monospace;
@@ -42,6 +42,276 @@
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
+        }
+
+        /* 3D LANDING PAGE STYLES */
+        #landingPageSection {
+            position: relative;
+            width: 100%;
+            min-height: 100vh;
+            background-color: #05070c;
+            z-index: 10;
+        }
+
+        canvas#heroCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            pointer-events: auto;
+            cursor: grab;
+        }
+
+        canvas#heroCanvas:active {
+            cursor: grabbing;
+        }
+
+        .landing-vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 2;
+            background: radial-gradient(circle at center, transparent 35%, rgba(5, 7, 12, 0.88) 95%);
+        }
+
+        .landing-scroll-wrapper {
+            position: relative;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .landing-scroll-wrapper section {
+            pointer-events: auto;
+        }
+
+        .landing-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+            padding: 20px 48px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(9, 13, 22, 0.7);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .landing-nav .brand-logo {
+            font-family: 'Cinzel', serif;
+            font-weight: 900;
+            font-size: 1.15rem;
+            letter-spacing: 2px;
+            color: #f8fafc;
+        }
+
+        .landing-nav .nav-menu {
+            display: flex;
+            gap: 28px;
+            align-items: center;
+        }
+
+        .landing-nav .nav-menu a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            transition: color 0.3s;
+        }
+
+        .landing-nav .nav-menu a:hover {
+            color: var(--accent-primary);
+        }
+
+        .btn-enter-terminal-nav {
+            padding: 0.45rem 1rem;
+            border-radius: 6px;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid var(--accent-primary);
+            color: var(--accent-primary);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-enter-terminal-nav:hover {
+            background: var(--accent-primary);
+            color: #090d16;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+        }
+
+        /* LANDING SECTIONS */
+        .landing-hero {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 48px;
+            position: relative;
+        }
+
+        .landing-hero-content {
+            max-width: 560px;
+        }
+
+        .landing-hero .badge-tag {
+            font-size: 0.7rem;
+            letter-spacing: 3px;
+            color: var(--accent-primary);
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .landing-hero h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 4.2rem;
+            font-weight: 900;
+            line-height: 0.95;
+            letter-spacing: -1px;
+            margin-bottom: 24px;
+            color: #f8fafc;
+        }
+
+        .landing-hero p {
+            font-size: 0.95rem;
+            color: #94a3b8;
+            line-height: 1.8;
+            max-width: 440px;
+        }
+
+        .landing-scroll-hint {
+            position: absolute;
+            bottom: 48px;
+            right: 48px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .landing-scroll-hint span {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--accent-primary);
+            writing-mode: vertical-rl;
+        }
+
+        .landing-scroll-hint .scroll-line {
+            width: 2px;
+            height: 60px;
+            background: linear-gradient(to bottom, var(--accent-primary), transparent);
+            animation: scrollPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes scrollPulse {
+            0%, 100% { opacity: 0.3; transform: scaleY(0.5); }
+            50% { opacity: 1; transform: scaleY(1); }
+        }
+
+        .landing-info-section {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 80px 48px;
+            position: relative;
+        }
+
+        .landing-info-section .text-card {
+            max-width: 460px;
+            background: rgba(17, 23, 38, 0.6);
+            padding: 40px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .landing-info-section.left .text-card { margin-right: auto; }
+        .landing-info-section.right .text-card { margin-left: auto; }
+
+        .landing-info-section .section-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--accent-primary);
+            margin-bottom: 14px;
+            font-weight: 700;
+        }
+
+        .landing-info-section h2 {
+            font-family: 'Cinzel', serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            line-height: 1.15;
+            margin-bottom: 18px;
+            color: #f8fafc;
+        }
+
+        .landing-info-section p {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            line-height: 1.8;
+        }
+
+        .landing-info-section .spec-bullets {
+            list-style: none;
+            margin-top: 20px;
+        }
+
+        .landing-info-section .spec-bullets li {
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .landing-cta-section {
+            min-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 48px;
+            text-align: center;
+        }
+
+        .btn-start-bot-main {
+            padding: 1.2rem 3rem;
+            font-size: 1.1rem;
+            font-weight: 800;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #090d16;
+            background: linear-gradient(135deg, #38bdf8, #0284c7);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
+            transition: all 0.3s ease;
+            margin-top: 24px;
+        }
+
+        .btn-start-bot-main:hover {
+            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 0 50px rgba(56, 189, 248, 0.7);
         }
 
         /* Layout Header */
@@ -729,11 +999,119 @@
 </head>
 <body>
 
+    <!-- 3D INTERACTIVE LANDING PAGE SECTION -->
+    <div id="landingPageSection">
+        <canvas id="heroCanvas"></canvas>
+        <div class="landing-vignette"></div>
+
+        <nav class="landing-nav">
+            <div class="brand-logo">CONFLUENCE ALGO BOT</div>
+            <div class="nav-menu">
+                <a href="#section-arch">Architecture</a>
+                <a href="#section-strat">Strategy</a>
+                <a href="#section-risk">Risk</a>
+                <a href="#section-specs">Telemetry</a>
+                <button class="btn-enter-terminal-nav" onclick="enterTerminal()">Skip to Terminal</button>
+            </div>
+        </nav>
+
+        <div class="landing-scroll-wrapper">
+            <!-- HERO -->
+            <section class="landing-hero">
+                <div class="landing-hero-content">
+                    <div class="badge-tag">Institutional Algorithmic Trading System</div>
+                    <h1>CONFLUENCE ALGO BOT</h1>
+                    <p>High-frequency multi-indicator trading engine engineered with Fibonacci retracements, multi-EMA trend filters, RSI reversals, and multi-layered risk guards.</p>
+                </div>
+                <div class="landing-scroll-hint">
+                    <span>Scroll to Explore</span>
+                    <div class="scroll-line"></div>
+                </div>
+            </section>
+
+            <!-- SECTION 01: ARCHITECTURE -->
+            <section id="section-arch" class="landing-info-section left">
+                <div class="text-card">
+                    <div class="section-label">01 — System Architecture</div>
+                    <h2>3-Tier Modular Infrastructure</h2>
+                    <p>Built for zero latency and fault-tolerant operation under volatile market conditions.</p>
+                    <ul class="spec-bullets">
+                        <li><span>Presentation & UI Layer</span><span>Vanilla CSS + WebGL</span></li>
+                        <li><span>API Gateway & Telemetry</span><span>FastAPI + WebSockets</span></li>
+                        <li><span>Core Trading Engine</span><span>Python AsyncIO</span></li>
+                        <li><span>Execution Protocol</span><span>MT5 Zero-Latency API</span></li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SECTION 02: STRATEGY -->
+            <section id="section-strat" class="landing-info-section right">
+                <div class="text-card">
+                    <div class="section-label">02 — Confluence Strategy</div>
+                    <h2>High-Probability Signal Confluence</h2>
+                    <p>Executes trades strictly when all 4 quantitative conditions align perfectly in real-time.</p>
+                    <ul class="spec-bullets">
+                        <li><span>Fibonacci Retracement</span><span>50.0% / 61.8% Zone</span></li>
+                        <li><span>Trend Alignment</span><span>EMA 10 / 34 / 89 / 200</span></li>
+                        <li><span>Momentum Trigger</span><span>RSI Oversold / Overbought</span></li>
+                        <li><span>Risk-Reward Ratio</span><span>1 : 3 Minimum</span></li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SECTION 03: RISK GATEKEEPER -->
+            <section id="section-risk" class="landing-info-section left">
+                <div class="text-card">
+                    <div class="section-label">03 — Risk Gatekeeper</div>
+                    <h2>Multi-Layer Safety Protocols</h2>
+                    <p>Guarding equity against unexpected slippage, high-impact news spikes, and illiquid weekend spreads.</p>
+                    <ul class="spec-bullets">
+                        <li><span>Spread Guard</span><span>Automatic Max Limit</span></li>
+                        <li><span>High-Impact News Filter</span><span>ForexFactory Calendar</span></li>
+                        <li><span>Weekend Closure Filter</span><span>Saturday/Sunday Lockdown</span></li>
+                        <li><span>Cooldown Protection</span><span>Post-Trade Pause</span></li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SECTION 04: TELEMETRY -->
+            <section id="section-specs" class="landing-info-section right">
+                <div class="text-card">
+                    <div class="section-label">04 — Execution & Telemetry</div>
+                    <h2>Real-Time Performance Tracking</h2>
+                    <p>Instantaneous WebSocket data feeds stream live order updates, floating PnL, and account metrics.</p>
+                    <ul class="spec-bullets">
+                        <li><span>WebSocket Latency</span><span>50ms Stream</span></li>
+                        <li><span>Simulation Engine</span><span>Paper Trading Mode</span></li>
+                        <li><span>Live MT5 Terminal</span><span>Direct Broker Bridge</span></li>
+                        <li><span>Trailing SL/TP</span><span>Dynamic Breakeven</span></li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SECTION 05: LAUNCH CTA -->
+            <section class="landing-cta-section">
+                <div class="section-label">05 — Terminal Access</div>
+                <h2 style="font-family: 'Cinzel', serif; font-size: 3rem; margin-top: 10px; color: #f8fafc;">READY TO TRADE</h2>
+                <p style="color: #94a3b8; max-width: 480px; margin-top: 12px; font-size: 0.95rem; line-height: 1.7;">
+                    Launch the live institutional trading dashboard to monitor real-time signals, adjust risk parameters, and manage active positions.
+                </p>
+                <button class="btn-start-bot-main" onclick="enterTerminal()">START BOT & ENTER TERMINAL</button>
+            </section>
+        </div>
+    </div>
+
+    <!-- LIVE TRADING TERMINAL SECTION -->
+    <div id="tradingTerminalSection" style="display: none; width: 100%; flex-direction: column;">
+
     <header>
         <div class="header-title">
             <h1 style="font-size: 1.1rem; font-weight: 800; color: var(--accent-primary); letter-spacing: 0.5px;">CONFLUENCE ALGO BOT</h1>
         </div>
         <div class="header-right">
+            <button class="btn-secondary" onclick="showLandingPage()" style="padding: 0.3rem 0.75rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">
+                Documentation
+            </button>
             <!-- Auto Trading Switch -->
             <div class="toggle-container">
                 <span class="toggle-label" id="toggle-trading-label">AUTO TRADING: OFF</span>
@@ -2518,7 +2896,7 @@
     <!-- Modify SL/TP Modal -->
     <div id="modify-sltp-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
         <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:1.5rem; min-width:320px; max-width:400px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
-            <h3 style="margin:0 0 0.3rem 0; color:var(--text-primary); font-size:1rem;">✏️ Modify SL / TP</h3>
+            <h3 style="margin:0 0 0.3rem 0; color:var(--text-primary); font-size:1rem;">Modify SL / TP</h3>
             <p style="margin:0 0 1rem 0; color:var(--text-secondary); font-size:0.8rem;">Ticket: <span id="modify-ticket-display" style="color:var(--accent-primary); font-weight:700;"></span></p>
             <div style="display:flex; gap:0.75rem; margin-bottom:1rem;">
                 <div style="flex:1;">
@@ -2532,10 +2910,199 @@
             </div>
             <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
                 <button class="btn-secondary" style="padding:0.35rem 0.8rem; font-size:0.75rem;" onclick="closeModifyModal()">Cancel</button>
-                <button class="btn-primary" style="padding:0.35rem 0.8rem; font-size:0.75rem;" onclick="submitModifySLTP()">💾 Save</button>
+                <button class="btn-primary" style="padding:0.35rem 0.8rem; font-size:0.75rem;" onclick="submitModifySLTP()">Save Changes</button>
             </div>
         </div>
     </div>
+
+    </div><!-- END #tradingTerminalSection -->
+
+    <!-- GLOBAL NAVIGATION SCRIPT (Guaranteed to execute immediately) -->
+    <script>
+        function enterTerminal() {
+            const landing = document.getElementById('landingPageSection');
+            const terminal = document.getElementById('tradingTerminalSection');
+            if (landing) landing.style.display = 'none';
+            if (terminal) terminal.style.display = 'flex';
+            window.scrollTo({ top: 0, behavior: 'instant' });
+            if (typeof loadTradingViewWidget === 'function') loadTradingViewWidget();
+        }
+
+        function showLandingPage() {
+            const landing = document.getElementById('landingPageSection');
+            const terminal = document.getElementById('tradingTerminalSection');
+            if (landing) landing.style.display = 'block';
+            if (terminal) terminal.style.display = 'none';
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        }
+
+        window.enterTerminal = enterTerminal;
+        window.showLandingPage = showLandingPage;
+    </script>
+
+    <!-- THREE.JS 3D ENGINE SCRIPT (100% Local Bundle, Immunity to AdBlock & CORS) -->
+    <script src="/static/three.min.js"></script>
+    <script src="/static/GLTFLoader.js"></script>
+    <script>
+        (function() {
+            try {
+                const canvas = document.getElementById('heroCanvas');
+                if (!canvas) return;
+
+                const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.setClearColor(0x05070c, 1);
+
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+                camera.position.set(0, 0, 4);
+
+                // Lighting Setup for DamagedHelmet
+                const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+                scene.add(ambientLight);
+
+                const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.5);
+                dirLight1.position.set(5, 5, 5);
+                scene.add(dirLight1);
+
+                const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 2.0);
+                dirLight2.position.set(-4, 3, -2);
+                scene.add(dirLight2);
+
+                const dirLight3 = new THREE.DirectionalLight(0x8899bb, 1.2);
+                dirLight3.position.set(0, -3, 4);
+                scene.add(dirLight3);
+
+                let headModel = null;
+
+                // Load DamagedHelmet 3D Model locally
+                if (typeof THREE.GLTFLoader !== 'undefined') {
+                    const loader = new THREE.GLTFLoader();
+                    loader.load('/static/DamagedHelmet/DamagedHelmet.gltf', function(gltf) {
+                        headModel = gltf.scene;
+
+                        const box = new THREE.Box3().setFromObject(headModel);
+                        const center = box.getCenter(new THREE.Vector3());
+                        headModel.position.sub(center);
+
+                        headModel.scale.set(1.2, 1.2, 1.2);
+                        scene.add(headModel);
+                    }, undefined, function(err) {
+                        console.warn('DamagedHelmet GLTF loading note:', err);
+                    });
+                }
+
+                // Scroll & Orbit Physics for DamagedHelmet
+                const sections = [
+                    { scrollStart: 0.00, scrollEnd: 0.15, posX: 0.5, posY: 0, rotX: 0, rotY: 0, rotZ: 0, camZ: 3.0, scale: 1.2 },
+                    { scrollStart: 0.15, scrollEnd: 0.35, posX: 1.5, posY: 0, rotX: 0.2, rotY: 0.8, rotZ: 0.1, camZ: 2.6, scale: 1.3 },
+                    { scrollStart: 0.35, scrollEnd: 0.55, posX: -1.0, posY: 0, rotX: -0.1, rotY: 2.2, rotZ: -0.05, camZ: 2.4, scale: 1.35 },
+                    { scrollStart: 0.55, scrollEnd: 0.70, posX: 0, posY: 0, rotX: 0, rotY: Math.PI, rotZ: 0, camZ: 3.0, scale: 1.1 },
+                    { scrollStart: 0.70, scrollEnd: 0.85, posX: 0.8, posY: -0.1, rotX: 0.3, rotY: 4.5, rotZ: 0.15, camZ: 2.2, scale: 1.4 },
+                    { scrollStart: 0.85, scrollEnd: 1.00, posX: -0.8, posY: 0, rotX: -0.15, rotY: Math.PI * 2, rotZ: 0.1, camZ: 2.8, scale: 1.2 },
+                ];
+
+                function lerp(a, b, t) { return a + (b - a) * t; }
+                function smoothstep(a, b, t) {
+                    const x = Math.max(0, Math.min(1, (t - a) / (b - a)));
+                    return x * x * (3 - 2 * x);
+                }
+
+                let scrollProgress = 0;
+                let targetScrollProgress = 0;
+                let isDragging = false;
+                let dragStartX = 0;
+                let dragStartY = 0;
+                let orbitX = 0;
+                let orbitY = 0;
+                let targetOrbitX = 0;
+                let targetOrbitY = 0;
+
+                window.addEventListener('pointerdown', function(e) {
+                    const landing = document.getElementById('landingPageSection');
+                    if (landing && landing.style.display === 'none') return;
+                    isDragging = true;
+                    dragStartX = e.clientX;
+                    dragStartY = e.clientY;
+                });
+
+                window.addEventListener('pointermove', function(e) {
+                    if (!isDragging) return;
+                    const dx = e.clientX - dragStartX;
+                    const dy = e.clientY - dragStartY;
+                    targetOrbitX = dx * 0.007;
+                    targetOrbitY = dy * 0.007;
+                });
+
+                window.addEventListener('pointerup', function() { isDragging = false; });
+
+                window.addEventListener('scroll', function() {
+                    const landing = document.getElementById('landingPageSection');
+                    if (landing && landing.style.display === 'none') return;
+                    const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+                    targetScrollProgress = scrollHeight > 0 ? window.scrollY / scrollHeight : 0;
+                });
+
+                window.addEventListener('resize', function() {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+
+                function animate() {
+                    requestAnimationFrame(animate);
+                    scrollProgress += (targetScrollProgress - scrollProgress) * 0.06;
+
+                    const landing = document.getElementById('landingPageSection');
+                    if (headModel && landing && landing.style.display !== 'none') {
+                        let currentSection = sections[0];
+                        let nextSection = sections[1];
+                        let localT = 0;
+
+                        for (let i = 0; i < sections.length; i++) {
+                            if (scrollProgress >= sections[i].scrollStart && scrollProgress <= sections[i].scrollEnd) {
+                                currentSection = sections[i];
+                                nextSection = sections[Math.min(i + 1, sections.length - 1)];
+                                localT = smoothstep(currentSection.scrollStart, currentSection.scrollEnd, scrollProgress);
+                                break;
+                            }
+                        }
+
+                        const posX = lerp(currentSection.posX, nextSection.posX, localT);
+                        const posY = lerp(currentSection.posY, nextSection.posY, localT);
+                        const rotX = lerp(currentSection.rotX, nextSection.rotX, localT);
+                        const rotY = lerp(currentSection.rotY, nextSection.rotY, localT);
+                        const rotZ = lerp(currentSection.rotZ, nextSection.rotZ, localT);
+                        const camZ = lerp(currentSection.camZ, nextSection.camZ, localT);
+                        const scale = lerp(currentSection.scale, nextSection.scale, localT);
+
+                        if (isDragging) {
+                            orbitX += (targetOrbitX - orbitX) * 0.15;
+                            orbitY += (targetOrbitY - orbitY) * 0.15;
+                        } else {
+                            orbitX += (0 - orbitX) * 0.04;
+                            orbitY += (0 - orbitY) * 0.04;
+                        }
+
+                        headModel.position.x = posX;
+                        headModel.position.y = posY;
+                        headModel.rotation.x = rotX + orbitY;
+                        headModel.rotation.y = rotY + Math.sin(Date.now() * 0.0004) * 0.04 + orbitX;
+                        headModel.rotation.z = rotZ;
+                        headModel.scale.setScalar(scale);
+
+                        camera.position.z = camZ;
+                        renderer.render(scene, camera);
+                    }
+                }
+
+                animate();
+            } catch (err) {
+                console.error('Three.js setup note:', err);
+            }
+        })();
+    </script>
 
 </body>
 </html>
