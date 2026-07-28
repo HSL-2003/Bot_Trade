@@ -2951,12 +2951,27 @@
         function showLandingPage() {
             const landing = document.getElementById('landingPageSection');
             const terminal = document.getElementById('tradingTerminalSection');
-            if (landing) landing.style.display = 'block';
-            if (terminal) terminal.style.display = 'none';
-            window.scrollTo({ top: 0, behavior: 'instant' });
-            if (typeof window.resetEyeZoom === 'function') {
-                window.resetEyeZoom();
+            
+            if (terminal) {
+                terminal.style.opacity = '0';
+                terminal.style.transform = 'translateY(15px)';
+                terminal.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
             }
+            
+            // Scroll to top immediately to reset scroll metrics
+            window.scrollTo({ top: 0, behavior: 'instant' });
+
+            setTimeout(function() {
+                if (terminal) terminal.style.display = 'none';
+                if (landing) landing.style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'instant' });
+
+                if (typeof window.triggerReverseEyeZoomTransition === 'function') {
+                    window.triggerReverseEyeZoomTransition();
+                } else if (typeof window.resetEyeZoom === 'function') {
+                    window.resetEyeZoom();
+                }
+            }, 300);
         }
 
         window.enterTerminal = enterTerminal;
@@ -3044,6 +3059,7 @@
 
                 // Cinematic Eye-Visor Zoom Transition State
                 let isZoomingToEye = false;
+                let isZoomingOutFromEye = false;
                 let zoomProgress = 0;
                 let initialZoomCamZ = 3.0;
                 let initialZoomPosX = 0;
@@ -3052,8 +3068,9 @@
                 let initialZoomRotY = 0;
 
                 window.triggerEyeZoomTransition = function(onComplete) {
-                    if (isZoomingToEye) return;
+                    if (isZoomingToEye || isZoomingOutFromEye) return;
                     isZoomingToEye = true;
+                    isZoomingOutFromEye = false;
                     zoomProgress = 0;
                     
                     if (headModel) {
@@ -3065,7 +3082,7 @@
                     }
 
                     const startTime = performance.now();
-                    const duration = 750; // 750ms zoom effect
+                    const duration = 750;
 
                     function step(now) {
                         const elapsed = now - startTime;
@@ -3079,23 +3096,72 @@
                     requestAnimationFrame(step);
                 };
 
+                window.triggerReverseEyeZoomTransition = function(onComplete) {
+                    isZoomingToEye = false;
+                    isZoomingOutFromEye = true;
+                    zoomProgress = 0;
+                    scrollProgress = 0;
+                    targetScrollProgress = 0;
+
+                    camera.position.z = 0.12;
+                    if (headModel) {
+                        headModel.position.x = 0;
+                        headModel.position.y = 0;
+                        headModel.rotation.x = 0;
+                        headModel.rotation.y = 0;
+                    }
+
+                    const startTime = performance.now();
+                    const duration = 750;
+
+                    function step(now) {
+                        const elapsed = now - startTime;
+                        zoomProgress = Math.min(elapsed / duration, 1.0);
+                        if (zoomProgress < 1.0) {
+                            requestAnimationFrame(step);
+                        } else {
+                            isZoomingOutFromEye = false;
+                            scrollProgress = 0;
+                            targetScrollProgress = 0;
+                            if (headModel) {
+                                headModel.position.x = 0.5; // Always land on the RIGHT side for hero section!
+                                headModel.position.y = 0;
+                                headModel.rotation.x = 0;
+                                headModel.rotation.y = 0;
+                            }
+                            camera.position.z = 3.0;
+                            if (typeof onComplete === 'function') onComplete();
+                        }
+                    }
+                    requestAnimationFrame(step);
+                };
+
                 window.resetEyeZoom = function() {
                     isZoomingToEye = false;
+                    isZoomingOutFromEye = false;
                     zoomProgress = 0;
+                    scrollProgress = 0;
+                    targetScrollProgress = 0;
                     camera.position.z = 3.0;
+                    if (headModel) {
+                        headModel.position.x = 0.5;
+                        headModel.position.y = 0;
+                        headModel.rotation.x = 0;
+                        headModel.rotation.y = 0;
+                    }
                 };
 
                 window.addEventListener('pointerdown', function(e) {
                     const landing = document.getElementById('landingPageSection');
                     if (landing && landing.style.display === 'none') return;
-                    if (isZoomingToEye) return;
+                    if (isZoomingToEye || isZoomingOutFromEye) return;
                     isDragging = true;
                     dragStartX = e.clientX;
                     dragStartY = e.clientY;
                 });
 
                 window.addEventListener('pointermove', function(e) {
-                    if (!isDragging || isZoomingToEye) return;
+                    if (!isDragging || isZoomingToEye || isZoomingOutFromEye) return;
                     const dx = e.clientX - dragStartX;
                     const dy = e.clientY - dragStartY;
                     targetOrbitX = dx * 0.007;
@@ -3107,9 +3173,15 @@
                 window.addEventListener('scroll', function() {
                     const landing = document.getElementById('landingPageSection');
                     if (landing && landing.style.display === 'none') return;
-                    if (isZoomingToEye) return;
+                    if (isZoomingToEye || isZoomingOutFromEye) return;
                     const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
                     targetScrollProgress = scrollHeight > 0 ? window.scrollY / scrollHeight : 0;
+
+                    if (targetScrollProgress >= 0.985) {
+                        if (typeof window.enterTerminal === 'function') {
+                            window.enterTerminal();
+                        }
+                    }
                 });
 
                 window.addEventListener('resize', function() {
@@ -3124,7 +3196,7 @@
                     const landing = document.getElementById('landingPageSection');
                     if (headModel && landing && landing.style.display !== 'none') {
                         if (isZoomingToEye) {
-                            // Cinematic Zoom Easing: Camera dives into the dark helmet eye visor
+                            // Forward Zoom: Camera dives into dark eye visor
                             const t = zoomProgress * zoomProgress * (3 - 2 * zoomProgress);
                             
                             headModel.position.x = lerp(initialZoomPosX, 0, t);
@@ -3132,8 +3204,21 @@
                             headModel.rotation.x = lerp(initialZoomRotX, 0, t);
                             headModel.rotation.y = lerp(initialZoomRotY, 0, t);
                             
-                            // Dive camera through visor inside
                             camera.position.z = lerp(initialZoomCamZ, 0.12, t);
+                            renderer.render(scene, camera);
+                            return;
+                        }
+
+                        if (isZoomingOutFromEye) {
+                            // Reverse Zoom: Camera zooms OUT from dark eye visor back into 3D hero scene
+                            const t = zoomProgress * zoomProgress * (3 - 2 * zoomProgress);
+
+                            headModel.position.x = lerp(0, 0.5, t);
+                            headModel.position.y = lerp(0, 0, t);
+                            headModel.rotation.x = lerp(0, 0, t);
+                            headModel.rotation.y = lerp(0, 0, t);
+
+                            camera.position.z = lerp(0.12, 3.0, t);
                             renderer.render(scene, camera);
                             return;
                         }
