@@ -2920,12 +2920,32 @@
     <!-- GLOBAL NAVIGATION SCRIPT (Guaranteed to execute immediately) -->
     <script>
         function enterTerminal() {
-            const landing = document.getElementById('landingPageSection');
-            const terminal = document.getElementById('tradingTerminalSection');
-            if (landing) landing.style.display = 'none';
-            if (terminal) terminal.style.display = 'flex';
-            window.scrollTo({ top: 0, behavior: 'instant' });
-            if (typeof loadTradingViewWidget === 'function') loadTradingViewWidget();
+            if (typeof window.triggerEyeZoomTransition === 'function') {
+                window.triggerEyeZoomTransition(function() {
+                    const landing = document.getElementById('landingPageSection');
+                    const terminal = document.getElementById('tradingTerminalSection');
+                    if (landing) landing.style.display = 'none';
+                    if (terminal) {
+                        terminal.style.display = 'flex';
+                        terminal.style.opacity = '0';
+                        terminal.style.transform = 'translateY(15px)';
+                        terminal.style.transition = 'opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
+                        requestAnimationFrame(function() {
+                            terminal.style.opacity = '1';
+                            terminal.style.transform = 'translateY(0)';
+                        });
+                    }
+                    window.scrollTo({ top: 0, behavior: 'instant' });
+                    if (typeof loadTradingViewWidget === 'function') loadTradingViewWidget();
+                });
+            } else {
+                const landing = document.getElementById('landingPageSection');
+                const terminal = document.getElementById('tradingTerminalSection');
+                if (landing) landing.style.display = 'none';
+                if (terminal) terminal.style.display = 'flex';
+                window.scrollTo({ top: 0, behavior: 'instant' });
+                if (typeof loadTradingViewWidget === 'function') loadTradingViewWidget();
+            }
         }
 
         function showLandingPage() {
@@ -2934,6 +2954,9 @@
             if (landing) landing.style.display = 'block';
             if (terminal) terminal.style.display = 'none';
             window.scrollTo({ top: 0, behavior: 'instant' });
+            if (typeof window.resetEyeZoom === 'function') {
+                window.resetEyeZoom();
+            }
         }
 
         window.enterTerminal = enterTerminal;
@@ -3019,16 +3042,60 @@
                 let targetOrbitX = 0;
                 let targetOrbitY = 0;
 
+                // Cinematic Eye-Visor Zoom Transition State
+                let isZoomingToEye = false;
+                let zoomProgress = 0;
+                let initialZoomCamZ = 3.0;
+                let initialZoomPosX = 0;
+                let initialZoomPosY = 0;
+                let initialZoomRotX = 0;
+                let initialZoomRotY = 0;
+
+                window.triggerEyeZoomTransition = function(onComplete) {
+                    if (isZoomingToEye) return;
+                    isZoomingToEye = true;
+                    zoomProgress = 0;
+                    
+                    if (headModel) {
+                        initialZoomCamZ = camera.position.z;
+                        initialZoomPosX = headModel.position.x;
+                        initialZoomPosY = headModel.position.y;
+                        initialZoomRotX = headModel.rotation.x;
+                        initialZoomRotY = headModel.rotation.y;
+                    }
+
+                    const startTime = performance.now();
+                    const duration = 750; // 750ms zoom effect
+
+                    function step(now) {
+                        const elapsed = now - startTime;
+                        zoomProgress = Math.min(elapsed / duration, 1.0);
+                        if (zoomProgress < 1.0) {
+                            requestAnimationFrame(step);
+                        } else {
+                            if (typeof onComplete === 'function') onComplete();
+                        }
+                    }
+                    requestAnimationFrame(step);
+                };
+
+                window.resetEyeZoom = function() {
+                    isZoomingToEye = false;
+                    zoomProgress = 0;
+                    camera.position.z = 3.0;
+                };
+
                 window.addEventListener('pointerdown', function(e) {
                     const landing = document.getElementById('landingPageSection');
                     if (landing && landing.style.display === 'none') return;
+                    if (isZoomingToEye) return;
                     isDragging = true;
                     dragStartX = e.clientX;
                     dragStartY = e.clientY;
                 });
 
                 window.addEventListener('pointermove', function(e) {
-                    if (!isDragging) return;
+                    if (!isDragging || isZoomingToEye) return;
                     const dx = e.clientX - dragStartX;
                     const dy = e.clientY - dragStartY;
                     targetOrbitX = dx * 0.007;
@@ -3040,6 +3107,7 @@
                 window.addEventListener('scroll', function() {
                     const landing = document.getElementById('landingPageSection');
                     if (landing && landing.style.display === 'none') return;
+                    if (isZoomingToEye) return;
                     const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
                     targetScrollProgress = scrollHeight > 0 ? window.scrollY / scrollHeight : 0;
                 });
@@ -3052,10 +3120,26 @@
 
                 function animate() {
                     requestAnimationFrame(animate);
-                    scrollProgress += (targetScrollProgress - scrollProgress) * 0.06;
 
                     const landing = document.getElementById('landingPageSection');
                     if (headModel && landing && landing.style.display !== 'none') {
+                        if (isZoomingToEye) {
+                            // Cinematic Zoom Easing: Camera dives into the dark helmet eye visor
+                            const t = zoomProgress * zoomProgress * (3 - 2 * zoomProgress);
+                            
+                            headModel.position.x = lerp(initialZoomPosX, 0, t);
+                            headModel.position.y = lerp(initialZoomPosY, 0, t);
+                            headModel.rotation.x = lerp(initialZoomRotX, 0, t);
+                            headModel.rotation.y = lerp(initialZoomRotY, 0, t);
+                            
+                            // Dive camera through visor inside
+                            camera.position.z = lerp(initialZoomCamZ, 0.12, t);
+                            renderer.render(scene, camera);
+                            return;
+                        }
+
+                        scrollProgress += (targetScrollProgress - scrollProgress) * 0.06;
+
                         let currentSection = sections[0];
                         let nextSection = sections[1];
                         let localT = 0;
