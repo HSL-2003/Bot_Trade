@@ -30918,5 +30918,1655 @@
         "close_price": 4052.99,
         "profit": 56.32,
         "close_time": "2026-07-25T08:17:54.849314"
+    },
+    {
+        "ticket": 4894580,
+        "symbol": "XAUUSD",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 4043.91,
+        "close_price": 4028.91,
+        "profit": 450.0,
+        "close_time": "2026-07-28T16:57:31.094913"
+    },
+    {
+        "ticket": 5696358,
+        "symbol": "XAUUSD",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 4042.78,
+        "close_price": 4027.78,
+        "profit": 450.0,
+        "close_time": "2026-07-28T16:57:59.800830"
+    },
+    {
+        "ticket": 8034734,
+        "symbol": "XAUUSD",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 4042.41,
+        "close_price": 4027.41,
+        "profit": 450.0,
+        "close_time": "2026-07-28T16:57:59.886556"
+    },
+    {
+        "ticket": 4467862,
+        "symbol": "EURUSD",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 1.13694,
+        "close_price": 1.13581,
+        "profit": 33.9,
+        "close_time": "2026-07-29T08:10:28.017280"
+    },
+    {
+        "ticket": 9794439,
+        "symbol": "EURUSD",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 1.13724,
+        "close_price": 1.13581,
+        "profit": 42.9,
+        "close_time": "2026-07-29T08:10:28.419502"
+    },
+    {
+        "ticket": 4515688,
+        "symbol": "EURUSD",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 1.13718,
+        "close_price": 1.13581,
+        "profit": 41.1,
+        "close_time": "2026-07-29T08:10:30.100547"
+    },
+    {
+        "ticket": 4634713,
+        "symbol": "EURUSD",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 1.1365,
+        "close_price": 1.13581,
+        "profit": 20.7,
+        "close_time": "2026-07-29T08:10:31.272100"
+    },
+    {
+        "ticket": 4645958,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.7,
+        "close_price": 80.65,
+        "profit": 1.5,
+        "close_time": "2026-07-29T08:10:31.839782"
+    },
+    {
+        "ticket": 3017188,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.7,
+        "close_price": 80.65,
+        "profit": 1.5,
+        "close_time": "2026-07-29T08:10:32.566766"
+    },
+    {
+        "ticket": 7554137,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.66,
+        "close_price": 80.65,
+        "profit": 0.3,
+        "close_time": "2026-07-29T08:10:33.249742"
+    },
+    {
+        "ticket": 2844023,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.66,
+        "close_price": 80.65,
+        "profit": 0.3,
+        "close_time": "2026-07-29T08:10:33.519287"
+    },
+    {
+        "ticket": 4679941,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.66,
+        "close_price": 80.65,
+        "profit": 0.3,
+        "close_time": "2026-07-29T08:10:34.010114"
+    },
+    {
+        "ticket": 2089765,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.69,
+        "close_price": 80.65,
+        "profit": 1.2,
+        "close_time": "2026-07-29T08:10:34.354640"
+    },
+    {
+        "ticket": 3057117,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.69,
+        "close_price": 80.65,
+        "profit": 1.2,
+        "close_time": "2026-07-29T08:10:34.678678"
+    },
+    {
+        "ticket": 3797080,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.79,
+        "close_price": 80.65,
+        "profit": 4.2,
+        "close_time": "2026-07-29T08:10:34.921410"
+    },
+    {
+        "ticket": 4483202,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.79,
+        "close_price": 80.65,
+        "profit": 4.2,
+        "close_time": "2026-07-29T08:10:35.158988"
+    },
+    {
+        "ticket": 5760176,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.83,
+        "close_price": 80.65,
+        "profit": 5.4,
+        "close_time": "2026-07-29T08:10:35.382899"
+    },
+    {
+        "ticket": 9004002,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.83,
+        "close_price": 80.65,
+        "profit": 5.4,
+        "close_time": "2026-07-29T08:10:35.596655"
+    },
+    {
+        "ticket": 9378578,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.79,
+        "close_price": 80.65,
+        "profit": 4.2,
+        "close_time": "2026-07-29T08:10:35.817809"
+    },
+    {
+        "ticket": 6073847,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.79,
+        "close_price": 80.65,
+        "profit": 4.2,
+        "close_time": "2026-07-29T08:10:36.023583"
+    },
+    {
+        "ticket": 1201226,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.81,
+        "close_price": 80.65,
+        "profit": 4.8,
+        "close_time": "2026-07-29T08:10:36.232239"
+    },
+    {
+        "ticket": 4545887,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.81,
+        "close_price": 80.65,
+        "profit": 4.8,
+        "close_time": "2026-07-29T08:10:36.431047"
+    },
+    {
+        "ticket": 4627927,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.82,
+        "close_price": 80.65,
+        "profit": 5.1,
+        "close_time": "2026-07-29T08:10:36.661041"
+    },
+    {
+        "ticket": 9150123,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.82,
+        "close_price": 80.65,
+        "profit": 5.1,
+        "close_time": "2026-07-29T08:10:36.835227"
+    },
+    {
+        "ticket": 2026235,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.7,
+        "close_price": 80.65,
+        "profit": 1.5,
+        "close_time": "2026-07-29T08:10:37.033219"
+    },
+    {
+        "ticket": 9233453,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.7,
+        "close_price": 80.65,
+        "profit": 1.5,
+        "close_time": "2026-07-29T08:10:37.588344"
+    },
+    {
+        "ticket": 2669846,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.7,
+        "close_price": 80.65,
+        "profit": 1.5,
+        "close_time": "2026-07-29T08:10:37.914872"
+    },
+    {
+        "ticket": 4546535,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.7,
+        "close_price": 80.65,
+        "profit": 1.5,
+        "close_time": "2026-07-29T08:10:38.259287"
+    },
+    {
+        "ticket": 4972566,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.69,
+        "close_price": 80.65,
+        "profit": 1.2,
+        "close_time": "2026-07-29T08:10:38.427678"
+    },
+    {
+        "ticket": 9868433,
+        "symbol": "EURUSD",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 1.13602,
+        "close_price": 1.13581,
+        "profit": 6.3,
+        "close_time": "2026-07-29T08:10:38.825158"
+    },
+    {
+        "ticket": 7259105,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.3,
+        "open_price": 80.71,
+        "close_price": 80.65,
+        "profit": 1.8,
+        "close_time": "2026-07-29T08:10:39.113654"
+    },
+    {
+        "ticket": 8667679,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.34,
+        "open_price": 80.66,
+        "close_price": 80.65,
+        "profit": 0.34,
+        "close_time": "2026-07-29T08:10:39.339652"
+    },
+    {
+        "ticket": 4711330,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.34,
+        "open_price": 80.74,
+        "close_price": 80.65,
+        "profit": 3.06,
+        "close_time": "2026-07-29T08:10:39.557242"
+    },
+    {
+        "ticket": 5912195,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.34,
+        "open_price": 80.74,
+        "close_price": 80.65,
+        "profit": 3.06,
+        "close_time": "2026-07-29T08:10:39.745088"
+    },
+    {
+        "ticket": 5352769,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.34,
+        "open_price": 80.65,
+        "close_price": 80.65,
+        "profit": 0.0,
+        "close_time": "2026-07-29T08:10:39.971148"
+    },
+    {
+        "ticket": 8232689,
+        "symbol": "USOIL",
+        "type": "SELL",
+        "volume": 0.34,
+        "open_price": 80.65,
+        "close_price": 80.65,
+        "profit": 0.0,
+        "close_time": "2026-07-29T08:10:40.193365"
+    },
+    {
+        "ticket": 9260077,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32899,
+        "close_price": 1.32902,
+        "profit": 0.6,
+        "close_time": "2026-07-29T08:10:55.654266"
+    },
+    {
+        "ticket": 1373695,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32907,
+        "close_price": 1.32912,
+        "profit": 1.0,
+        "close_time": "2026-07-29T08:20:17.106136"
+    },
+    {
+        "ticket": 2393962,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32907,
+        "close_price": 1.32912,
+        "profit": 1.0,
+        "close_time": "2026-07-29T08:20:17.250639"
+    },
+    {
+        "ticket": 6363933,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32919,
+        "close_price": 1.32922,
+        "profit": 0.6,
+        "close_time": "2026-07-29T08:21:38.463449"
+    },
+    {
+        "ticket": 8880288,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32919,
+        "close_price": 1.32922,
+        "profit": 0.6,
+        "close_time": "2026-07-29T08:21:38.600487"
+    },
+    {
+        "ticket": 3323347,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32919,
+        "close_price": 1.32922,
+        "profit": 0.6,
+        "close_time": "2026-07-29T08:21:38.706918"
+    },
+    {
+        "ticket": 1459440,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32919,
+        "close_price": 1.32922,
+        "profit": 0.6,
+        "close_time": "2026-07-29T08:21:38.820659"
+    },
+    {
+        "ticket": 4555512,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32922,
+        "close_price": 1.32922,
+        "profit": 0.0,
+        "close_time": "2026-07-29T08:21:38.957819"
+    },
+    {
+        "ticket": 8117114,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32922,
+        "close_price": 1.32922,
+        "profit": 0.0,
+        "close_time": "2026-07-29T08:21:39.108063"
+    },
+    {
+        "ticket": 7989679,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32924,
+        "close_price": 1.32927,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:10:50.987955"
+    },
+    {
+        "ticket": 6649704,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32924,
+        "close_price": 1.32927,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:10:51.151729"
+    },
+    {
+        "ticket": 6436242,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32924,
+        "close_price": 1.32927,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:10:51.286881"
+    },
+    {
+        "ticket": 2340869,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32924,
+        "close_price": 1.32927,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:10:51.383972"
+    },
+    {
+        "ticket": 4604186,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32924,
+        "close_price": 1.32927,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:10:51.514853"
+    },
+    {
+        "ticket": 7700243,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32924,
+        "close_price": 1.32927,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:10:51.664896"
+    },
+    {
+        "ticket": 7248206,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32925,
+        "close_price": 1.32927,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:10:51.775257"
+    },
+    {
+        "ticket": 4175994,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32925,
+        "close_price": 1.32927,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:10:51.871169"
+    },
+    {
+        "ticket": 1709595,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32925,
+        "close_price": 1.32927,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:10:51.958230"
+    },
+    {
+        "ticket": 1152362,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32923,
+        "close_price": 1.32927,
+        "profit": 0.8,
+        "close_time": "2026-07-29T09:10:52.051090"
+    },
+    {
+        "ticket": 7711054,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32926,
+        "close_price": 1.32927,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:10:52.163158"
+    },
+    {
+        "ticket": 3628261,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32926,
+        "close_price": 1.32927,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:10:52.269630"
+    },
+    {
+        "ticket": 9690384,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32926,
+        "close_price": 1.32927,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:10:52.335382"
+    },
+    {
+        "ticket": 6509281,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32926,
+        "close_price": 1.32927,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:10:52.411026"
+    },
+    {
+        "ticket": 7374604,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32926,
+        "close_price": 1.32927,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:10:52.525411"
+    },
+    {
+        "ticket": 1026715,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32926,
+        "close_price": 1.32927,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:10:52.605893"
+    },
+    {
+        "ticket": 9601243,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32923,
+        "close_price": 1.32927,
+        "profit": 0.8,
+        "close_time": "2026-07-29T09:10:52.707407"
+    },
+    {
+        "ticket": 5295279,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32923,
+        "close_price": 1.32927,
+        "profit": 0.8,
+        "close_time": "2026-07-29T09:10:52.845481"
+    },
+    {
+        "ticket": 2980783,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32935,
+        "close_price": 1.32935,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:13:21.194259"
+    },
+    {
+        "ticket": 8780047,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32935,
+        "close_price": 1.32935,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:13:21.318705"
+    },
+    {
+        "ticket": 3715255,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32935,
+        "close_price": 1.32935,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:13:21.411804"
+    },
+    {
+        "ticket": 7208606,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32935,
+        "close_price": 1.32935,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:13:21.523050"
+    },
+    {
+        "ticket": 1749370,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32928,
+        "close_price": 1.32935,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:13:21.622449"
+    },
+    {
+        "ticket": 7245164,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32928,
+        "close_price": 1.32935,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:13:21.720544"
+    },
+    {
+        "ticket": 1700398,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32934,
+        "close_price": 1.32935,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:13:21.798375"
+    },
+    {
+        "ticket": 3126488,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32934,
+        "close_price": 1.32935,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:13:21.888347"
+    },
+    {
+        "ticket": 8509815,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32933,
+        "close_price": 1.32935,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:13:21.984573"
+    },
+    {
+        "ticket": 5285009,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32933,
+        "close_price": 1.32935,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:13:22.089335"
+    },
+    {
+        "ticket": 8767322,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32934,
+        "close_price": 1.32935,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:13:22.172877"
+    },
+    {
+        "ticket": 5141984,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32934,
+        "close_price": 1.32935,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:13:22.264025"
+    },
+    {
+        "ticket": 3613589,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32933,
+        "close_price": 1.32935,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:13:22.333498"
+    },
+    {
+        "ticket": 9553074,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32935,
+        "close_price": 1.32935,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:13:22.420560"
+    },
+    {
+        "ticket": 8212585,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32935,
+        "close_price": 1.32935,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:13:22.552070"
+    },
+    {
+        "ticket": 8433341,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32936,
+        "close_price": 1.32938,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:16:35.590742"
+    },
+    {
+        "ticket": 2256465,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32936,
+        "close_price": 1.32938,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:16:35.714455"
+    },
+    {
+        "ticket": 5901340,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32937,
+        "close_price": 1.32938,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:16:35.839626"
+    },
+    {
+        "ticket": 3517832,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32937,
+        "close_price": 1.32938,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:16:35.947128"
+    },
+    {
+        "ticket": 1579679,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32939,
+        "close_price": 1.32939,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:17:12.720067"
+    },
+    {
+        "ticket": 6029756,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32939,
+        "close_price": 1.32939,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:17:12.827392"
+    },
+    {
+        "ticket": 4365552,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32939,
+        "close_price": 1.32939,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:17:12.936732"
+    },
+    {
+        "ticket": 6554243,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32943,
+        "close_price": 1.32945,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:17:38.431060"
+    },
+    {
+        "ticket": 7306727,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32943,
+        "close_price": 1.32945,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:17:38.573854"
+    },
+    {
+        "ticket": 6437076,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32945,
+        "close_price": 1.32945,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:17:38.674699"
+    },
+    {
+        "ticket": 7723800,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32945,
+        "close_price": 1.32945,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:17:38.757237"
+    },
+    {
+        "ticket": 1462961,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32944,
+        "close_price": 1.32945,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:17:38.829173"
+    },
+    {
+        "ticket": 2622577,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32945,
+        "close_price": 1.32945,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:17:38.917648"
+    },
+    {
+        "ticket": 4215172,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32945,
+        "close_price": 1.32945,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:17:39.011994"
+    },
+    {
+        "ticket": 3404086,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32948,
+        "close_price": 1.32948,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:21:15.411968"
+    },
+    {
+        "ticket": 4636569,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32948,
+        "close_price": 1.32948,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:21:15.533824"
+    },
+    {
+        "ticket": 7151304,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32946,
+        "close_price": 1.32948,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:21:15.682109"
+    },
+    {
+        "ticket": 6855766,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32946,
+        "close_price": 1.32948,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:21:15.775637"
+    },
+    {
+        "ticket": 9620283,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32947,
+        "close_price": 1.32948,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:21:15.884580"
+    },
+    {
+        "ticket": 1036745,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32947,
+        "close_price": 1.32948,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:21:15.958295"
+    },
+    {
+        "ticket": 9418844,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32951,
+        "close_price": 1.3296,
+        "profit": 1.8,
+        "close_time": "2026-07-29T09:21:47.616378"
+    },
+    {
+        "ticket": 9037052,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32951,
+        "close_price": 1.3296,
+        "profit": 1.8,
+        "close_time": "2026-07-29T09:21:47.846545"
+    },
+    {
+        "ticket": 2408119,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32951,
+        "close_price": 1.3296,
+        "profit": 1.8,
+        "close_time": "2026-07-29T09:21:47.989313"
+    },
+    {
+        "ticket": 2674101,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32956,
+        "close_price": 1.3296,
+        "profit": 0.8,
+        "close_time": "2026-07-29T09:21:48.102273"
+    },
+    {
+        "ticket": 9357228,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32956,
+        "close_price": 1.3296,
+        "profit": 0.8,
+        "close_time": "2026-07-29T09:21:48.202776"
+    },
+    {
+        "ticket": 3201100,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32953,
+        "close_price": 1.3296,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:21:48.296424"
+    },
+    {
+        "ticket": 1037424,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32953,
+        "close_price": 1.3296,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:21:48.397681"
+    },
+    {
+        "ticket": 6834903,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32949,
+        "close_price": 1.3296,
+        "profit": 2.2,
+        "close_time": "2026-07-29T09:21:48.543572"
+    },
+    {
+        "ticket": 5061774,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32949,
+        "close_price": 1.3296,
+        "profit": 2.2,
+        "close_time": "2026-07-29T09:21:48.645573"
+    },
+    {
+        "ticket": 4212434,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32953,
+        "close_price": 1.3296,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:21:48.757810"
+    },
+    {
+        "ticket": 2774460,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32951,
+        "close_price": 1.3296,
+        "profit": 1.8,
+        "close_time": "2026-07-29T09:21:48.865023"
+    },
+    {
+        "ticket": 4410986,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32951,
+        "close_price": 1.3296,
+        "profit": 1.8,
+        "close_time": "2026-07-29T09:21:48.961124"
+    },
+    {
+        "ticket": 5532342,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32951,
+        "close_price": 1.3296,
+        "profit": 1.8,
+        "close_time": "2026-07-29T09:21:49.067630"
+    },
+    {
+        "ticket": 4336326,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.3296,
+        "close_price": 1.3296,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:21:49.207133"
+    },
+    {
+        "ticket": 7609956,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.3296,
+        "close_price": 1.3296,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:21:49.292029"
+    },
+    {
+        "ticket": 8971602,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32959,
+        "close_price": 1.3296,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:21:49.385728"
+    },
+    {
+        "ticket": 4550329,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32959,
+        "close_price": 1.3296,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:21:49.487181"
+    },
+    {
+        "ticket": 5641367,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32953,
+        "close_price": 1.3296,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:21:49.615640"
+    },
+    {
+        "ticket": 4736689,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32953,
+        "close_price": 1.3296,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:21:49.713754"
+    },
+    {
+        "ticket": 5265571,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32957,
+        "close_price": 1.3296,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:21:49.811284"
+    },
+    {
+        "ticket": 7560354,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32957,
+        "close_price": 1.3296,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:21:49.951022"
+    },
+    {
+        "ticket": 8015248,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32959,
+        "close_price": 1.3296,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:21:50.098299"
+    },
+    {
+        "ticket": 3775417,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32959,
+        "close_price": 1.3296,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:21:50.236489"
+    },
+    {
+        "ticket": 7672186,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32958,
+        "close_price": 1.3296,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:21:50.384077"
+    },
+    {
+        "ticket": 2077523,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32958,
+        "close_price": 1.3296,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:21:50.545927"
+    },
+    {
+        "ticket": 4471555,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32953,
+        "close_price": 1.3296,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:21:50.708685"
+    },
+    {
+        "ticket": 5078205,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32953,
+        "close_price": 1.3296,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:21:50.819416"
+    },
+    {
+        "ticket": 3345583,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32954,
+        "close_price": 1.3296,
+        "profit": 1.2,
+        "close_time": "2026-07-29T09:21:50.986890"
+    },
+    {
+        "ticket": 9391274,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32954,
+        "close_price": 1.3296,
+        "profit": 1.2,
+        "close_time": "2026-07-29T09:21:51.090649"
+    },
+    {
+        "ticket": 7344844,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32956,
+        "close_price": 1.3296,
+        "profit": 0.8,
+        "close_time": "2026-07-29T09:21:51.193031"
+    },
+    {
+        "ticket": 4665113,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32956,
+        "close_price": 1.3296,
+        "profit": 0.8,
+        "close_time": "2026-07-29T09:21:51.296698"
+    },
+    {
+        "ticket": 5094911,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32953,
+        "close_price": 1.3296,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:21:51.383959"
+    },
+    {
+        "ticket": 8934411,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32953,
+        "close_price": 1.3296,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:21:51.539282"
+    },
+    {
+        "ticket": 8380434,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32955,
+        "close_price": 1.3296,
+        "profit": 1.0,
+        "close_time": "2026-07-29T09:21:51.658535"
+    },
+    {
+        "ticket": 9461405,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32955,
+        "close_price": 1.3296,
+        "profit": 1.0,
+        "close_time": "2026-07-29T09:21:51.760625"
+    },
+    {
+        "ticket": 5337093,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32956,
+        "close_price": 1.3296,
+        "profit": 0.8,
+        "close_time": "2026-07-29T09:21:51.873205"
+    },
+    {
+        "ticket": 9955516,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32956,
+        "close_price": 1.3296,
+        "profit": 0.8,
+        "close_time": "2026-07-29T09:21:51.977603"
+    },
+    {
+        "ticket": 6831969,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32957,
+        "close_price": 1.3296,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:21:52.056928"
+    },
+    {
+        "ticket": 1010556,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32957,
+        "close_price": 1.3296,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:21:52.157154"
+    },
+    {
+        "ticket": 5420862,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32953,
+        "close_price": 1.3296,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:21:52.316501"
+    },
+    {
+        "ticket": 7223442,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32953,
+        "close_price": 1.3296,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:21:52.424793"
+    },
+    {
+        "ticket": 6089749,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32949,
+        "close_price": 1.3296,
+        "profit": 2.2,
+        "close_time": "2026-07-29T09:21:52.529815"
+    },
+    {
+        "ticket": 8054946,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32949,
+        "close_price": 1.3296,
+        "profit": 2.2,
+        "close_time": "2026-07-29T09:21:52.610105"
+    },
+    {
+        "ticket": 3112612,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32949,
+        "close_price": 1.3296,
+        "profit": 2.2,
+        "close_time": "2026-07-29T09:21:52.777185"
+    },
+    {
+        "ticket": 7740360,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32949,
+        "close_price": 1.3296,
+        "profit": 2.2,
+        "close_time": "2026-07-29T09:21:52.872772"
+    },
+    {
+        "ticket": 5630829,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32967,
+        "close_price": 1.32968,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:22:13.683193"
+    },
+    {
+        "ticket": 3250682,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32967,
+        "close_price": 1.32968,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:22:13.842798"
+    },
+    {
+        "ticket": 4263925,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32961,
+        "close_price": 1.32968,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:22:13.988142"
+    },
+    {
+        "ticket": 9940303,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32965,
+        "close_price": 1.32968,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:22:14.199064"
+    },
+    {
+        "ticket": 4530213,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32965,
+        "close_price": 1.32968,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:22:14.301009"
+    },
+    {
+        "ticket": 9837028,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32964,
+        "close_price": 1.32968,
+        "profit": 0.8,
+        "close_time": "2026-07-29T09:22:14.394468"
+    },
+    {
+        "ticket": 7981068,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32964,
+        "close_price": 1.32968,
+        "profit": 0.8,
+        "close_time": "2026-07-29T09:22:14.490974"
+    },
+    {
+        "ticket": 7889009,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32966,
+        "close_price": 1.32968,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:22:14.629184"
+    },
+    {
+        "ticket": 4061223,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32966,
+        "close_price": 1.32968,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:22:14.761698"
+    },
+    {
+        "ticket": 9503249,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32961,
+        "close_price": 1.32968,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:22:14.871250"
+    },
+    {
+        "ticket": 8411693,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32961,
+        "close_price": 1.32968,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:22:14.960424"
+    },
+    {
+        "ticket": 3213881,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32965,
+        "close_price": 1.32968,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:22:15.105061"
+    },
+    {
+        "ticket": 3817868,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32965,
+        "close_price": 1.32968,
+        "profit": 0.6,
+        "close_time": "2026-07-29T09:22:15.187274"
+    },
+    {
+        "ticket": 9443642,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32964,
+        "close_price": 1.32968,
+        "profit": 0.8,
+        "close_time": "2026-07-29T09:22:15.262567"
+    },
+    {
+        "ticket": 8922148,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32968,
+        "close_price": 1.32968,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:22:15.376258"
+    },
+    {
+        "ticket": 6936472,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32968,
+        "close_price": 1.32968,
+        "profit": 0.0,
+        "close_time": "2026-07-29T09:22:15.537960"
+    },
+    {
+        "ticket": 7084961,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32966,
+        "close_price": 1.32968,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:22:15.632513"
+    },
+    {
+        "ticket": 9055882,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32966,
+        "close_price": 1.32968,
+        "profit": 0.4,
+        "close_time": "2026-07-29T09:22:15.733181"
+    },
+    {
+        "ticket": 9250139,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32961,
+        "close_price": 1.32968,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:22:15.848731"
+    },
+    {
+        "ticket": 5101829,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32961,
+        "close_price": 1.32968,
+        "profit": 1.4,
+        "close_time": "2026-07-29T09:22:15.985912"
+    },
+    {
+        "ticket": 3847545,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32963,
+        "close_price": 1.32968,
+        "profit": 1.0,
+        "close_time": "2026-07-29T09:22:16.102888"
+    },
+    {
+        "ticket": 6865668,
+        "symbol": "GBPUSD",
+        "type": "BUY",
+        "volume": 0.2,
+        "open_price": 1.32973,
+        "close_price": 1.32974,
+        "profit": 0.2,
+        "close_time": "2026-07-29T09:22:42.595054"
     }
 ]

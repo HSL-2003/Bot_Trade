@@ -3013,6 +3013,8 @@
                 scene.add(dirLight3);
 
                 let headModel = null;
+                let eyeSpotLight = null;
+                let eyePointLight = null;
 
                 // Load DamagedHelmet 3D Model locally
                 if (typeof THREE.GLTFLoader !== 'undefined') {
@@ -3025,6 +3027,20 @@
                         headModel.position.sub(center);
 
                         headModel.scale.set(1.2, 1.2, 1.2);
+
+                        // Attach Malfunctioning Tactical Searchlight to Helmet Eye Visor
+                        eyeSpotLight = new THREE.SpotLight(0x00e5ff, 9.0, 18, Math.PI / 6, 0.45, 1);
+                        eyeSpotLight.position.set(0, 0.12, 0.45);
+                        const lightTarget = new THREE.Object3D();
+                        lightTarget.position.set(0, 0.12, 5);
+                        headModel.add(lightTarget);
+                        eyeSpotLight.target = lightTarget;
+                        headModel.add(eyeSpotLight);
+
+                        eyePointLight = new THREE.PointLight(0x00e5ff, 4.5, 2.5);
+                        eyePointLight.position.set(0, 0.12, 0.4);
+                        headModel.add(eyePointLight);
+
                         scene.add(headModel);
                     }, undefined, function(err) {
                         console.warn('DamagedHelmet GLTF loading note:', err);
@@ -3252,6 +3268,28 @@
                         } else {
                             orbitX += (0 - orbitX) * 0.04;
                             orbitY += (0 - orbitY) * 0.04;
+                        }
+
+                        // Malfunctioning Tactical Helmet Eye Searchlight Flicker Simulation
+                        if (eyeSpotLight && eyePointLight) {
+                            const time = Date.now() * 0.005;
+                            const r = Math.random();
+
+                            if (r < 0.05) {
+                                // Sudden electrical blackout glitch (damaged wiring)
+                                eyeSpotLight.intensity = 0;
+                                eyePointLight.intensity = 0;
+                            } else if (r < 0.10) {
+                                // High voltage spark flare
+                                eyeSpotLight.intensity = 16.0;
+                                eyePointLight.intensity = 8.0;
+                            } else {
+                                // Dynamic flickering beam with organic wave noise
+                                const wave = Math.sin(time * 3.5) * Math.cos(time * 8.2);
+                                const baseVal = 9.5 + wave * 4.0;
+                                eyeSpotLight.intensity = Math.max(1.5, baseVal);
+                                eyePointLight.intensity = Math.max(0.8, baseVal * 0.5);
+                            }
                         }
 
                         headModel.position.x = posX;
