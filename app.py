@@ -8,8 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 from bot import MT5TradingBot
+from agents.manager import ManagerAgent
 
 app = FastAPI(title="MT5 Confluence Algo Bot")
+agent_manager = ManagerAgent()
+
+class AgentTaskModel(BaseModel):
+    prompt: str
+    max_retries: Optional[int] = 3
+
 
 # Enable CORS for development
 app.add_middleware(
@@ -331,7 +338,24 @@ async def reset_circuit_breaker():
     await bot.log_event("CIRCUIT_BREAKER", "Circuit Breaker manually reset by User. System unlocked.")
     return {"status": "unlocked"}
 
+# Multi-Agent Iterative SDLC Loop Endpoint
+@app.post("/api/agents/sdlc-loop")
+async def run_sdlc_loop_endpoint(task: AgentTaskModel):
+    try:
+        with open(__file__, "r", encoding="utf-8") as f:
+            current_code = f.read()
+    except Exception:
+        current_code = ""
+
+    result = await agent_manager.run_sdlc_loop(
+        user_request=task.prompt,
+        current_code=current_code,
+        max_retries=task.max_retries or 3
+    )
+    return {"status": "success", "result": result}
+
 # Background initialization tasks
+
 @app.on_event("startup")
 async def startup_event():
     # Attempt initial connection

@@ -1105,29 +1105,16 @@
     <div id="tradingTerminalSection" style="display: none; width: 100%; flex-direction: column;">
 
     <header>
-        <div class="header-title">
-            <h1 style="font-size: 1.1rem; font-weight: 800; color: var(--accent-primary); letter-spacing: 0.5px;">CONFLUENCE ALGO BOT</h1>
+        <div class="header-title" onclick="showLandingPage()" style="cursor: pointer;" title="Back to Main Page">
+            <h1 style="font-size: 1.15rem; font-weight: 800; color: var(--accent-primary); letter-spacing: 0.5px;">CONFLUENCE ALGO BOT</h1>
         </div>
         <div class="header-right">
-            <button class="btn-secondary" onclick="showLandingPage()" style="padding: 0.3rem 0.75rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">
-                Documentation
+            <button class="btn-secondary" onclick="openSettingsModal()" style="padding: 0.35rem 0.9rem; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+                SETTINGS
             </button>
-            <!-- Auto Trading Switch -->
-            <div class="toggle-container">
-                <span class="toggle-label" id="toggle-trading-label">AUTO TRADING: OFF</span>
-                <label class="switch">
-                    <input type="checkbox" id="setting-auto-trading" onchange="updateSettings()">
-                    <span class="slider"></span>
-                </label>
-            </div>
-            
-            <div class="status-badges">
-                <span id="badge-lock" class="badge badge-locked" style="display: none;">LOCKED</span>
-                <span id="badge-running" class="badge badge-stopped">Stopped</span>
-                <span id="badge-mode" class="badge badge-simulation">Simulation</span>
-            </div>
         </div>
     </header>
+
 
     <main>
         
@@ -1326,90 +1313,10 @@
                 </div>
             </div>
 
-            <!-- Configuration parameters -->
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title">Parameter configurations</div>
-                </div>
-                <div class="settings-grid">
-                    <div class="form-row-full">
-                        <label>Asset Symbol</label>
-                        <select id="setting-symbol" onchange="updateSettings()">
-                            <option value="XAUUSD">XAUUSD (Gold)</option>
-                            <option value="EURUSD">EURUSD (Euro/USD)</option>
-                            <option value="GBPUSD">GBPUSD (Pound/USD)</option>
-                        </select>
-                    </div>
-                    <div class="form-row">
-                        <label>Risk Per Trade (%)</label>
-                        <input id="setting-risk" type="number" step="0.1" value="1.5" min="0.1" max="10" onchange="updateSettings()">
-                    </div>
-                    <div class="form-row">
-                        <label>Max Spread (Points)</label>
-                        <input id="setting-spread" type="number" value="30" min="5" max="200" onchange="updateSettings()">
-                    </div>
-                    <div class="form-row">
-                        <label>Max Loss Limit (%)</label>
-                        <input id="setting-drawdown" type="number" step="0.5" value="5.0" min="1" max="25" onchange="updateSettings()">
-                    </div>
-                    <div class="form-row">
-                        <label>News Block (Mins)</label>
-                        <input id="setting-news-restriction" type="number" value="30" min="0" max="240" onchange="updateSettings()">
-                    </div>
-                    <div class="form-row">
-                        <label>Trailing Stop (Pts)</label>
-                        <input id="setting-trailing-stop" type="number" value="300" min="50" max="2000" onchange="updateSettings()">
-                    </div>
-                    <div class="form-row">
-                        <label>Trailing Step (Pts)</label>
-                        <input id="setting-trailing-step" type="number" value="50" min="10" max="500" onchange="updateSettings()">
-                    </div>
-                    <div class="form-row">
-                        <label>Trailing Offset (Pts)</label>
-                        <input id="setting-trailing-offset" type="number" value="150" min="0" max="2000" onchange="updateSettings()">
-                    </div>
-                    <div class="form-row">
-                        <label>Max Open Trades</label>
-                        <input id="setting-max-open-trades" type="number" value="3" min="1" max="20" onchange="updateSettings()">
-                    </div>
-                    <div class="form-row">
-                        <label>Cooldown Lock (Sec)</label>
-                        <input id="setting-cooldown-duration" type="number" value="300" min="0" max="3600" onchange="updateSettings()">
-                    </div>
-                    <div class="form-row" style="flex-direction: row; align-items: center; gap: 0.5rem; margin-top: 0.65rem;">
-                        <input id="setting-roi-enabled" type="checkbox" onchange="updateSettings()" style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
-                        <label for="setting-roi-enabled" style="cursor: pointer; margin: 0;">ROI Exit Table</label>
-                    </div>
-                    <div class="form-row-full">
-                        <label>ROI Table Thresholds (mins:pct,mins:pct)</label>
-                        <input id="setting-roi-table" type="text" value="0:0.02,20:0.01,40:0.005,60:0.0" onchange="updateSettings()" style="font-family: var(--font-mono); font-size: 0.75rem;">
-                    </div>
-                    <div class="form-row">
-                        <label>Breakeven Trigger (Pts)</label>
-                        <input id="setting-breakeven-trigger" type="number" value="300" min="50" max="2000" onchange="updateSettings()">
-                    </div>
-                    <div class="form-row">
-                        <label>Breakeven Buffer (Pts)</label>
-                        <input id="setting-breakeven-buffer" type="number" value="10" min="0" max="100" onchange="updateSettings()">
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- Positions & History Card (12 cols) -->
-        <div class="card col-12">
-            <div class="card-header" style="padding-bottom: 0.25rem;">
-                <div style="display: flex; gap: 0.5rem; align-items: center; width: 100%; justify-content: space-between; flex-wrap: wrap;">
-                    <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <button id="tab-positions" class="btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="switchTableTab('positions')">Active Positions</button>
-                        <button id="tab-pending" class="btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="switchTableTab('pending')">Pending Orders (<span id="pending-count">0</span>)</button>
-                        <button id="tab-history" class="btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="switchTableTab('history')">Closed Trades History</button>
-                    </div>
-                    
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                         <!-- Close All Positions Button -->
-                        <button class="btn-danger" id="btn-close-all" onclick="closeAllPositions()" style="padding: 0.3rem 0.75rem; font-size: 0.72rem; font-weight: 700; background: rgba(239, 68, 68, 0.15); color: var(--accent-danger); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 6px; cursor: pointer; transition: all 0.2s;">⚡ Đóng toàn bộ lệnh</button>
+                        <button class="btn-danger" id="btn-close-all" onclick="closeAllPositions()" style="padding: 0.3rem 0.75rem; font-size: 0.72rem; font-weight: 700; background: rgba(239, 68, 68, 0.15); color: var(--accent-danger); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 6px; cursor: pointer; transition: all 0.2s;">CLOSE ALL POSITIONS</button>
+
 
                         <!-- Symbol Search Bar -->
                         <div style="position: relative; display: flex; align-items: center;">
@@ -1621,24 +1528,6 @@
             </div>
         </div>
 
-        <!-- Terminal Logs (12 cols) -->
-        <div class="card col-12">
-            <div class="card-header">
-                <div class="card-title">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
-                    </svg>
-                    Real-time Audit logs & Telemetry
-                </div>
-            </div>
-            <div class="terminal" id="log-terminal">
-                <div class="log-row">
-                    <span class="log-time">--:--:--</span>
-                    <span class="log-type type-SYSTEM">[SYSTEM]</span>
-                    <span class="log-txt">Connecting to bot socket server...</span>
-                </div>
-            </div>
-        </div>
 
     </main>
 
@@ -2915,7 +2804,207 @@
         </div>
     </div>
 
+    <!-- System Settings Modal -->
+    <div id="settings-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(6, 10, 20, 0.65); backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 1.5rem; width: 92%; max-width: 720px; height: 580px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 24px 64px rgba(0,0,0,0.7);">
+            
+            <!-- Modal Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+                <div style="font-size: 0.95rem; font-weight: 800; color: var(--text-primary); letter-spacing: 0.5px; text-transform: uppercase;">
+                    SYSTEM SETTINGS & AUDIT TELEMETRY
+                </div>
+                <button onclick="closeSettingsModal()" class="btn-secondary" style="padding: 0.25rem 0.65rem; font-size: 0.72rem; font-weight: 700;">CLOSE</button>
+            </div>
+
+            <!-- Bot Automation & Live Execution Controls Bar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem 0.8rem; margin-top: 0.65rem;">
+                <div class="toggle-container" style="margin: 0; gap: 0.5rem;">
+                    <span class="toggle-label" id="toggle-trading-label" style="font-size: 0.75rem; font-weight: 700;">AUTO TRADING: OFF</span>
+                    <label class="switch">
+                        <input type="checkbox" id="setting-auto-trading" onchange="updateSettings()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="status-badges" style="display: flex; gap: 0.4rem; align-items: center;">
+                    <span id="badge-lock" class="badge badge-locked" style="display: none;">LOCKED</span>
+                    <span id="badge-running" class="badge badge-stopped">Stopped</span>
+                    <span id="badge-mode" class="badge badge-simulation">Simulation</span>
+                </div>
+            </div>
+
+
+            <!-- Settings Tabs Header Bar -->
+            <div style="display: flex; gap: 0.4rem; margin-top: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.5rem; flex-wrap: wrap;">
+                <button id="settab-params" class="btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.72rem; font-weight: 700;" onclick="switchSettingsTab('params')">TRADING PARAMS</button>
+                <button id="settab-risk" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.72rem; font-weight: 700;" onclick="switchSettingsTab('risk')">RISK & LIMITS</button>
+                <button id="settab-audit" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.72rem; font-weight: 700;" onclick="switchSettingsTab('audit')">AUDIT LOGS</button>
+                <button id="settab-appearance" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.72rem; font-weight: 700;" onclick="switchSettingsTab('appearance')">APPEARANCE</button>
+            </div>
+
+            <!-- Fixed Height Content Area (Guarantees rigid 360px frame) -->
+            <div style="flex: 1; height: 360px; min-height: 360px; max-height: 360px; overflow-y: auto; padding-right: 0.25rem; margin-top: 0.5rem;">
+
+                
+                <!-- Tab 1: Trading Params -->
+                <div id="setcontent-params" class="settings-tab-content">
+                    <div class="settings-grid">
+                        <div class="form-row-full">
+                            <label>Asset Symbol</label>
+                            <select id="setting-symbol" onchange="updateSettings()">
+                                <option value="XAUUSD">XAUUSD (Gold)</option>
+                                <option value="EURUSD">EURUSD (Euro/USD)</option>
+                                <option value="GBPUSD">GBPUSD (Pound/USD)</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label>Risk Per Trade (%)</label>
+                            <input id="setting-risk" type="number" step="0.1" value="1.5" min="0.1" max="10" onchange="updateSettings()">
+                        </div>
+                        <div class="form-row">
+                            <label>Max Spread (Points)</label>
+                            <input id="setting-spread" type="number" value="30" min="5" max="200" onchange="updateSettings()">
+                        </div>
+                        <div class="form-row">
+                            <label>Trailing Stop (Pts)</label>
+                            <input id="setting-trailing-stop" type="number" value="300" min="50" max="2000" onchange="updateSettings()">
+                        </div>
+                        <div class="form-row">
+                            <label>Trailing Step (Pts)</label>
+                            <input id="setting-trailing-step" type="number" value="50" min="10" max="500" onchange="updateSettings()">
+                        </div>
+                        <div class="form-row">
+                            <label>Trailing Offset (Pts)</label>
+                            <input id="setting-trailing-offset" type="number" value="150" min="0" max="2000" onchange="updateSettings()">
+                        </div>
+                        <div class="form-row">
+                            <label>Breakeven Trigger (Pts)</label>
+                            <input id="setting-breakeven-trigger" type="number" value="300" min="50" max="2000" onchange="updateSettings()">
+                        </div>
+                        <div class="form-row">
+                            <label>Breakeven Buffer (Pts)</label>
+                            <input id="setting-breakeven-buffer" type="number" value="10" min="0" max="100" onchange="updateSettings()">
+                        </div>
+                        <div class="form-row" style="flex-direction: row; align-items: center; gap: 0.5rem; margin-top: 0.65rem;">
+                            <input id="setting-roi-enabled" type="checkbox" onchange="updateSettings()" style="width: 16px; height: 16px; margin: 0; cursor: pointer;">
+                            <label for="setting-roi-enabled" style="cursor: pointer; margin: 0;">ROI Exit Table</label>
+                        </div>
+                        <div class="form-row-full">
+                            <label>ROI Table Thresholds (mins:pct,mins:pct)</label>
+                            <input id="setting-roi-table" type="text" value="0:0.02,20:0.01,40:0.005,60:0.0" onchange="updateSettings()" style="font-family: var(--font-mono); font-size: 0.75rem;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Risk & Limits -->
+                <div id="setcontent-risk" class="settings-tab-content" style="display: none;">
+                    <div class="settings-grid">
+                        <div class="form-row">
+                            <label>Max Loss Limit (%)</label>
+                            <input id="setting-drawdown" type="number" step="0.5" value="5.0" min="1" max="25" onchange="updateSettings()">
+                        </div>
+                        <div class="form-row">
+                            <label>News Block (Mins)</label>
+                            <input id="setting-news-restriction" type="number" value="30" min="0" max="240" onchange="updateSettings()">
+                        </div>
+                        <div class="form-row">
+                            <label>Max Open Trades</label>
+                            <input id="setting-max-open-trades" type="number" value="3" min="1" max="20" onchange="updateSettings()">
+                        </div>
+                        <div class="form-row">
+                            <label>Cooldown Lock (Sec)</label>
+                            <input id="setting-cooldown-duration" type="number" value="300" min="0" max="3600" onchange="updateSettings()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Real-Time Audit Logs & Telemetry Terminal -->
+                <div id="setcontent-audit" class="settings-tab-content" style="display: none;">
+                    <div style="font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 0.5rem; text-transform: uppercase; font-family: var(--font-mono);">
+                        STREAMING LIVE SYSTEM TELEMETRY & AUDIT LOGS
+                    </div>
+                    <div class="terminal" id="log-terminal" style="height: 310px; max-height: 310px; overflow-y: auto; border: 1px solid var(--border-color); background: rgba(5,7,14,0.9); border-radius: 8px; padding: 0.75rem;">
+
+                        <div class="log-row">
+                            <span class="log-time">--:--:--</span>
+                            <span class="log-type type-SYSTEM">[SYSTEM]</span>
+                            <span class="log-txt">Connecting to bot socket server...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Appearance -->
+                <div id="setcontent-appearance" class="settings-tab-content" style="display: none;">
+                    <div class="settings-grid">
+                        <div class="form-row-full">
+                            <label>Theme Style</label>
+                            <select id="setting-theme" onchange="applyThemeStyle()">
+                                <option value="ultra-dark">Ultra Dark Glassmorphism</option>
+                                <option value="cyber-midnight">Cyber Midnight</option>
+                                <option value="deep-navy">Deep Navy</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div style="display: flex; justify-content: flex-end; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+                <button onclick="saveAndCloseSettings()" class="btn-primary" style="padding: 0.4rem 1.25rem; font-size: 0.78rem; font-weight: 800;">SAVE & APPLY</button>
+            </div>
+        </div>
+    </div>
+
     </div><!-- END #tradingTerminalSection -->
+
+    <!-- Global Settings Modal Handler Script -->
+    <script>
+        function openSettingsModal() {
+            const modal = document.getElementById('settings-modal');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeSettingsModal() {
+            const modal = document.getElementById('settings-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function saveAndCloseSettings() {
+            if (typeof updateSettings === 'function') updateSettings();
+            closeSettingsModal();
+        }
+
+        function switchSettingsTab(tab) {
+            const tabs = ['params', 'risk', 'audit', 'appearance'];
+            tabs.forEach(t => {
+                const btn = document.getElementById('settab-' + t);
+                const content = document.getElementById('setcontent-' + t);
+                if (t === tab) {
+                    if (btn) btn.className = 'btn-primary';
+                    if (content) content.style.display = 'block';
+                } else {
+                    if (btn) btn.className = 'btn-secondary';
+                    if (content) content.style.display = 'none';
+                }
+            });
+        }
+
+        function applyThemeStyle() {
+            const theme = document.getElementById('setting-theme') ? document.getElementById('setting-theme').value : 'ultra-dark';
+            if (theme === 'ultra-dark') {
+                document.documentElement.style.setProperty('--bg-base', '#090d16');
+                document.documentElement.style.setProperty('--bg-card', '#111726');
+            } else if (theme === 'cyber-midnight') {
+                document.documentElement.style.setProperty('--bg-base', '#05070c');
+                document.documentElement.style.setProperty('--bg-card', '#0d121f');
+            } else if (theme === 'deep-navy') {
+                document.documentElement.style.setProperty('--bg-base', '#0a1128');
+                document.documentElement.style.setProperty('--bg-card', '#1c2541');
+            }
+        }
+    </script>
+
+
 
     <!-- GLOBAL NAVIGATION SCRIPT (Guaranteed to execute immediately) -->
     <script>
