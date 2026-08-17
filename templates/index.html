@@ -1212,6 +1212,9 @@
             <button class="btn-secondary" onclick="openSettingsModal()" style="padding: 0.35rem 0.9rem; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
                 SETTINGS
             </button>
+            <button class="btn-secondary" onclick="logout()" style="padding: 0.35rem 0.9rem; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+                LOG OUT
+            </button>
         </div>
     </header>
 
@@ -3191,6 +3194,21 @@
 
     <!-- GLOBAL NAVIGATION SCRIPT (Guaranteed to execute immediately) -->
     <script>
+        async function logout() {
+            const token = localStorage.getItem('access_token');
+            try {
+                if (token) {
+                    await fetch('/api/auth/logout', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                }
+            } finally {
+                localStorage.removeItem('access_token');
+                window.location.href = '/login';
+            }
+        }
+
         function continueToTerminal() {
             closeAccountAccessModal();
             if (typeof window.triggerEyeZoomTransition === 'function') {

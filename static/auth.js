@@ -1,1 +1,29 @@
-const config=window.__SUPABASE_CONFIG__||{};const client=(config.url&&config.anonKey)?supabase.createClient(config.url,config.anonKey):null;const form=document.querySelector('#auth-form');const msg=document.querySelector('#message');function say(t,error=false){msg.textContent=t;msg.className='message '+(error?'error':'')}form?.addEventListener('submit',async e=>{e.preventDefault();if(!client){say('Supabase is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY.',true);return}const email=document.querySelector('#email').value;const password=document.querySelector('#password')?.value;let result=location.pathname==='/register'?await client.auth.signUp({email,password}):location.pathname==='/forgot-password'?await client.auth.resetPasswordForEmail(email,{redirectTo:location.origin+'/reset-password'}):await client.auth.signInWithPassword({email,password});if(result.error)return say(result.error.message,true);say(location.pathname==='/forgot-password'?'Check your email for a reset link.':location.pathname==='/register'?'Check your email to confirm your account.':'Signed in — redirecting…');if(location.pathname==='/login'&&result.data.session)location.href='/app'});
+const form = document.querySelector('#auth-form');
+const msg = document.querySelector('#message');
+
+function say(t, error = false) {
+    msg.textContent = t;
+    msg.className = 'message ' + (error ? 'error' : '');
+}
+
+form?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = document.querySelector('#email').value.trim().toLowerCase();
+    const password = document.querySelector('#password')?.value;
+
+    const endpoint = location.pathname === '/register' ? '/api/auth/register' : '/api/auth/login';
+    const response = await fetch(endpoint, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+    });
+    const result = await response.json();
+    if (!response.ok) return say(result.detail || 'Authentication failed.', true);
+
+    if (result.access_token) localStorage.setItem('access_token', result.access_token);
+
+    say(location.pathname === '/register' ? 'Check your email to confirm your account.' : 'Signed in — redirecting…');
+
+    if (location.pathname === '/login' && result.access_token) {
+        location.href = '/app';
+    }
+});

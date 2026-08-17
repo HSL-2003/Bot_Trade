@@ -10,7 +10,7 @@ import uvicorn
 from bot import MT5TradingBot, MT5_AVAILABLE
 from config import SUPPORTED_SYMBOLS, agents_enabled, allowed_origins
 from services.account_service import TradingAccountService
-from services.auth_service import AuthenticationError, InMemorySessionService
+from services.auth_service import AuthenticationError, InMemorySessionService, SupabaseSessionService, normalize_email
 from repositories.persistence import InMemoryAccountRepository
 from repositories.supabase_repository import SupabaseAccountRepository
 
@@ -42,7 +42,10 @@ if os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY"):
 else:
     repository = InMemoryAccountRepository()
 account_service = TradingAccountService(repository)
-session_service = InMemorySessionService()
+if os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY"):
+    session_service = SupabaseSessionService(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+else:
+    session_service = InMemorySessionService()
 bot_task = None
 
 
@@ -64,6 +67,59 @@ def account_id_from_request(request: Request) -> str:
 
 def scoped_bot(request: Request) -> MT5TradingBot:
     return account_service.get_bot(account_id_from_request(request))
+
+
+class RegisterModel(BaseModel):
+    email: str
+    password: str
+    display_name: Optional[str] = None
+
+
+class LoginModel(BaseModel):
+    email: str
+    password: str
+
+
+def bearer_token(request: Request) -> str:
+    authorization = request.headers.get("Authorization", "")
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Bearer authentication is required")
+    return authorization[7:].strip()
+
+
+@app.post("/api/auth/register", status_code=201)
+async def register(payload: RegisterModel):
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=422, detail="Password must contain at least 8 characters")
+    try:
+        return session_service.register(normalize_email(payload.email), payload.password, payload.display_name)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/auth/login")
+async def login(payload: LoginModel):
+    try:
+        return session_service.login(normalize_email(payload.email), payload.password)
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
+@app.get("/api/auth/me")
+async def current_user(request: Request):
+    try:
+        principal = session_service.authenticate(bearer_token(request))
+        return {"user_id": principal.user_id, "account_id": principal.account_id, "roles": sorted(principal.roles)}
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
+@app.post("/api/auth/logout", status_code=204)
+async def logout(request: Request):
+    try:
+        session_service.revoke(bearer_token(request))
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 # Active WebSocket connections list
 active_connections: list[WebSocket] = []

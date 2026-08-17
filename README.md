@@ -35,6 +35,7 @@ BOt/
 ├── services/              # Application services
 ├── repositories/          # Persistence and repository adapters
 ├── connectors/            # Connector protocol and transport modules
+├── supabase/schema.sql    # Supabase tables, indexes, triggers, and RLS
 ├── templates/             # HTML templates
 ├── static/                # CSS, JavaScript, and frontend assets
 ├── test_safety.py         # Unit tests
@@ -128,6 +129,43 @@ If MetaTrader 5 is not installed, the bot automatically runs in **Simulation Mod
 ```bash
 pip install MetaTrader5
 ```
+
+## Supabase Setup
+
+The project includes `supabase/schema.sql`, which creates the tables required for persistent accounts, user sessions, and trade history:
+
+- `user_profiles`: application profile and soft-delete status for each Supabase Auth user.
+- `trading_accounts`: account scope, settings, owner, and active/archive status.
+- `user_sessions`: persistent sessions with expiry and revoke status. Only a hash of the bearer token is stored.
+- `trade_orders`: order and trade history. Rows are retained and transitioned through statuses instead of being deleted.
+- `trade_order_events`: optional audit trail for broker events and status changes.
+
+### Create the database schema
+
+1. Create a project at https://supabase.com.
+2. Open **SQL Editor** in the Supabase dashboard.
+3. Open and run [`supabase/schema.sql`](supabase/schema.sql).
+4. In **Project Settings > API**, copy the project URL and keys into `.env`.
+
+```ini
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+The service-role key bypasses Row Level Security and must only be used by the backend. Never expose it in frontend JavaScript, HTML, screenshots, or Git.
+
+The current account adapter uses `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to persist `trading_accounts`. The development session service is still in-memory; to persist login sessions, replace it with a Supabase-backed session service that stores `sha256(token)` in `user_sessions`, and updates `revoked_at`, `status`, and `is_active` instead of deleting rows. Order execution should insert/update `trade_orders` and append state changes to `trade_order_events`.
+
+Recommended order status flow:
+
+```text
+submitted -> pending -> filled -> closed
+submitted -> rejected
+pending   -> cancelled
+```
+
+For statistics, query retained history by `account_id`, time range, and `status` rather than deleting users or orders. For example, closed trades can be selected with `status = 'closed'` and `is_active = true`.
 
 ## 3D Assets
 
