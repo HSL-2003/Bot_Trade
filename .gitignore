@@ -53,3 +53,25 @@ state_db.json
 .understand-anything-repo/
 .understand-anything/
 .ua/
+
+# Heavy 3D Asset Archives & Temp Files
+*.zip
+*.rar
+*.7z
+*.tar.gz
+*.fbx
+
+# Heavy 3D models and generated/extracted assets
+# Keep these outside Git (store them in release/object storage instead).
+static/models/**/*.gltf
+static/models/**/*.glb
+static/models/**/*.bin
+static/models/**/*.obj
+static/models/**/*.fbx
+static/models/**/*.zip
+static/models/**/*.png
+static/models/**/*.jpg
+static/models/**/*.jpeg
+static/models/**/*.webp
+static/models/**/textures/
+

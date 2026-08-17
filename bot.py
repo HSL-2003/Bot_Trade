@@ -9,7 +9,7 @@ import random
 from typing import Dict, List, Any, Optional
 import httpx
 from dotenv import load_dotenv
-from risk import InstrumentSpec, RiskCalculationError, calculate_volume
+from core.risk import InstrumentSpec, RiskCalculationError, calculate_volume
 
 # Load environment variables
 load_dotenv(override=True)

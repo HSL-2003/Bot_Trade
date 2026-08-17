@@ -11,11 +11,11 @@ if str(ROOT) not in sys.path:
 
 from bot import MT5TradingBot
 from config import SUPPORTED_SYMBOLS
-from risk import InstrumentSpec, RiskCalculationError, calculate_volume
-from auth_service import AuthenticationError, InMemorySessionService, Principal
-from connector_protocol import ConnectorMessage, ProtocolError
-from pending_reconciliation import reconcile_pending_orders
-from persistence import InMemoryAccountRepository
+from core.risk import InstrumentSpec, RiskCalculationError, calculate_volume
+from services.auth_service import AuthenticationError, InMemorySessionService, Principal
+from connectors.connector_protocol import ConnectorMessage, ProtocolError
+from connectors.pending_reconciliation import reconcile_pending_orders
+from repositories.persistence import InMemoryAccountRepository
 from config import agents_enabled, allowed_origins
 
 

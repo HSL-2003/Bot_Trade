@@ -9,10 +9,10 @@ from pydantic import BaseModel
 import uvicorn
 from bot import MT5TradingBot, MT5_AVAILABLE
 from config import SUPPORTED_SYMBOLS, agents_enabled, allowed_origins
-from account_service import TradingAccountService
-from auth_service import AuthenticationError, InMemorySessionService
-from persistence import InMemoryAccountRepository
-from supabase_repository import SupabaseAccountRepository
+from services.account_service import TradingAccountService
+from services.auth_service import AuthenticationError, InMemorySessionService
+from repositories.persistence import InMemoryAccountRepository
+from repositories.supabase_repository import SupabaseAccountRepository
 
 app = FastAPI(title="MT5 Confluence Algo Bot")
 agent_manager = None
