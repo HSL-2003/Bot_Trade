@@ -1,6 +1,6 @@
 ---
 title: Bot Trade
-emoji: 🐢
+emoji: 📈
 colorFrom: indigo
 colorTo: yellow
 sdk: docker
@@ -11,174 +11,167 @@ app_port: 8000
 
 # Confluence Algo Bot & MT5 Trading Terminal
 
-Confluence Algo Bot is an institutional-grade, automated and manual algorithmic trading system designed for financial markets including Gold (XAUUSD), Major Forex Pairs (EURUSD, GBPUSD), and Commodities (USOIL). Built on FastAPI, Asyncio, and MetaTrader 5 (MT5), it provides high-frequency WebSocket data streaming, multi-indicator strategy analysis, dynamic risk management, and a responsive web-based execution dashboard.
+Ứng dụng giao dịch tự động và thủ công xây dựng trên **FastAPI**, hỗ trợ kết nối **MetaTrader 5** hoặc chạy ở chế độ mô phỏng. Ứng dụng cung cấp dashboard web, REST API, WebSocket realtime, quản lý rủi ro và các cơ chế bảo vệ khi giao dịch.
 
----
+> ⚠️ Đây là phần mềm giao dịch tài chính. Hãy kiểm thử ở chế độ mô phỏng/demo trước khi sử dụng tài khoản thật.
 
-## Technical Architecture
+## Tính năng chính
 
-The application is structured into three primary layers: Frontend UI, Gateway / API Layer, and Core Trading Engine.
+- Dashboard web theo dõi trạng thái bot, giá, lệnh và lịch sử giao dịch.
+- Giao dịch thủ công: `BUY`, `SELL`, `BUY_LIMIT`, `SELL_LIMIT`, `BUY_STOP`, `SELL_STOP`.
+- Chạy bot tự động hoặc chế độ mô phỏng khi chưa cài MetaTrader 5.
+- Phân tích confluence sử dụng EMA, RSI, Fibonacci và vùng hỗ trợ/kháng cự.
+- Quản lý rủi ro theo phần trăm vốn, giới hạn spread và giới hạn lỗ trong ngày.
+- Trailing stop, breakeven, ROI table, cooldown và giới hạn số lệnh.
+- Emergency lockdown/circuit breaker để khóa hệ thống và đóng vị thế.
+- WebSocket `/ws` cung cấp dữ liệu trạng thái realtime.
+- Hỗ trợ phạm vi tài khoản và xác thực session tùy chọn.
 
+## Công nghệ
+
+- Python 3.10+
+- FastAPI, Uvicorn, Pydantic
+- AsyncIO, WebSocket, HTTPX, python-dotenv
+- MetaTrader5 Python API *(tùy chọn, cần cho giao dịch thật)*
+- HTML, CSS, JavaScript và Three.js
+
+## Cấu trúc project
+
+```text
+BOt/
+├── app.py                 # FastAPI application và route
+├── bot.py                 # Trading engine và simulation mode
+├── config.py              # Cấu hình runtime
+├── core/risk.py           # Tính volume và chính sách rủi ro
+├── services/              # Business services
+├── repositories/          # Persistence và repository adapters
+├── connectors/            # Connector protocol/transport
+├── templates/             # HTML templates
+├── static/                # CSS, JavaScript và asset giao diện
+├── test_safety.py         # Unit tests
+├── requirements.txt
+└── Dockerfile
 ```
-+-----------------------------------------------------------------------+
-|                            Web Interface                              |
-|         (Single Page App / WebSockets / Chart.js / TradingView)       |
-+-----------------------------------------------------------------------+
-                                   |
-                   WebSocket (50ms) / REST APIs
-                                   v
-+-----------------------------------------------------------------------+
-|                           FastAPI Gateway                             |
-|          (Authentication, Validation, Routing, Endpoints)             |
-+-----------------------------------------------------------------------+
-                                   |
-                                   v
-+-----------------------------------------------------------------------+
-|                          MT5 Trading Engine                           |
-|  - Strategy & Confluence Analyzer (EMA, RSI, Fibonacci, S/R)          |
-|  - Execution Layer (MT5 Native Driver & Paper Trading Simulator)      |
-|  - Risk Management (Trailing Stop, Breakeven, ROI Exit Table)         |
-|  - Safety Controls (News Filter, Spread Filter, Circuit Breaker)      |
-+-----------------------------------------------------------------------+
+
+## Cài đặt và chạy local
+
+### Yêu cầu
+
+- Python 3.10 trở lên
+- Git
+- MetaTrader 5 Terminal nếu muốn giao dịch thật
+
+```bash
+git clone <URL_REPOSITORY>
+cd BOt
+python -m venv .venv
 ```
 
-### Technology Stack
-- Backend Framework: FastAPI (Python 3.10+) with Uvicorn ASGI Server
-- Concurrency & Async: Python Asyncio for non-blocking order execution and price streaming
-- Broker Connectivity: MetaTrader 5 Python API (MetaTrader5)
-- Frontend Interface: Vanilla HTML5, CSS3 (Custom Dark Theme), JavaScript (ES6+)
-- Data Visualization: TradingView Advanced Charting Widget, Chart.js Analytics
-- Real-Time Communication: WebSockets (/ws) streaming at 20 FPS (50ms refresh rate)
-- Containerization: Docker (Non-root user execution, Hugging Face Space compatible)
+Windows PowerShell:
 
----
+```powershell
+.venv\Scripts\Activate.ps1
+```
 
-## Key Features
+Linux/macOS:
 
-### 1. Algorithmic Strategy & Signal Generation
-- Confluence Analysis: Combines 50.0% and 61.8% Fibonacci Retracement levels with key Support and Resistance (S/R) zones.
-- Trend & Momentum Alignment: Uses multi-period Exponential Moving Averages (EMA 10, 34, 89, 144, 300) and RSI (14) to confirm directional bias.
-- Signal Grading System: Evaluates setups dynamically and assigns quality ratings (1 to 3 stars) based on trend agreement and momentum confluence.
+```bash
+source .venv/bin/activate
+```
 
-### 2. Manual Order Injection & Control Panel
-- Flexible Execution Types: Supports direct Market Execution (BUY, SELL) and Pending Orders (BUY_LIMIT, SELL_LIMIT, BUY_STOP, SELL_STOP).
-- Symbol Selection: Allows manual order execution on multiple symbols (XAUUSD, EURUSD, GBPUSD, USOIL) with automatic point size and decimal precision adjustment.
-- Dual SL/TP Calculation Modes: Allows defining Stop Loss and Take Profit levels by exact Price or by Points distance.
-- Bulk Order Closure: Features a "Close All Positions" emergency button to close 100% of open positions instantaneously.
-- Order Modification: Provides an interactive modal dialog to adjust SL and TP levels of active orders dynamically.
+Cài dependency và khởi động:
 
-### 3. Advanced Risk & Capital Management
-- Dynamic Position Sizing: Automatically calculates Lot size based on account balance, target risk percentage, and signal grade.
-- Trailing Stop & Breakeven Management: Dynamically locks in profits by moving Stop Loss to Breakeven or trailing price action at specified point steps.
-- Time-Based ROI Exit Table: Evaluates open position duration and closes stagnant trades based on configurable ROI threshold matrices.
-- Circuit Breaker & Emergency Lockdown: Locks the system and liquidates positions if daily drawdown limits are exceeded.
-- Filter Safeguards: Automatically blocks auto-trading entries during high-impact economic news events or when broker spread exceeds allowed limits.
+```bash
+pip install -r requirements.txt
+uvicorn app:app --host 127.0.0.1 --port 8000 --reload
+```
 
-### 4. Dual Execution Engine
-- MT5 Real Mode: Executes live orders directly via MetaTrader 5 with automatic order filling mode detection (FOK, IOC, RETURN).
-- Paper Trading Simulator: Full simulation mode featuring realistic tick generation, spread accounting, and independent PnL tracking for strategy backtesting and live testing without broker credentials.
+Truy cập:
 
----
+- Landing page: http://127.0.0.1:8000/
+- Dashboard: http://127.0.0.1:8000/app
+- Login: http://127.0.0.1:8000/login
+- API docs: http://127.0.0.1:8000/docs
 
-## API Documentation
+## Chạy test
 
-### REST API Endpoints
+```bash
+python -m unittest -v test_safety.py
+python -m compileall -q .
+```
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| GET | / | Serves the web dashboard interface |
-| POST | /api/start | Initializes MT5 connection and starts auto-trading loop |
-| POST | /api/stop | Pauses auto-trading signal scanning |
-| POST | /api/settings | Updates global risk parameters and execution settings |
-| POST | /api/trade | Submits a manual market or pending order |
-| POST | /api/close/{ticket} | Closes a specific active position by ticket number |
-| POST | /api/close-all | Closes all open positions simultaneously |
-| POST | /api/cancel-pending/{ticket} | Cancels a pending order |
-| POST | /api/modify-sltp/{ticket} | Modifies SL and TP levels for an active position |
-| GET | /api/analytics | Returns historical trade metrics and expectancy reports |
-| POST | /api/circuit-breaker/trigger | Triggers manual emergency lockdown |
-| POST | /api/circuit-breaker/reset | Unlocks system and resets daily drawdown tracking |
+## Cấu hình môi trường
 
-### WebSocket Endpoint
-
-- WS /ws: Broadcasts complete system state, live ticks, active positions, pending orders, telemetry logs, and performance metrics every 50ms.
-
----
-
-## Environment Variables & Configuration
-
-Create a .env file in the root directory to configure broker credentials and application parameters:
+Tạo file `.env` ở thư mục gốc. Không commit file này lên Git.
 
 ```ini
-# Application Configuration
+HOST=127.0.0.1
 PORT=8000
-HOST=0.0.0.0
 
-# MetaTrader 5 Credentials (Optional for Simulation Mode)
-MT5_PATH=C:\Program Files\MetaTrader 5\terminal64.exe
-MT5_LOGIN=12345678
-MT5_PASSWORD=YourPasswordHere
-MT5_SERVER=YourBroker-Server
+# MetaTrader 5 - để trống nếu chỉ chạy simulation mode
+MT5_PATH=C:\\Program Files\\MetaTrader 5\\terminal64.exe
+MT5_LOGIN=
+MT5_PASSWORD=
+MT5_SERVER=
 
-# Default Strategy Parameters
-SYMBOL=XAUUSD
-RISK_PERCENT=1.0
-MAX_SPREAD=50
+DEFAULT_SYMBOL=XAUUSD
+RISK_PERCENT=1.5
+MAX_SPREAD=200
 MAX_DAILY_LOSS_PERCENT=5.0
-AUTO_TRADING=false
+AUTO_TRADING=true
+
+ALLOWED_ORIGINS=http://127.0.0.1:8000
+REQUIRE_AUTH=false
+DEFAULT_ACCOUNT_ID=demo-account
+
+# Supabase tùy chọn
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 ```
 
----
+Symbol được hỗ trợ mặc định: `XAUUSD`, `USOIL`, `EURUSD`, `GBPUSD`.
 
-## Installation & Setup
+Nếu không cài MetaTrader 5, bot sẽ tự chạy **Simulation Mode**. Khi cần connector MT5:
 
-### Prerequisites
-- Python 3.10 or higher
-- MetaTrader 5 Terminal (for live execution)
-- Git
+```bash
+pip install MetaTrader5
+```
 
-### Local Installation
+## Asset 3D
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/your-username/bot-trade.git
-   cd bot-trade
-   ```
+Các model và texture trong `static/models/` có dung lượng lớn nên đã được thêm vào `.gitignore` và loại khỏi Git index. File vẫn cần tồn tại local để màn hình login hiển thị model 3D.
 
-2. Create and activate a virtual environment:
-   ```bash
-   python -m venv venv
-   # On Windows:
-   venv\Scripts\activate
-   # On Linux/macOS:
-   source venv/bin/activate
-   ```
+Khi clone project trên máy mới, hãy tải/copy asset vào:
 
-3. Install required dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```text
+static/models/
+```
 
-4. Run the application:
-   ```bash
-   python app.py
-   ```
-   Access the dashboard at http://127.0.0.1:8000.
+## Docker
 
-### Running with Docker
+```bash
+docker build -t confluence-algo-bot .
+docker run --env-file .env -p 8000:8000 confluence-algo-bot
+```
 
-1. Build the Docker image:
-   ```bash
-   docker build -t confluence-algo-bot .
-   ```
+## API tiêu biểu
 
-2. Run the container:
-   ```bash
-   docker run -d -p 8000:8000 --name algo-bot confluence-algo-bot
-   ```
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| GET | `/` | Landing page |
+| GET | `/app` | Dashboard |
+| GET | `/login` | Trang đăng nhập |
+| POST | `/api/start` | Bắt đầu bot |
+| POST | `/api/stop` | Dừng bot |
+| POST | `/api/settings` | Cập nhật cài đặt |
+| POST | `/api/trade` | Gửi lệnh thủ công |
+| GET | `/api/analytics` | Thống kê giao dịch |
+| POST | `/api/close-all` | Đóng toàn bộ vị thế |
+| WS | `/ws` | Stream trạng thái realtime |
 
----
+Danh sách đầy đủ request/response có tại Swagger UI: http://127.0.0.1:8000/docs.
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+Project được phát hành theo giấy phép MIT. Xem file `LICENSE` để biết thêm chi tiết.
