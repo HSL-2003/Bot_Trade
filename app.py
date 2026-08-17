@@ -1,17 +1,21 @@
-from typing import Optional
+from typing import Optional, Literal
 import os
 import asyncio
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
-from bot import MT5TradingBot
-from agents.manager import ManagerAgent
+from bot import MT5TradingBot, MT5_AVAILABLE
+from config import SUPPORTED_SYMBOLS, agents_enabled, allowed_origins
+from account_service import TradingAccountService
+from auth_service import AuthenticationError, InMemorySessionService
+from persistence import InMemoryAccountRepository
+from supabase_repository import SupabaseAccountRepository
 
 app = FastAPI(title="MT5 Confluence Algo Bot")
-agent_manager = ManagerAgent()
+agent_manager = None
 
 class AgentTaskModel(BaseModel):
     prompt: str
@@ -21,7 +25,7 @@ class AgentTaskModel(BaseModel):
 # Enable CORS for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,8 +36,34 @@ os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Instantiate the global Trading Bot
-bot = MT5TradingBot()
+bot = MT5TradingBot()  # legacy compatibility; scoped routes use account_service
+if os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY"):
+    repository = SupabaseAccountRepository(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+else:
+    repository = InMemoryAccountRepository()
+account_service = TradingAccountService(repository)
+session_service = InMemorySessionService()
 bot_task = None
+
+
+def account_id_from_request(request: Request) -> str:
+    account_id = request.headers.get("X-Account-Id") or request.query_params.get("account_id")
+    if os.getenv("REQUIRE_AUTH", "false").lower() == "true":
+        authorization = request.headers.get("Authorization", "")
+        if not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Bearer authentication is required")
+        try:
+            principal = session_service.authenticate(authorization[7:].strip())
+        except AuthenticationError as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        if account_id and account_id != principal.account_id:
+            raise HTTPException(status_code=403, detail="Account scope mismatch")
+        account_id = principal.account_id
+    return account_id or os.getenv("DEFAULT_ACCOUNT_ID", "demo-account")
+
+
+def scoped_bot(request: Request) -> MT5TradingBot:
+    return account_service.get_bot(account_id_from_request(request))
 
 # Active WebSocket connections list
 active_connections: list[WebSocket] = []
@@ -56,7 +86,7 @@ class SettingsModel(BaseModel):
     roi_table: str
 
 class ManualTradeModel(BaseModel):
-    type: str # BUY, SELL, BUY_LIMIT, SELL_LIMIT, BUY_STOP, SELL_STOP
+    type: Literal["BUY", "SELL", "BUY_LIMIT", "SELL_LIMIT", "BUY_STOP", "SELL_STOP"]
     lot_size: float
     exec_type: Optional[str] = "MARKET" # MARKET or LIMIT
     trigger_price: Optional[float] = 0.0
@@ -70,30 +100,89 @@ class ModifySLTPModel(BaseModel):
     sl: float
     tp: float
 
-# Serve Dashboard frontend
-@app.get("/")
-async def get_dashboard():
-    html_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
+class SymbolToggleModel(BaseModel):
+    symbol: Optional[str] = None
+    enabled: Optional[bool] = None
+    preset: Optional[str] = None
+
+def render_template(name: str) -> HTMLResponse:
+    html_path = os.path.join(os.path.dirname(__file__), "templates", name)
     if os.path.exists(html_path):
         with open(html_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Dashboard HTML template not found!</h1>")
+    return HTMLResponse(content=f"<h1>Template {name} not found!</h1>", status_code=404)
+
+
+def render_auth(title: str, heading: str, action: str, footer: str, password: bool = True) -> HTMLResponse:
+    path = os.path.join(os.path.dirname(__file__), "templates", "auth.html")
+    with open(path, "r", encoding="utf-8") as f:
+        content = f.read()
+    values = {"title": title, "heading": heading, "action": action, "footer": footer,
+              "password": "" if password else "<!--"}
+    content = content.replace("{{ title }}", values["title"]).replace("{{ heading }}", values["heading"])
+    content = content.replace("{{ action }}", values["action"]).replace("{{ footer|safe }}", values["footer"])
+    if not password:
+        content = content.replace("{% if password %}", "").replace("{% endif %}", "").replace("<!--", "").replace("-->", "")
+    else:
+        content = content.replace("{% if password %}", "").replace("{% endif %}", "")
+    config = {"url": os.getenv("SUPABASE_URL", ""), "anonKey": os.getenv("SUPABASE_ANON_KEY", "")}
+    content = content.replace("<script src=\"/static/auth.js\"></script>", f"<script>window.__SUPABASE_CONFIG__={config!r};</script><script src=\"/static/auth.js\"></script>")
+    return HTMLResponse(content=content)
+
+
+@app.get("/")
+async def get_landing():
+    # Keep the original Three.js / 3D helmet landing experience at the root.
+    return render_template("index.html")
+
+
+@app.get("/app")
+async def get_dashboard():
+    return render_template("index.html")
+
+
+@app.get("/login")
+async def get_login():
+    return render_auth("Log in", "Welcome back", "Log in", 'New here? <a href="/register">Create an account</a>')
+
+
+@app.get("/register")
+async def get_register():
+    return render_auth("Create account", "Build your workspace", "Create account", 'Already registered? <a href="/login">Log in</a>')
+
+
+@app.get("/forgot-password")
+async def get_forgot_password():
+    return render_auth("Reset password", "Recover access", "Send reset link", 'Remembered it? <a href="/login">Log in</a>', False)
 
 # WebSocket Endpoint for streaming real-time metrics
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    account_id = websocket.query_params.get("account_id") or os.getenv("DEFAULT_ACCOUNT_ID", "demo-account")
+    if os.getenv("REQUIRE_AUTH", "false").lower() == "true":
+        token = websocket.query_params.get("token", "")
+        try:
+            principal = session_service.authenticate(token)
+        except AuthenticationError:
+            await websocket.close(code=4401)
+            return
+        if principal.account_id != account_id:
+            await websocket.close(code=4403)
+            return
+    stream_bot = account_service.get_bot(account_id)
     await websocket.accept()
     active_connections.append(websocket)
     try:
         while True:
-            # Stream current bot state to the UI every 500ms
+            # Keep the live payload bounded; history has a dedicated endpoint.
             state = {
-                "is_running": bot.is_running,
-                "simulation_mode": bot.simulation_mode,
-                "system_locked": bot.system_locked,
-                "is_pending_order": bot.is_pending_order,
-                "symbol": bot.symbol,
-                "risk_percent": bot.risk_percent,
+                "account_id": account_id,
+                "is_running": stream_bot.is_running,
+                "simulation_mode": stream_bot.simulation_mode,
+                "system_locked": stream_bot.system_locked,
+                "is_pending_order": stream_bot.is_pending_order,
+                "symbol": stream_bot.symbol,
+                "risk_percent": stream_bot.risk_percent,
                 "max_spread": bot.max_spread,
                 "max_daily_loss_percent": bot.max_daily_loss_percent,
                 "trailing_stop_points": bot.trailing_stop_points,
@@ -103,6 +192,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "breakeven_buffer_points": bot.breakeven_buffer_points,
                 "news_restriction_minutes": bot.news_restriction_minutes,
                 "auto_trading": bot.auto_trading,
+                "enabled_symbols": bot.enabled_symbols,
                 "max_open_trades": bot.max_open_trades,
                 "cooldown_duration": bot.cooldown_duration,
                 "roi_enabled": bot.roi_enabled,
@@ -118,14 +208,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 "fib_levels": bot.fib_levels,
                 "confluence_zones": bot.confluence_zones,
                 "active_signals": bot.active_signals,
-                "trade_history": bot.history,
+                "trade_history": bot.history[-100:],
                 "statistics": bot.get_statistics(),
                 "indicators": bot.indicators,
                 "watchlist": bot.watchlist_data
             }
             await websocket.send_json(state)
-            # ponytail: 50ms stream interval (20 FPS UI refresh rate) for smooth live streaming
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.5)
     except WebSocketDisconnect:
         active_connections.remove(websocket)
     except Exception as e:
@@ -175,6 +264,7 @@ async def get_state():
             "breakeven_buffer_points": bot.breakeven_buffer_points,
             "news_restriction_minutes": bot.news_restriction_minutes,
             "auto_trading": bot.auto_trading,
+            "enabled_symbols": bot.enabled_symbols,
             "max_open_trades": bot.max_open_trades,
             "cooldown_duration": bot.cooldown_duration,
             "roi_enabled": bot.roi_enabled,
@@ -205,7 +295,13 @@ async def get_history_analytics(period: str = "all"):
 
 # Update Settings API
 @app.post("/api/settings")
-async def update_settings(settings: SettingsModel):
+async def update_settings(settings: SettingsModel, request: Request):
+    bot = scoped_bot(request)
+    settings.symbol = settings.symbol.upper().strip()
+    if settings.symbol not in SUPPORTED_SYMBOLS:
+        raise HTTPException(status_code=422, detail="Unsupported symbol")
+    if not 0 < settings.risk_percent <= 100:
+        raise HTTPException(status_code=422, detail="Risk percentage must be between 0 and 100")
     bot.symbol = settings.symbol
     bot.risk_percent = settings.risk_percent
     bot.max_spread = settings.max_spread
@@ -237,18 +333,47 @@ async def update_settings(settings: SettingsModel):
     await bot.log_event("SETTINGS", f"Settings updated by User. Symbol: {bot.symbol}, Risk: {bot.risk_percent}%, Max Spread: {bot.max_spread}, Max Loss: {bot.max_daily_loss_percent}%, Trailing Stop: {bot.trailing_stop_points}, Trailing Step: {bot.trailing_step_points}, Trailing Offset: {bot.trailing_stop_offset_points}, Breakeven Trigger: {bot.breakeven_trigger_points}, Breakeven Buffer: {bot.breakeven_buffer_points}, News Restriction: {bot.news_restriction_minutes}m, Auto Trading: {bot.auto_trading}, Max Open Trades: {bot.max_open_trades}, Cooldown: {bot.cooldown_duration}s, ROI Enabled: {bot.roi_enabled}, ROI Table: {bot.roi_table}")
     return {"status": "success", "settings": settings}
 
+# Symbol Toggle Auto-Trading Endpoint
+@app.post("/api/symbol-toggle")
+async def symbol_toggle_endpoint(data: SymbolToggleModel):
+    if data.preset == "XAUUSD_ONLY":
+        for sym in bot.enabled_symbols:
+            bot.enabled_symbols[sym] = (sym == "XAUUSD")
+        await bot.log_event("SETTINGS", "Target Auto-Trade Symbol preset set to ONLY XAUUSD.")
+    elif data.preset == "ALL_ON":
+        for sym in bot.enabled_symbols:
+            bot.enabled_symbols[sym] = True
+        await bot.log_event("SETTINGS", "Target Auto-Trade Symbol preset set to ALL ON.")
+    elif data.symbol and data.enabled is not None:
+        data.symbol = data.symbol.upper().strip()
+        if data.symbol not in SUPPORTED_SYMBOLS:
+            raise HTTPException(status_code=422, detail="Unsupported symbol")
+        bot.enabled_symbols[data.symbol] = data.enabled
+        status_str = "ENABLED" if data.enabled else "DISABLED"
+        await bot.log_event("SETTINGS", f"Auto-Trading for {data.symbol} set to {status_str}.")
+    return {"status": "success", "enabled_symbols": bot.enabled_symbols}
+
 # Trigger Manual Trade
 @app.post("/api/trade")
-async def manual_trade(trade: ManualTradeModel):
-    # ponytail: system_locked check removed as requested by user
-    bot.system_locked = False
+async def manual_trade(trade: ManualTradeModel, request: Request):
+    bot = scoped_bot(request)
+    if bot.system_locked:
+        raise HTTPException(status_code=423, detail="Trading system is emergency-locked")
+    if trade.lot_size <= 0:
+        raise HTTPException(status_code=422, detail="Lot size must be positive")
     
     # Run filter check for manual trade
     passed = await bot.check_filters(trade.type, is_manual=True)
     if not passed:
         raise HTTPException(status_code=400, detail="Trade rejected by risk filters (spread/drawdown/news).")
 
-    sym = trade.symbol or bot.symbol
+    sym = (trade.symbol or bot.symbol).upper().strip()
+    if sym not in SUPPORTED_SYMBOLS:
+        raise HTTPException(status_code=422, detail="Unsupported symbol")
+    if trade.sl_points is not None and trade.sl_points < 0:
+        raise HTTPException(status_code=422, detail="Stop-loss points must not be negative")
+    if trade.tp_points is not None and trade.tp_points < 0:
+        raise HTTPException(status_code=422, detail="Take-profit points must not be negative")
     point = bot.get_symbol_point(sym)
     sym_price = bot.get_current_price_for_symbol(sym)
     
@@ -257,6 +382,14 @@ async def manual_trade(trade: ManualTradeModel):
 
     if is_limit:
         trig_price = trade.trigger_price or (sym_price["ask"] if "BUY" in trade.type else sym_price["bid"])
+        if trade.sl_price and trade.sl_price > 0:
+            valid_sl = trade.sl_price < trig_price if "BUY" in trade.type else trade.sl_price > trig_price
+            if not valid_sl:
+                raise HTTPException(status_code=422, detail="Stop-loss is on the wrong side of the trigger price")
+        if trade.tp_price and trade.tp_price > 0:
+            valid_tp = trade.tp_price > trig_price if "BUY" in trade.type else trade.tp_price < trig_price
+            if not valid_tp:
+                raise HTTPException(status_code=422, detail="Take-profit is on the wrong side of the trigger price")
         pending = await bot.add_pending_order(
             order_type=trade.type,
             lot_size=trade.lot_size,
@@ -270,6 +403,16 @@ async def manual_trade(trade: ManualTradeModel):
         return {"status": "pending_order_submitted", "ticket": pending["ticket"]}
 
     open_price = sym_price["ask"] if trade.type == "BUY" else sym_price["bid"]
+
+    if trade.sl_price and trade.sl_price > 0:
+        valid_sl = trade.sl_price < open_price if trade.type == "BUY" else trade.sl_price > open_price
+        if not valid_sl:
+            raise HTTPException(status_code=422, detail="Stop-loss is on the wrong side of the entry price")
+
+    if trade.tp_price and trade.tp_price > 0:
+        valid_tp = trade.tp_price > open_price if trade.type == "BUY" else trade.tp_price < open_price
+        if not valid_tp:
+            raise HTTPException(status_code=422, detail="Take-profit is on the wrong side of the entry price")
 
     sl_pts = trade.sl_points or 0.0
     tp_pts = trade.tp_points or 0.0
@@ -341,6 +484,12 @@ async def reset_circuit_breaker():
 # Multi-Agent Iterative SDLC Loop Endpoint
 @app.post("/api/agents/sdlc-loop")
 async def run_sdlc_loop_endpoint(task: AgentTaskModel):
+    if not agents_enabled():
+        raise HTTPException(status_code=404, detail="SDLC agents are disabled")
+    if not task.prompt.strip() or not 1 <= (task.max_retries or 0) <= 5:
+        raise HTTPException(status_code=422, detail="Invalid agent task")
+    from agents.manager import ManagerAgent
+    agent_manager = ManagerAgent()
     try:
         with open(__file__, "r", encoding="utf-8") as f:
             current_code = f.read()
@@ -370,7 +519,7 @@ async def shutdown_event():
         await bot.stop()
     # Close MT5 connection
     if not bot.simulation_mode and MT5_AVAILABLE:
-        import MetaTrader5 as mt5
+        import MetaTrader5 as mt5  # type: ignore[import-not-found]
         mt5.shutdown()
 
 if __name__ == "__main__":

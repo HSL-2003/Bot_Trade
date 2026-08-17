@@ -193,6 +193,89 @@
             max-width: 440px;
         }
 
+        .landing-hero-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 28px;
+        }
+
+        .btn-create-account {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 18px;
+            color: #06101a;
+            background: var(--accent-primary);
+            border: 1px solid var(--accent-primary);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-decoration: none;
+            box-shadow: 0 0 22px rgba(56, 189, 248, 0.18);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .btn-create-account:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.45);
+        }
+
+        .landing-account-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(1, 4, 9, 0.76);
+            backdrop-filter: blur(10px);
+        }
+
+        .landing-account-modal.is-open { display: flex; }
+
+        .account-modal-card {
+            position: relative;
+            width: min(460px, 100%);
+            padding: 38px;
+            overflow: hidden;
+            background: linear-gradient(145deg, rgba(20, 31, 48, 0.96), rgba(5, 10, 19, 0.98));
+            border: 1px solid rgba(56, 189, 248, 0.55);
+            border-radius: 8px;
+            box-shadow: 0 0 0 1px rgba(255,255,255,.04), 0 24px 80px rgba(0,0,0,.7), 0 0 45px rgba(56,189,248,.15);
+        }
+
+        .account-modal-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: repeating-linear-gradient(0deg, transparent 0, transparent 4px, rgba(56,189,248,.025) 5px);
+        }
+
+        .account-modal-card > * { position: relative; }
+        .account-modal-card h2 { margin: 10px 0 12px; font-family: 'Cinzel', serif; color: #f8fafc; }
+        .account-modal-card p:not(.section-label) { color: #94a3b8; line-height: 1.7; }
+        .account-modal-actions { display: grid; gap: 10px; margin-top: 26px; }
+        .account-modal-actions a, .account-modal-actions button { width: 100%; text-align: center; cursor: pointer; }
+        .account-modal-login { padding: 13px; color: var(--accent-primary); background: transparent; border: 1px solid var(--accent-primary); border-radius: 4px; text-decoration: none; font-weight: 800; letter-spacing: 1px; }
+        .account-modal-close { margin-top: 14px; color: #64748b; background: none; border: 0; font-size: .72rem; letter-spacing: 1px; text-transform: uppercase; }
+        .account-modal-dismiss { position: absolute; top: 12px; right: 16px; color: #94a3b8; background: none; border: 0; font-size: 1.5rem; cursor: pointer; }
+
+        @media (max-width: 700px) {
+            .landing-nav { padding: 16px 20px; }
+            .landing-nav .nav-menu a { display: none; }
+            .landing-nav .brand-logo { font-size: 0.8rem; }
+            .landing-hero { padding: 32px 24px; }
+            .landing-hero h1 { font-size: clamp(2.8rem, 13vw, 4.2rem); }
+            .landing-hero-actions { flex-wrap: wrap; }
+            .landing-scroll-hint { right: 20px; bottom: 30px; }
+            .account-modal-card { padding: 32px 24px; }
+        }
+
         .landing-scroll-hint {
             position: absolute;
             bottom: 48px;
@@ -762,8 +845,8 @@
             border-radius: 6px;
             padding: 0.5rem 0.75rem;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            gap: 0.25rem;
         }
 
         .signal-title {
@@ -1022,6 +1105,9 @@
                     <div class="badge-tag">Institutional Algorithmic Trading System</div>
                     <h1>CONFLUENCE ALGO BOT</h1>
                     <p>High-frequency multi-indicator trading engine engineered with Fibonacci retracements, multi-EMA trend filters, RSI reversals, and multi-layered risk guards.</p>
+                    <div class="landing-hero-actions">
+                        <a class="btn-create-account" href="/register">Create account</a>
+                    </div>
                 </div>
                 <div class="landing-scroll-hint">
                     <span>Scroll to Explore</span>
@@ -1101,6 +1187,20 @@
         </div>
     </div>
 
+    <div id="accountAccessModal" class="landing-account-modal" role="dialog" aria-modal="true" aria-labelledby="accountAccessTitle">
+        <div class="account-modal-card">
+            <button class="account-modal-dismiss" type="button" aria-label="Close" onclick="closeAccountAccessModal()">×</button>
+            <div class="section-label">TERMINAL ACCESS // AUTH GATE</div>
+            <h2 id="accountAccessTitle">Ready to enter the terminal?</h2>
+            <p>Choose your access path before connecting to the trading workspace.</p>
+            <div class="account-modal-actions">
+                <a class="btn-create-account" href="/register">I’m new — create an account</a>
+                <a class="account-modal-login" href="/login">I already have an account</a>
+                <button class="account-modal-close" type="button" onclick="continueToTerminal()">Continue without signing in</button>
+            </div>
+        </div>
+    </div>
+
     <!-- LIVE TRADING TERMINAL SECTION -->
     <div id="tradingTerminalSection" style="display: none; width: 100%; flex-direction: column;">
 
@@ -1144,25 +1244,25 @@
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
                 
                 <!-- Active signals -->
-                <div class="card" style="height: 240px; min-height: 240px; overflow-y: auto;">
+                <div class="card" style="height: 240px; min-height: 240px; display: flex; flex-direction: column;">
                     <div class="card-header">
                         <div class="card-title">
                             LIVE ENTRY SIGNALS
                         </div>
                     </div>
-                    <div class="signals-box" id="signals-box">
+                    <div class="signals-box" id="signals-box" style="overflow-y: auto; flex: 1; padding-right: 0.2rem;">
                         <div style="text-align: center; font-size: 0.75rem; color: var(--text-secondary);">Scanning confluence zones...</div>
                     </div>
                 </div>
 
                 <!-- Economic Calendar News -->
-                <div class="card" style="height: 240px; min-height: 240px; overflow-y: auto;">
+                <div class="card" style="height: 240px; min-height: 240px; display: flex; flex-direction: column;">
                     <div class="card-header">
                         <div class="card-title">
                             FOREXFACTORY NEWS EVENTS
                         </div>
                     </div>
-                    <div class="news-list" id="news-list">
+                    <div class="news-list" id="news-list" style="overflow-y: auto; flex: 1; padding-right: 0.2rem;">
                         <div style="text-align: center; color: var(--text-secondary); font-size: 0.75rem; padding: 1rem;">No upcoming news calendar events</div>
                     </div>
                 </div>
@@ -2286,6 +2386,11 @@
                 document.getElementById('toggle-trading-label').style.color = state.auto_trading ? "var(--accent-success)" : "var(--text-secondary)";
             }
 
+            // Sync Symbol Target Auto-Trading Buttons
+            if (state.enabled_symbols) {
+                updateSymbolToggleButtons(state.enabled_symbols);
+            }
+
             // Manual trade symbol badge update
             const manualBadge = document.getElementById('manual-symbol-badge');
             if (manualBadge && state.symbol) {
@@ -2655,6 +2760,40 @@
             }
         }
 
+        function toggleSymbolTarget(sym) {
+            if (!currentBotState || !currentBotState.enabled_symbols) return;
+            const currentStatus = currentBotState.enabled_symbols[sym] !== false;
+            fetch('/api/symbol-toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ symbol: sym, enabled: !currentStatus })
+            }).catch(err => console.error(err));
+        }
+
+        function setSymbolPreset(preset) {
+            fetch('/api/symbol-toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ preset: preset })
+            }).catch(err => console.error(err));
+        }
+
+        function updateSymbolToggleButtons(enabledSymbols) {
+            if (!enabledSymbols) return;
+            const symbols = ['XAUUSD', 'EURUSD', 'GBPUSD', 'USOIL'];
+            symbols.forEach(sym => {
+                const btn = document.getElementById(`btn-sym-${sym.toLowerCase()}`);
+                if (btn) {
+                    const isEnabled = enabledSymbols[sym] !== false;
+                    btn.className = isEnabled ? 'btn-primary' : 'btn-secondary';
+                    btn.style.backgroundColor = isEnabled ? 'var(--accent-primary)' : 'rgba(239, 68, 68, 0.15)';
+                    btn.style.color = isEnabled ? '#090d16' : 'var(--accent-danger)';
+                    btn.style.borderColor = isEnabled ? 'transparent' : 'rgba(239, 68, 68, 0.3)';
+                    btn.innerText = isEnabled ? '🟢 ON' : '🔴 OFF';
+                }
+            });
+        }
+
         function closePosition(ticket) {
             fetch(`/api/close/${ticket}`, { method: 'POST' }).catch(err => console.error(err));
         }
@@ -2861,12 +3000,43 @@
                 <!-- Tab 1: Trading Params -->
                 <div id="setcontent-params" class="settings-tab-content">
                     <div class="settings-grid">
+                        
+                        <!-- Target Symbols Toggle Container -->
+                        <div style="grid-column: span 2; background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 0.75rem; margin-bottom: 0.5rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                                <span style="font-size: 0.75rem; font-weight: 800; color: var(--accent-primary); text-transform: uppercase; letter-spacing: 0.5px;">Mục Tiêu Auto-Trading Cặp Tiền (Target Symbols)</span>
+                                <div style="display: flex; gap: 0.35rem;">
+                                    <button type="button" class="btn-primary" style="padding: 0.2rem 0.55rem; font-size: 0.68rem; font-weight: 800;" onclick="setSymbolPreset('XAUUSD_ONLY')">⚡ Chỉ XAUUSD</button>
+                                    <button type="button" class="btn-secondary" style="padding: 0.2rem 0.55rem; font-size: 0.68rem; font-weight: 700;" onclick="setSymbolPreset('ALL_ON')">All ON</button>
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;">
+                                <div style="display: flex; flex-direction: column; gap: 0.3rem; align-items: center; background: rgba(0,0,0,0.3); padding: 0.5rem 0.4rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                                    <span style="font-size: 0.72rem; font-weight: 800; color: #ffffff;">XAUUSD</span>
+                                    <button id="btn-sym-xauusd" type="button" onclick="toggleSymbolTarget('XAUUSD')" class="btn-primary" style="padding: 0.2rem 0.4rem; font-size: 0.68rem; width: 100%; font-weight: 800;">🟢 ON</button>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.3rem; align-items: center; background: rgba(0,0,0,0.3); padding: 0.5rem 0.4rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                                    <span style="font-size: 0.72rem; font-weight: 800; color: #ffffff;">EURUSD</span>
+                                    <button id="btn-sym-eurusd" type="button" onclick="toggleSymbolTarget('EURUSD')" class="btn-primary" style="padding: 0.2rem 0.4rem; font-size: 0.68rem; width: 100%; font-weight: 800;">🟢 ON</button>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.3rem; align-items: center; background: rgba(0,0,0,0.3); padding: 0.5rem 0.4rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                                    <span style="font-size: 0.72rem; font-weight: 800; color: #ffffff;">GBPUSD</span>
+                                    <button id="btn-sym-gbpusd" type="button" onclick="toggleSymbolTarget('GBPUSD')" class="btn-primary" style="padding: 0.2rem 0.4rem; font-size: 0.68rem; width: 100%; font-weight: 800;">🟢 ON</button>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.3rem; align-items: center; background: rgba(0,0,0,0.3); padding: 0.5rem 0.4rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                                    <span style="font-size: 0.72rem; font-weight: 800; color: #ffffff;">USOIL</span>
+                                    <button id="btn-sym-usoil" type="button" onclick="toggleSymbolTarget('USOIL')" class="btn-primary" style="padding: 0.2rem 0.4rem; font-size: 0.68rem; width: 100%; font-weight: 800;">🟢 ON</button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-row-full">
-                            <label>Asset Symbol</label>
+                            <label>Asset Symbol Display</label>
                             <select id="setting-symbol" onchange="updateSettings()">
                                 <option value="XAUUSD">XAUUSD (Gold)</option>
                                 <option value="EURUSD">EURUSD (Euro/USD)</option>
                                 <option value="GBPUSD">GBPUSD (Pound/USD)</option>
+                                <option value="USOIL">USOIL (Crude Oil)</option>
                             </select>
                         </div>
                         <div class="form-row">
@@ -3021,7 +3191,8 @@
 
     <!-- GLOBAL NAVIGATION SCRIPT (Guaranteed to execute immediately) -->
     <script>
-        function enterTerminal() {
+        function continueToTerminal() {
+            closeAccountAccessModal();
             if (typeof window.triggerEyeZoomTransition === 'function') {
                 window.triggerEyeZoomTransition(function() {
                     const landing = document.getElementById('landingPageSection');
@@ -3049,6 +3220,24 @@
                 if (typeof loadTradingViewWidget === 'function') loadTradingViewWidget();
             }
         }
+
+        function enterTerminal() {
+            const modal = document.getElementById('accountAccessModal');
+            if (modal) {
+                modal.classList.add('is-open');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function closeAccountAccessModal() {
+            const modal = document.getElementById('accountAccessModal');
+            if (modal) modal.classList.remove('is-open');
+            document.body.style.overflow = '';
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') closeAccountAccessModal();
+        });
 
         function showLandingPage() {
             const landing = document.getElementById('landingPageSection');

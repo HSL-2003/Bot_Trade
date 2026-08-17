@@ -9,6 +9,7 @@ import random
 from typing import Dict, List, Any, Optional
 import httpx
 from dotenv import load_dotenv
+from risk import InstrumentSpec, RiskCalculationError, calculate_volume
 
 # Load environment variables
 load_dotenv(override=True)
@@ -79,6 +80,7 @@ class MT5TradingBot:
         # Real-time state fields
         self.current_price = {"bid": 2350.00, "ask": 2350.15, "spread": 15}
         self.watchlist_symbols = ["XAUUSD", "EURUSD", "GBPUSD", "USOIL"]
+        self.enabled_symbols = {sym: True for sym in self.watchlist_symbols}
         self.watchlist_data = {
             sym: {"bid": 0.0, "ask": 0.0, "spread": 0, "change": 0.0, "change_abs": 0.0}
             for sym in self.watchlist_symbols
@@ -362,8 +364,6 @@ class MT5TradingBot:
             drawdown = self.account_info["daily_start_equity"] - self.account_info["equity"]
             self.account_info["daily_drawdown_percent"] = round(max(0.0, (drawdown / self.account_info["daily_start_equity"]) * 100), 2)
             
-            # ponytail: disabled automatic circuit breaker lockdown as requested by user
-            self.system_locked = False
             return
 
         # MT5 mode
@@ -411,9 +411,6 @@ class MT5TradingBot:
                 "open_time": pos_open_time
             })
 
-        # ponytail: disabled automatic circuit breaker lockdown in MT5 mode
-        self.system_locked = False
-
         # Check for closed positions in MT5 mode (cooldown locks disabled as requested by user)
         # ponytail: disabled pair locks on trade close
         self.positions = updated_positions
@@ -423,6 +420,9 @@ class MT5TradingBot:
 
     async def add_pending_order(self, order_type: str, lot_size: float, trigger_price: float, sl_points: float = 0.0, tp_points: float = 0.0, sl_price: float = 0.0, tp_price: float = 0.0, symbol: str = None) -> dict:
         """Add a limit/stop pending order to the queue"""
+        if self.system_locked:
+            await self.log_event("EXECUTION_BLOCKED", "Pending order rejected: trading system is emergency-locked.")
+            raise RiskCalculationError("Trading system is emergency-locked")
         sym = symbol or self.symbol
         ticket = random.randint(1000000, 9999999)
         dec = 2 if ("XAU" in sym or "USO" in sym or "OIL" in sym) else 5
@@ -724,7 +724,7 @@ class MT5TradingBot:
         # Confluence zone detection: Fib 38.2%, 50% or 61.8% close to ANY Support/Resistance level
         self.confluence_zones = []
         point = self.get_symbol_point(self.symbol)
-        tolerance = 150 * point
+        tolerance = 300 * point  # ponytail: expanded tolerance to 300 points ($3.0 USD for Gold)
         dec = 2 if "XAU" in self.symbol else 5
         # ponytail: use sr_levels_all for matching, sr_levels (top-5) is only for UI display
         sr_pool = self.sr_levels_all if self.sr_levels_all else self.sr_levels
@@ -743,8 +743,17 @@ class MT5TradingBot:
         """Execution & Self-Healing Layer: Thread-safe order placement with exponential retry backoff.
         snapshot_price: Optional dict {"bid": ..., "ask": ...} captured at signal detection time to prevent slippage.
         """
+        if self.system_locked:
+            await self.log_event("EXECUTION_BLOCKED", "Market order rejected: trading system is emergency-locked.")
+            return
+
         if symbol is None:
             symbol = self.symbol
+
+        order_type = order_type.upper()
+        if order_type not in {"BUY", "SELL"} or lot_size <= 0 or sl_points < 0 or tp_points < 0:
+            await self.log_event("EXECUTION_BLOCKED", "Market order rejected: invalid execution parameters.")
+            return
 
         if self.is_pending_order:
             await self.log_event("EXECUTION_BLOCKED", "Cannot place order: Another order is already pending.")
@@ -1186,6 +1195,7 @@ class MT5TradingBot:
 
     async def emergency_lockdown(self):
         """Emergency shutdown: Close all trades, lock system"""
+        self.system_locked = True
         await self.log_event("EMERGENCY", "LOCKDOWN ACTIVATED! Closing all open positions...")
         tickets = [pos["ticket"] for pos in self.positions]
         for ticket in tickets:
@@ -1193,32 +1203,23 @@ class MT5TradingBot:
         await self.log_event("EMERGENCY", "All positions closed. Trading system locked.")
 
     def calculate_lot_size(self, sl_points: float, risk_percent: float = None, stars_count: int = 1) -> float:
-        """Calculate position size dynamically based on account balance and risk parameters"""
-        balance = self.account_info["balance"]
-        
-        # ponytail: Flexible recovery lot sizing for small accounts (e.g., around 50 USD)
-        if balance <= 80.0:
-            # Recovery mode: trade larger sizes to regain equity based on signal strength
-            if stars_count >= 3:
-                return 0.05
-            elif stars_count == 2:
-                return 0.03
-            else:
-                return 0.02
-        elif balance <= 200.0:
-            # Stable small account: scale with star count but keep it conservative
-            if stars_count >= 3:
-                return 0.03
-            elif stars_count == 2:
-                return 0.02
-            else:
-                return 0.01
-        else:
-            # Standard account size: scale lot dynamically with risk settings
-            rp = risk_percent if risk_percent is not None else self.risk_percent
-            risk_amount = balance * (rp / 100.0)
-            lot_size = risk_amount / (sl_points * 1.0)
-            return round(max(0.01, min(10.00, lot_size)), 2)
+        """Calculate volume from configured money risk; fail closed on bad SL."""
+        if sl_points <= 0:
+            raise RiskCalculationError("Stop-loss distance is required for risk sizing")
+        point = self.get_symbol_point(self.symbol)
+        entry = self.current_price["ask"]
+        stop = entry - (sl_points * point)
+        spec = InstrumentSpec(
+            tick_size=point,
+            tick_value=point * self.get_symbol_multiplier(self.symbol),
+        )
+        return calculate_volume(
+            equity=self.account_info["equity"],
+            risk_percent=risk_percent if risk_percent is not None else self.risk_percent,
+            entry_price=entry,
+            stop_loss=stop,
+            instrument=spec,
+        )
 
     def calculate_ema(self, prices: List[float], period: int) -> float:
         if len(prices) < period:
@@ -1416,7 +1417,7 @@ class MT5TradingBot:
         # Fallback to minor fluctuations if API fails
         for symbol in self.watchlist_symbols:
             if self.watchlist_data[symbol]["bid"] == 0.0:
-                initial_bids = {"XAUUSD": 4038.40, "EURUSD": 1.14660, "GBPUSD": 1.35280}
+                initial_bids = {"XAUUSD": 4038.40, "EURUSD": 1.14660, "GBPUSD": 1.35280, "USOIL": 75.00}
                 self.watchlist_data[symbol]["bid"] = initial_bids[symbol]
                 
             spread = random.randint(12, 18)
@@ -1425,7 +1426,7 @@ class MT5TradingBot:
             new_bid = round(self.watchlist_data[symbol]["bid"] + fluctuation, dec)
             point = self.get_symbol_point(symbol)
             
-            prev_closes = {"XAUUSD": 4045.00, "EURUSD": 1.14600, "GBPUSD": 1.35300}
+            prev_closes = {"XAUUSD": 4045.00, "EURUSD": 1.14600, "GBPUSD": 1.35300, "USOIL": 75.00}
             change_abs = new_bid - prev_closes[symbol]
             change_percent = (change_abs / prev_closes[symbol]) * 100 if prev_closes[symbol] > 0 else 0.0
             
@@ -1823,20 +1824,15 @@ class MT5TradingBot:
         rsi = self.indicators.get("rsi", 50.0)
         trend = self.indicators.get("trend", "NEUTRAL")
 
-        # ponytail: Wave trading — only trade in trend direction, allow both on NEUTRAL trends
+        # ponytail: Wave trading — 2-way trading enabled (Trend filter disabled per user request)
         allowed_direction = None
-        if trend == "BULLISH":
-            allowed_direction = "BUY"
-        elif trend == "BEARISH":
-            allowed_direction = "SELL"
-        # If NEUTRAL, allowed_direction remains None, enabling both directions.
 
         # 1. Fibonacci Confluence zone scanning
         for zone in self.confluence_zones:
             diff = abs(bid - zone["center_price"])
             
-            # ponytail: Expand trigger window to 150 points (matching zone tolerance) to catch more entries, keep only 50% and 61.8%
-            if diff <= (150 * point):
+            # ponytail: Expanded trigger window to 300 points ($3.0 USD) to catch entries easily
+            if diff <= (300 * point):
                 is_buy_signal = bid > zone["sr_price"] and zone["fib_level"] in ["50.0%", "61.8%"]
                 is_sell_signal = bid < zone["sr_price"] and zone["fib_level"] in ["50.0%", "61.8%"]
                 
@@ -1845,7 +1841,7 @@ class MT5TradingBot:
                     
                 sig_type = "BUY" if is_buy_signal else "SELL"
 
-                # Wave filter: skip counter-trend signals (allow all if trend is NEUTRAL)
+                # Wave filter: allowed_direction is None -> allow 2-way trading
                 if allowed_direction is not None and sig_type != allowed_direction:
                     continue
                 
@@ -1856,8 +1852,8 @@ class MT5TradingBot:
                 if (sig_type == "BUY" and trend == "BULLISH") or (sig_type == "SELL" and trend == "BEARISH"):
                     stars_val += 1
                     
-                # Check RSI agreement
-                if (sig_type == "BUY" and rsi <= 38) or (sig_type == "SELL" and rsi >= 62):
+                # Check RSI agreement (Relaxed to 45/55)
+                if (sig_type == "BUY" and rsi <= 45) or (sig_type == "SELL" and rsi >= 55):
                     stars_val += 1
                 
                 # Cap at 3 stars
@@ -1885,11 +1881,10 @@ class MT5TradingBot:
             ema_10 = self.indicators.get("ema_10", 0.0)
             ema_34 = self.indicators.get("ema_34", 0.0)
             
-            # RSI Reversal Strategy (Relaxed)
-            # ponytail: relaxed RSI thresholds as requested by user
-            # Wave filter: only trigger RSI reversal in trend direction (or if trend is NEUTRAL)
-            is_buy = rsi < 35 and (allowed_direction == "BUY" or allowed_direction is None)
-            is_sell = rsi > 65 and (allowed_direction == "SELL" or allowed_direction is None)
+            # RSI Reversal Strategy (Relaxed: BUY when RSI < 42, SELL when RSI > 58)
+            # ponytail: relaxed RSI thresholds to < 42 and > 58 as requested by user
+            is_buy = rsi < 42
+            is_sell = rsi > 58
             
             if is_buy or is_sell:
                 sig_type = "BUY" if is_buy else "SELL"
@@ -1937,6 +1932,8 @@ class MT5TradingBot:
 
                 if not self.auto_trading:
                     await self.log_event("SIGNAL", f"{sig_type} ({stars_str}) setup detected at {sig['price']}. Auto Trading is OFF, skipping entry.")
+                elif not self.enabled_symbols.get(self.symbol, True):
+                    await self.log_event("SIGNAL", f"{sig_type} ({stars_str}) setup detected for {self.symbol} at {sig['price']}. Auto Trading for {self.symbol} is DISABLED, skipping entry.")
                 else:
                     passed = await self.check_filters(sig_type, symbol=self.symbol)
                     if passed:
@@ -1987,7 +1984,7 @@ class MT5TradingBot:
         while self.is_running:
             try:
                 # Update ticks from MT5 if connected
-                if not self.simulation_mode:
+                if not self.simulation_mode and MT5_AVAILABLE:
                     def _get_mt5_watchlist_data():
                         data = {}
                         for sym in self.watchlist_symbols:
@@ -2018,7 +2015,15 @@ class MT5TradingBot:
                     
                     mt5_data = await asyncio.to_thread(_get_mt5_watchlist_data)
                     for sym, info in mt5_data.items():
-                        self.watchlist_data[sym] = info
+                        tv_indicators = self.watchlist_data.get(sym, {}).get("indicators", {
+                            "rsi": 50.0, "ema_10": info["bid"], "ema_34": info["bid"],
+                            "ema_89": info["bid"], "ema_144": info["bid"], "ema_300": info["bid"],
+                            "trend": "NEUTRAL"
+                        })
+                        self.watchlist_data[sym] = {
+                            **info,
+                            "indicators": tv_indicators
+                        }
                         if sym == self.symbol:
                             self.current_price = {
                                 "bid": info["bid"],
