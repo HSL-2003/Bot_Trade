@@ -43,3 +43,48 @@ class SupabaseAccountRepository:
             timeout=self.timeout,
         )
         response.raise_for_status()
+
+    def profile(self, user_id: str) -> dict[str, Any]:
+        if not user_id or not user_id.strip():
+            raise AccountScopeError("User scope is required")
+        response = httpx.get(f"{self.base_url}/user_profiles", params={"user_id": f"eq.{user_id.strip()}", "select": "*", "limit": "1"}, headers=self.headers, timeout=self.timeout)
+        response.raise_for_status()
+        return response.json()[0] if response.json() else {"user_id": user_id.strip()}
+
+    def update_profile(self, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        if not user_id or not user_id.strip():
+            raise AccountScopeError("User scope is required")
+        user_id = user_id.strip()
+        response = httpx.patch(
+            f"{self.base_url}/user_profiles",
+            params={"user_id": f"eq.{user_id}"},
+            json=payload,
+            headers={**self.headers, "Content-Type": "application/json", "Prefer": "return=representation"},
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        rows = response.json()
+        if rows:
+            return rows[0]
+
+        # If no record was updated (profile does not exist yet), insert a new profile row
+        insert_payload = {"user_id": user_id, **payload}
+        insert_response = httpx.post(
+            f"{self.base_url}/user_profiles",
+            json=insert_payload,
+            headers={**self.headers, "Content-Type": "application/json", "Prefer": "return=representation"},
+            timeout=self.timeout,
+        )
+        insert_response.raise_for_status()
+        insert_rows = insert_response.json()
+        return insert_rows[0] if insert_rows else insert_payload
+
+    def dashboard_rows(self, account_id: str, user_id: str, days: int) -> list[dict[str, Any]]:
+        response = httpx.get(f"{self.base_url}/user_profit_daily", params={"account_id": f"eq.{account_id}", "user_id": f"eq.{user_id}", "order": "trading_date.asc", "limit": str(max(days, 1))}, headers=self.headers, timeout=self.timeout)
+        response.raise_for_status()
+        return response.json()
+
+    def recent_trades(self, account_id: str, user_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        response = httpx.get(f"{self.base_url}/trade_orders", params={"account_id": f"eq.{account_id}", "user_id": f"eq.{user_id}", "order": "closed_at.desc", "limit": str(limit), "select": "symbol,side,quantity,entry_price,close_price,profit,status,closed_at"}, headers=self.headers, timeout=self.timeout)
+        response.raise_for_status()
+        return response.json()

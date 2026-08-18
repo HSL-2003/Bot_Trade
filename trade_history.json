@@ -71378,5 +71378,295 @@
         "close_price": 4413.25,
         "profit": 0.0,
         "close_time": "2026-08-12T16:35:24.589673"
+    },
+    {
+        "ticket": 3197438,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4397.61,
+        "close_price": 4392.61,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:50:13.062205"
+    },
+    {
+        "ticket": 5746334,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4396.84,
+        "close_price": 4391.84,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:55:28.877218"
+    },
+    {
+        "ticket": 9963488,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4396.84,
+        "close_price": 4391.84,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:55:28.987890"
+    },
+    {
+        "ticket": 3171619,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4396.8,
+        "close_price": 4391.8,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:55:29.092069"
+    },
+    {
+        "ticket": 9420775,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4396.8,
+        "close_price": 4391.8,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:55:29.192874"
+    },
+    {
+        "ticket": 3624697,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4396.95,
+        "close_price": 4391.95,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:55:29.304121"
+    },
+    {
+        "ticket": 3786637,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4396.95,
+        "close_price": 4391.95,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:55:29.409268"
+    },
+    {
+        "ticket": 7267759,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4396.89,
+        "close_price": 4391.89,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:55:29.514068"
+    },
+    {
+        "ticket": 7821431,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4396.89,
+        "close_price": 4391.89,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:55:29.614675"
+    },
+    {
+        "ticket": 8908097,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4396.86,
+        "close_price": 4391.86,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:55:29.717755"
+    },
+    {
+        "ticket": 9579401,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4396.86,
+        "close_price": 4391.86,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:55:29.819148"
+    },
+    {
+        "ticket": 3076662,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4397.05,
+        "close_price": 4392.05,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:55:29.920269"
+    },
+    {
+        "ticket": 5207995,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4397.05,
+        "close_price": 4392.05,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:55:30.022228"
+    },
+    {
+        "ticket": 9466680,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.27,
+        "open_price": 4396.7,
+        "close_price": 4391.7,
+        "profit": -135.0,
+        "close_time": "2026-08-18T10:55:30.136581"
+    },
+    {
+        "ticket": 3903870,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.7,
+        "close_price": 4391.7,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:55:30.239683"
+    },
+    {
+        "ticket": 8605475,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.7,
+        "close_price": 4391.7,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:55:30.338351"
+    },
+    {
+        "ticket": 6739069,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.61,
+        "close_price": 4391.61,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:55:53.647060"
+    },
+    {
+        "ticket": 6870499,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.61,
+        "close_price": 4391.61,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:55:53.764937"
+    },
+    {
+        "ticket": 5769593,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.51,
+        "close_price": 4391.51,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:56:28.258263"
+    },
+    {
+        "ticket": 4538195,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.51,
+        "close_price": 4391.51,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:56:28.393253"
+    },
+    {
+        "ticket": 5575168,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.55,
+        "close_price": 4391.55,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:56:28.502104"
+    },
+    {
+        "ticket": 8757341,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.33,
+        "close_price": 4391.33,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:56:28.689095"
+    },
+    {
+        "ticket": 7639767,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.33,
+        "close_price": 4391.33,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:56:28.804294"
+    },
+    {
+        "ticket": 5565911,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.33,
+        "close_price": 4391.33,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:56:28.943933"
+    },
+    {
+        "ticket": 8975822,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.38,
+        "close_price": 4391.38,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:56:29.074906"
+    },
+    {
+        "ticket": 7229908,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.3,
+        "open_price": 4396.36,
+        "close_price": 4391.36,
+        "profit": -150.0,
+        "close_time": "2026-08-18T10:56:29.182063"
+    },
+    {
+        "ticket": 4287368,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.36,
+        "close_price": 4391.36,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:56:29.303078"
+    },
+    {
+        "ticket": 6608578,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.55,
+        "close_price": 4391.55,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:56:29.424059"
+    },
+    {
+        "ticket": 8163759,
+        "symbol": "XAUUSD",
+        "type": "BUY",
+        "volume": 0.29,
+        "open_price": 4396.55,
+        "close_price": 4391.55,
+        "profit": -145.0,
+        "close_time": "2026-08-18T10:56:29.568359"
     }
 ]

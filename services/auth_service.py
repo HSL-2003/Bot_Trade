@@ -49,6 +49,46 @@ class InMemorySessionService:
             raise ValueError("Session TTL must be positive")
         self._ttl = timedelta(seconds=ttl_seconds)
         self._sessions: dict[str, Session] = {}
+        self._users: dict[str, dict] = {}  # email -> {password_hash, user_id, account_id}
+
+    @staticmethod
+    def _hash_pw(password: str) -> str:
+        return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+    def register(self, email: str, password: str, display_name: str | None = None) -> dict:
+        email = normalize_email(email)
+        if email in self._users:
+            raise AuthenticationError("This email is already registered")
+        user_id = secrets.token_hex(16)
+        account_id = f"acct-{user_id}"
+        self._users[email] = {
+            "password_hash": self._hash_pw(password),
+            "user_id": user_id,
+            "account_id": account_id,
+            "display_name": display_name,
+        }
+        session = self.create(Principal(account_id, user_id))
+        return {
+            "access_token": session.token,
+            "token_type": "bearer",
+            "expires_at": session.expires_at,
+            "user_id": user_id,
+            "account_id": account_id,
+        }
+
+    def login(self, email: str, password: str) -> dict:
+        email = normalize_email(email)
+        user = self._users.get(email)
+        if not user or user["password_hash"] != self._hash_pw(password):
+            raise AuthenticationError("Invalid email or password")
+        session = self.create(Principal(user["account_id"], user["user_id"]))
+        return {
+            "access_token": session.token,
+            "token_type": "bearer",
+            "expires_at": session.expires_at,
+            "user_id": user["user_id"],
+            "account_id": user["account_id"],
+        }
 
     def create(self, principal: Principal) -> Session:
         if not principal.account_id or not principal.user_id:

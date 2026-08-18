@@ -17,11 +17,24 @@ class TradingAccountService:
         self.repository = repository
         self._sessions: dict[str, BotSession] = {}
 
+    def register_bot(self, account_id: str, bot_instance: MT5TradingBot) -> BotSession:
+        if not account_id or not account_id.strip():
+            raise ValueError("Account scope is required")
+        account_id = account_id.strip()
+        session = BotSession(account_id, bot_instance)
+        self._sessions[account_id] = session
+        return session
+
     def get_session(self, account_id: str) -> BotSession:
         if not account_id or not account_id.strip():
             raise ValueError("Account scope is required")
         account_id = account_id.strip()
-        self.repository.get(account_id)
+        if account_id in self._sessions:
+            return self._sessions[account_id]
+        try:
+            self.repository.get(account_id)
+        except Exception:
+            pass
         if account_id not in self._sessions:
             self._sessions[account_id] = BotSession(account_id, MT5TradingBot())
         return self._sessions[account_id]

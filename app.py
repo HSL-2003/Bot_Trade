@@ -2,7 +2,7 @@ from typing import Optional, Literal
 import os
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -42,6 +42,8 @@ if os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY"):
 else:
     repository = InMemoryAccountRepository()
 account_service = TradingAccountService(repository)
+default_acc_id = os.getenv("DEFAULT_ACCOUNT_ID", "demo-account")
+account_service.register_bot(default_acc_id, bot)
 if os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_ROLE_KEY"):
     session_service = SupabaseSessionService(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 else:
@@ -51,8 +53,9 @@ bot_task = None
 
 def account_id_from_request(request: Request) -> str:
     account_id = request.headers.get("X-Account-Id") or request.query_params.get("account_id")
-    if os.getenv("REQUIRE_AUTH", "false").lower() == "true":
-        authorization = request.headers.get("Authorization", "")
+    authorization = request.headers.get("Authorization", "")
+    # Authenticate whenever a Bearer token is present OR when REQUIRE_AUTH is on.
+    if authorization.startswith("Bearer ") or os.getenv("REQUIRE_AUTH", "false").lower() == "true":
         if not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Bearer authentication is required")
         try:
@@ -78,6 +81,16 @@ class RegisterModel(BaseModel):
 class LoginModel(BaseModel):
     email: str
     password: str
+
+class ProfileModel(BaseModel):
+    display_name: Optional[str] = None
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    timezone: Optional[str] = None
+    preferred_currency: Optional[str] = None
+    language: Optional[str] = None
+    risk_level: Optional[Literal["low", "medium", "high"]] = None
+    trading_goal: Optional[str] = None
 
 
 def bearer_token(request: Request) -> str:
@@ -120,6 +133,56 @@ async def logout(request: Request):
         session_service.revoke(bearer_token(request))
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+def principal_from_request(request: Request):
+    try:
+        return session_service.authenticate(bearer_token(request))
+    except AuthenticationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+@app.get("/dashboard")
+async def get_user_dashboard():
+    return render_template("dashboard.html")
+
+
+@app.get("/profile")
+async def get_profile_page():
+    return render_template("profile.html")
+
+@app.get("/api/profile")
+async def get_profile(request: Request):
+    principal = principal_from_request(request)
+    if not hasattr(repository, "profile"):
+        return {"user_id": principal.user_id, "display_name": None}
+    return repository.profile(principal.user_id)
+
+@app.patch("/api/profile")
+async def update_profile(payload: ProfileModel, request: Request):
+    principal = principal_from_request(request)
+    data = {key: value for key, value in payload.dict().items() if value is not None}
+    if not hasattr(repository, "update_profile"):
+        return {"user_id": principal.user_id, **data}
+    return repository.update_profile(principal.user_id, data)
+
+@app.get("/api/dashboard/data")
+async def dashboard_data(request: Request, days: int = 30):
+    principal = principal_from_request(request)
+    days = max(1, min(days, 365))
+    if not hasattr(repository, "dashboard_rows"):
+        return {"summary": {"total_profit": 0, "total_trades": 0, "winning_trades": 0, "losing_trades": 0, "win_rate": 0}, "points": [], "trades": []}
+    rows = repository.dashboard_rows(principal.account_id, principal.user_id, days)
+    trades = repository.recent_trades(principal.account_id, principal.user_id)
+    total = sum(float(row.get("daily_profit") or 0) for row in rows)
+    wins = sum(int(row.get("winning_trades") or 0) for row in rows)
+    losses = sum(int(row.get("losing_trades") or 0) for row in rows)
+    count = wins + losses
+    cumulative = 0
+    points = []
+    for row in rows:
+        value = float(row.get("daily_profit") or 0)
+        cumulative += value
+        points.append({"date": row.get("trading_date"), "profit": value, "cumulative_profit": cumulative, "trades": int(row.get("total_trades") or 0)})
+    return {"summary": {"total_profit": total, "total_trades": count, "winning_trades": wins, "losing_trades": losses, "win_rate": (wins / count * 100 if count else 0)}, "points": points, "trades": trades}
 
 # Active WebSocket connections list
 active_connections: list[WebSocket] = []
@@ -188,7 +251,6 @@ def render_auth(title: str, heading: str, action: str, footer: str, password: bo
 
 @app.get("/")
 async def get_landing():
-    # Keep the original Three.js / 3D helmet landing experience at the root.
     return render_template("index.html")
 
 
@@ -214,18 +276,27 @@ async def get_forgot_password():
 # WebSocket Endpoint for streaming real-time metrics
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    account_id = websocket.query_params.get("account_id") or os.getenv("DEFAULT_ACCOUNT_ID", "demo-account")
-    if os.getenv("REQUIRE_AUTH", "false").lower() == "true":
-        token = websocket.query_params.get("token", "")
+    requested_account_id = websocket.query_params.get("account_id")
+    token = websocket.query_params.get("token", "")
+    account_id = requested_account_id
+    if os.getenv("REQUIRE_AUTH", "false").lower() == "true" or token:
         try:
             principal = session_service.authenticate(token)
         except AuthenticationError:
             await websocket.close(code=4401)
             return
-        if principal.account_id != account_id:
+        # The session is authoritative when the client does not yet have the
+        # account id (for example, a page loaded from an older cached bundle).
+        account_id = principal.account_id
+        if requested_account_id and principal.account_id != requested_account_id:
             await websocket.close(code=4403)
             return
-    stream_bot = account_service.get_bot(account_id)
+    account_id = account_id or os.getenv("DEFAULT_ACCOUNT_ID", "demo-account")
+    try:
+        stream_bot = account_service.get_bot(account_id)
+    except Exception as exc:
+        await websocket.close(code=4404, reason=str(exc)[:120])
+        return
     await websocket.accept()
     active_connections.append(websocket)
     try:
@@ -239,38 +310,38 @@ async def websocket_endpoint(websocket: WebSocket):
                 "is_pending_order": stream_bot.is_pending_order,
                 "symbol": stream_bot.symbol,
                 "risk_percent": stream_bot.risk_percent,
-                "max_spread": bot.max_spread,
-                "max_daily_loss_percent": bot.max_daily_loss_percent,
-                "trailing_stop_points": bot.trailing_stop_points,
-                "trailing_step_points": bot.trailing_step_points,
-                "trailing_stop_offset_points": bot.trailing_stop_offset_points,
-                "breakeven_trigger_points": bot.breakeven_trigger_points,
-                "breakeven_buffer_points": bot.breakeven_buffer_points,
-                "news_restriction_minutes": bot.news_restriction_minutes,
-                "auto_trading": bot.auto_trading,
-                "enabled_symbols": bot.enabled_symbols,
-                "max_open_trades": bot.max_open_trades,
-                "cooldown_duration": bot.cooldown_duration,
-                "roi_enabled": bot.roi_enabled,
-                "roi_table": bot.roi_table,
-                "pair_locks": bot.pair_locks,
-                "current_price": bot.current_price,
-                "account_info": bot.account_info,
-                "positions": bot.positions,
-                "pending_orders": bot.pending_orders,
-                "news_events": bot.news_events,
-                "recent_logs": bot.recent_logs,
-                "sr_levels": bot.sr_levels,
-                "fib_levels": bot.fib_levels,
-                "confluence_zones": bot.confluence_zones,
-                "active_signals": bot.active_signals,
-                "trade_history": bot.history[-100:],
-                "statistics": bot.get_statistics(),
-                "indicators": bot.indicators,
-                "watchlist": bot.watchlist_data
+                "max_spread": stream_bot.max_spread,
+                "max_daily_loss_percent": stream_bot.max_daily_loss_percent,
+                "trailing_stop_points": stream_bot.trailing_stop_points,
+                "trailing_step_points": stream_bot.trailing_step_points,
+                "trailing_stop_offset_points": stream_bot.trailing_stop_offset_points,
+                "breakeven_trigger_points": stream_bot.breakeven_trigger_points,
+                "breakeven_buffer_points": stream_bot.breakeven_buffer_points,
+                "news_restriction_minutes": stream_bot.news_restriction_minutes,
+                "auto_trading": stream_bot.auto_trading,
+                "enabled_symbols": stream_bot.enabled_symbols,
+                "max_open_trades": stream_bot.max_open_trades,
+                "cooldown_duration": stream_bot.cooldown_duration,
+                "roi_enabled": stream_bot.roi_enabled,
+                "roi_table": stream_bot.roi_table,
+                "pair_locks": stream_bot.pair_locks,
+                "current_price": stream_bot.current_price,
+                "account_info": stream_bot.account_info,
+                "positions": stream_bot.positions,
+                "pending_orders": stream_bot.pending_orders,
+                "news_events": stream_bot.news_events,
+                "recent_logs": stream_bot.recent_logs,
+                "sr_levels": stream_bot.sr_levels,
+                "fib_levels": stream_bot.fib_levels,
+                "confluence_zones": stream_bot.confluence_zones,
+                "active_signals": stream_bot.active_signals,
+                "trade_history": stream_bot.history[-100:],
+                "statistics": stream_bot.get_statistics(),
+                "indicators": stream_bot.indicators,
+                "watchlist": stream_bot.watchlist_data
             }
             await websocket.send_json(state)
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.05)
     except WebSocketDisconnect:
         active_connections.remove(websocket)
     except Exception as e:
@@ -279,75 +350,96 @@ async def websocket_endpoint(websocket: WebSocket):
 
 # Start Bot API
 @app.post("/api/start")
-async def start_bot():
+async def start_bot(request: Request):
     global bot_task
-    if bot.is_running:
-        return {"status": "already_running"}
+    current_bot = scoped_bot(request)
+    if current_bot.is_running:
+        return {"status": "already_running", "simulation_mode": current_bot.simulation_mode}
     
     # Try initialization of MT5
-    await bot.initialize_mt5()
-    await bot.fetch_news_feed()
+    await current_bot.initialize_mt5()
+    await current_bot.fetch_news_feed()
+    # Kick off the price-feed loop for this bot so quotes flow immediately
+    asyncio.create_task(current_bot.start_price_feed_loop())
     
     # Run the bot in a background task
-    bot_task = asyncio.create_task(bot.start())
-    return {"status": "started", "simulation_mode": bot.simulation_mode}
+    bot_task = asyncio.create_task(current_bot.start())
+    return {"status": "started", "simulation_mode": current_bot.simulation_mode}
 
 # Stop Bot API
 @app.post("/api/stop")
-async def stop_bot():
-    if not bot.is_running:
+async def stop_bot(request: Request):
+    current_bot = scoped_bot(request)
+    if not current_bot.is_running:
         return {"status": "already_stopped"}
-    await bot.stop()
+    await current_bot.stop()
     return {"status": "stopped"}
+
+# Toggle simulation mode
+class SimulationToggleModel(BaseModel):
+    enabled: Optional[bool] = None
+
+@app.post("/api/simulation/toggle")
+async def toggle_simulation(request: Request, payload: Optional[SimulationToggleModel] = None):
+    current_bot = scoped_bot(request)
+    if current_bot.is_running:
+        raise HTTPException(status_code=409, detail="Stop the bot before changing simulation mode")
+    if payload is not None and payload.enabled is not None:
+        current_bot.simulation_mode = payload.enabled
+    else:
+        current_bot.simulation_mode = not current_bot.simulation_mode
+    return {"simulation_mode": current_bot.simulation_mode}
 
 # Get Bot State API
 @app.get("/api/state")
-async def get_state():
+async def get_state(request: Request):
+    current_bot = scoped_bot(request)
     return {
-        "is_running": bot.is_running,
-        "simulation_mode": bot.simulation_mode,
-        "system_locked": bot.system_locked,
-        "is_pending_order": bot.is_pending_order,
-        "symbol": bot.symbol,
+        "is_running": current_bot.is_running,
+        "simulation_mode": current_bot.simulation_mode,
+        "system_locked": current_bot.system_locked,
+        "is_pending_order": current_bot.is_pending_order,
+        "symbol": current_bot.symbol,
         "settings": {
-            "risk_percent": bot.risk_percent,
-            "max_spread": bot.max_spread,
-            "max_daily_loss_percent": bot.max_daily_loss_percent,
-            "trailing_stop_points": bot.trailing_stop_points,
-            "trailing_step_points": bot.trailing_step_points,
-            "trailing_stop_offset_points": bot.trailing_stop_offset_points,
-            "breakeven_trigger_points": bot.breakeven_trigger_points,
-            "breakeven_buffer_points": bot.breakeven_buffer_points,
-            "news_restriction_minutes": bot.news_restriction_minutes,
-            "auto_trading": bot.auto_trading,
-            "enabled_symbols": bot.enabled_symbols,
-            "max_open_trades": bot.max_open_trades,
-            "cooldown_duration": bot.cooldown_duration,
-            "roi_enabled": bot.roi_enabled,
-            "roi_table": ",".join([f"{k}:{v}" for k, v in bot.roi_table.items()])
+            "risk_percent": current_bot.risk_percent,
+            "max_spread": current_bot.max_spread,
+            "max_daily_loss_percent": current_bot.max_daily_loss_percent,
+            "trailing_stop_points": current_bot.trailing_stop_points,
+            "trailing_step_points": current_bot.trailing_step_points,
+            "trailing_stop_offset_points": current_bot.trailing_stop_offset_points,
+            "breakeven_trigger_points": current_bot.breakeven_trigger_points,
+            "breakeven_buffer_points": current_bot.breakeven_buffer_points,
+            "news_restriction_minutes": current_bot.news_restriction_minutes,
+            "auto_trading": current_bot.auto_trading,
+            "enabled_symbols": current_bot.enabled_symbols,
+            "max_open_trades": current_bot.max_open_trades,
+            "cooldown_duration": current_bot.cooldown_duration,
+            "roi_enabled": current_bot.roi_enabled,
+            "roi_table": ",".join([f"{k}:{v}" for k, v in current_bot.roi_table.items()])
         },
-        "pair_locks": bot.pair_locks,
-        "current_price": bot.current_price,
-        "account_info": bot.account_info,
-        "positions": bot.positions,
-        "news_events": bot.news_events,
-        "recent_logs": bot.recent_logs,
-        "sr_levels": bot.sr_levels,
-        "fib_levels": bot.fib_levels,
-        "confluence_zones": bot.confluence_zones,
-        "active_signals": bot.active_signals,
-        "trade_history": bot.history,
-        "statistics": bot.get_statistics(),
-        "indicators": bot.indicators,
-        "watchlist": bot.watchlist_data
+        "pair_locks": current_bot.pair_locks,
+        "current_price": current_bot.current_price,
+        "account_info": current_bot.account_info,
+        "positions": current_bot.positions,
+        "news_events": current_bot.news_events,
+        "recent_logs": current_bot.recent_logs,
+        "sr_levels": current_bot.sr_levels,
+        "fib_levels": current_bot.fib_levels,
+        "confluence_zones": current_bot.confluence_zones,
+        "active_signals": current_bot.active_signals,
+        "trade_history": current_bot.history,
+        "statistics": current_bot.get_statistics(),
+        "indicators": current_bot.indicators,
+        "watchlist": current_bot.watchlist_data
     }
 
 # History Analytics API with period filter (day, week, month, all)
 @app.get("/api/history/analytics")
-async def get_history_analytics(period: str = "all"):
+async def get_history_analytics(request: Request, period: str = "all"):
+    current_bot = scoped_bot(request)
     if period not in ["day", "week", "month", "all"]:
         period = "all"
-    return bot.get_history_analytics(period)
+    return current_bot.get_history_analytics(period)
 
 # Update Settings API
 @app.post("/api/settings")
@@ -391,23 +483,24 @@ async def update_settings(settings: SettingsModel, request: Request):
 
 # Symbol Toggle Auto-Trading Endpoint
 @app.post("/api/symbol-toggle")
-async def symbol_toggle_endpoint(data: SymbolToggleModel):
+async def symbol_toggle_endpoint(data: SymbolToggleModel, request: Request):
+    current_bot = scoped_bot(request)
     if data.preset == "XAUUSD_ONLY":
-        for sym in bot.enabled_symbols:
-            bot.enabled_symbols[sym] = (sym == "XAUUSD")
-        await bot.log_event("SETTINGS", "Target Auto-Trade Symbol preset set to ONLY XAUUSD.")
+        for sym in current_bot.enabled_symbols:
+            current_bot.enabled_symbols[sym] = (sym == "XAUUSD")
+        await current_bot.log_event("SETTINGS", "Target Auto-Trade Symbol preset set to ONLY XAUUSD.")
     elif data.preset == "ALL_ON":
-        for sym in bot.enabled_symbols:
-            bot.enabled_symbols[sym] = True
-        await bot.log_event("SETTINGS", "Target Auto-Trade Symbol preset set to ALL ON.")
+        for sym in current_bot.enabled_symbols:
+            current_bot.enabled_symbols[sym] = True
+        await current_bot.log_event("SETTINGS", "Target Auto-Trade Symbol preset set to ALL ON.")
     elif data.symbol and data.enabled is not None:
         data.symbol = data.symbol.upper().strip()
         if data.symbol not in SUPPORTED_SYMBOLS:
             raise HTTPException(status_code=422, detail="Unsupported symbol")
-        bot.enabled_symbols[data.symbol] = data.enabled
+        current_bot.enabled_symbols[data.symbol] = data.enabled
         status_str = "ENABLED" if data.enabled else "DISABLED"
-        await bot.log_event("SETTINGS", f"Auto-Trading for {data.symbol} set to {status_str}.")
-    return {"status": "success", "enabled_symbols": bot.enabled_symbols}
+        await current_bot.log_event("SETTINGS", f"Auto-Trading for {data.symbol} set to {status_str}.")
+    return {"status": "success", "enabled_symbols": current_bot.enabled_symbols}
 
 # Trigger Manual Trade
 @app.post("/api/trade")
@@ -491,50 +584,56 @@ async def manual_trade(trade: ManualTradeModel, request: Request):
 
 # Cancel Pending Order
 @app.post("/api/pending/cancel/{ticket}")
-async def cancel_pending_order_endpoint(ticket: int):
-    success = await bot.cancel_pending_order(ticket)
+async def cancel_pending_order_endpoint(ticket: int, request: Request):
+    current_bot = scoped_bot(request)
+    success = await current_bot.cancel_pending_order(ticket)
     if not success:
         raise HTTPException(status_code=404, detail="Pending order not found.")
     return {"status": "success", "ticket": ticket}
 
 # Force Close Position
 @app.post("/api/close/{ticket}")
-async def close_position_endpoint(ticket: int):
+async def close_position_endpoint(ticket: int, request: Request):
+    current_bot = scoped_bot(request)
     # Close order asynchronously
-    asyncio.create_task(bot.close_position(ticket))
+    asyncio.create_task(current_bot.close_position(ticket))
     return {"status": "close_submitted", "ticket": ticket}
 
 # Force Close All Positions
 @app.post("/api/close-all")
-async def close_all_positions_endpoint():
-    asyncio.create_task(bot.close_all_positions())
+async def close_all_positions_endpoint(request: Request):
+    current_bot = scoped_bot(request)
+    asyncio.create_task(current_bot.close_all_positions())
     return {"status": "close_all_submitted"}
 
 # Modify SL/TP of an open position
 @app.post("/api/modify-sltp/{ticket}")
-async def modify_sltp_endpoint(ticket: int, data: ModifySLTPModel):
-    success = await bot.modify_position_sltp(ticket, data.sl, data.tp)
+async def modify_sltp_endpoint(ticket: int, data: ModifySLTPModel, request: Request):
+    current_bot = scoped_bot(request)
+    success = await current_bot.modify_position_sltp(ticket, data.sl, data.tp)
     if not success:
         raise HTTPException(status_code=400, detail="Failed to modify SL/TP. Position not found or broker rejected.")
     return {"status": "modified", "ticket": ticket, "sl": data.sl, "tp": data.tp}
 
 # Manual Trigger Circuit Breaker (Lockdown)
 @app.post("/api/circuit-breaker/trigger")
-async def manual_trigger_circuit_breaker():
-    bot.system_locked = True
-    await bot.log_event("CIRCUIT_BREAKER", "Manual Daily Drawdown Circuit Breaker Triggered by User. Locking system.")
-    await bot.emergency_lockdown()
+async def manual_trigger_circuit_breaker(request: Request):
+    current_bot = scoped_bot(request)
+    current_bot.system_locked = True
+    await current_bot.log_event("CIRCUIT_BREAKER", "Manual Daily Drawdown Circuit Breaker Triggered by User. Locking system.")
+    await current_bot.emergency_lockdown()
     return {"status": "locked"}
 
 # Reset Circuit Breaker (Unlock)
 @app.post("/api/circuit-breaker/reset")
-async def reset_circuit_breaker():
-    bot.system_locked = False
+async def reset_circuit_breaker(request: Request):
+    current_bot = scoped_bot(request)
+    current_bot.system_locked = False
     # Reset daily starting equity
-    bot.daily_start_equity = bot.account_info["balance"]
-    bot.account_info["daily_start_equity"] = bot.daily_start_equity
-    bot.account_info["daily_drawdown_percent"] = 0.0
-    await bot.log_event("CIRCUIT_BREAKER", "Circuit Breaker manually reset by User. System unlocked.")
+    current_bot.daily_start_equity = current_bot.account_info["balance"]
+    current_bot.account_info["daily_start_equity"] = current_bot.daily_start_equity
+    current_bot.account_info["daily_drawdown_percent"] = 0.0
+    await current_bot.log_event("CIRCUIT_BREAKER", "Circuit Breaker manually reset by User. System unlocked.")
     return {"status": "unlocked"}
 
 # Multi-Agent Iterative SDLC Loop Endpoint
@@ -571,8 +670,7 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    if bot.is_running:
-        await bot.stop()
+    await account_service.shutdown()
     # Close MT5 connection
     if not bot.simulation_mode and MT5_AVAILABLE:
         import MetaTrader5 as mt5  # type: ignore[import-not-found]

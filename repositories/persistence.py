@@ -24,6 +24,7 @@ class AccountRepository(Protocol):
 class InMemoryAccountRepository:
     def __init__(self):
         self._states: dict[str, AccountState] = {}
+        self._profiles: dict[str, dict[str, Any]] = {}
 
     @staticmethod
     def _check(account_id: str) -> str:
@@ -41,3 +42,11 @@ class InMemoryAccountRepository:
         if account_id != state.account_id:
             raise AccountScopeError("State account scope mismatch")
         self._states[account_id] = state
+
+    def profile(self, user_id: str) -> dict[str, Any]:
+        return dict(self._profiles.get(user_id, {"user_id": user_id}))
+
+    def update_profile(self, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        profile = self._profiles.setdefault(user_id, {"user_id": user_id})
+        profile.update(payload)
+        return dict(profile)
