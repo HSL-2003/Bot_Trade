@@ -146,14 +146,159 @@
     const particles = new THREE.Points(particleGeo, particleMat);
     scene.add(particles);
 
-    // 7. GLTF Model Loader & Material Enhancement
+    // 7. GLTF Model Loader & Material Enhancement + Footstep Effects
     let model;
     let mixer;
+    let activeAction = null;
+    let leftFootBone = null;
+    let rightFootBone = null;
+    let lastStepPhase = '';
     let autoOrbit = false;
+    let cameraShakeIntensity = 0;
+    const activeGroundCracks = [];
+    
+    // Advanced footstep detection using Y-position tracking
+    const footLastY = { left: Infinity, right: Infinity };
+    const footHitCooldown = { left: 0, right: 0 };
+    const raycaster = new THREE.Raycaster();
+    const downDir = new THREE.Vector3(0, -1, 0);
+
     const pointer = new THREE.Vector2();
     const targetRotation = new THREE.Vector2(-0.02, -0.35);
     const drag = { active: false, x: 0, y: 0 };
     const loader = new THREE.GLTFLoader();
+
+    // -------------------------------------------------------------
+    // PROCEDURAL TEXTURE GENERATOR (Small Ground Cracks Only)
+    // -------------------------------------------------------------
+    function createGroundCrackTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        const cx = 128, cy = 128;
+
+        ctx.clearRect(0, 0, 256, 256);
+
+        function drawBranch(x, y, angle, length, width, depth) {
+            if (depth <= 0 || length < 2) return;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            let curX = x;
+            let curY = y;
+            const steps = Math.floor(length / 5);
+
+            for (let i = 0; i < steps; i++) {
+                const stepLen = 3 + Math.random() * 5;
+                const stepAngle = angle + (Math.random() - 0.5) * 0.6;
+                curX += Math.cos(stepAngle) * stepLen;
+                curY += Math.sin(stepAngle) * stepLen;
+                ctx.lineTo(curX, curY);
+
+                if (Math.random() < 0.3 && depth > 1) {
+                    const branchAngle = stepAngle + (Math.random() - 0.5) * 1.2;
+                    const branchLen = length * (0.3 + Math.random() * 0.2);
+                    drawBranch(curX, curY, branchAngle, branchLen, width * 0.6, depth - 1);
+                }
+            }
+
+            // Simple thin crack
+            ctx.shadowBlur = 3;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+            ctx.strokeStyle = '#222222';
+            ctx.lineWidth = width * 1.2;
+            ctx.stroke();
+        }
+
+        const numBranches = 5 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < numBranches; i++) {
+            const baseAngle = (i / numBranches) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+            const branchLen = 30 + Math.random() * 20;
+            drawBranch(cx, cy, baseAngle, branchLen, 1.0, 2);
+        }
+
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    const crackTexture = createGroundCrackTexture();
+
+    // -------------------------------------------------------------
+    // GROUND CRACKS (Larger and More Visible)
+    // -------------------------------------------------------------
+    function spawnGroundCrack(x, z) {
+        const size = 0.5 + Math.random() * 0.4; // 0.5-0.9 units (larger cracks!)
+        const geo = new THREE.PlaneGeometry(size, size);
+        const mat = new THREE.MeshBasicMaterial({
+            map: crackTexture,
+            transparent: true,
+            opacity: 0.9, // Very visible
+            blending: THREE.NormalBlending,
+            depthWrite: false
+        });
+
+        const crackMesh = new THREE.Mesh(geo, mat);
+        crackMesh.rotation.x = -Math.PI / 2;
+        crackMesh.rotation.z = Math.random() * Math.PI * 2;
+        crackMesh.position.set(x, 0.002, z);
+        pedestalGroup.add(crackMesh);
+
+        activeGroundCracks.push({
+            crackMesh: crackMesh,
+            mat: mat,
+            life: 3.5,
+            fadeDuration: 3.5
+        });
+    }
+
+    // Advanced footstep detection: detects when foot Y-position reaches lowest point (ground contact)
+    function detectFootstepByPosition(footBone, label, dt) {
+        if (!footBone) return;
+
+        // Get world position of foot bone
+        const worldPos = new THREE.Vector3();
+        footBone.getWorldPosition(worldPos);
+        
+        // Convert to pedestal local space
+        pedestalGroup.worldToLocal(worldPos.clone());
+        
+        const currentY = worldPos.y;
+
+        // Cooldown timer
+        if (footHitCooldown[label] > 0) {
+            footHitCooldown[label] -= dt;
+            footLastY[label] = currentY;
+            return;
+        }
+
+        // Detect ground contact: when Y stops decreasing and starts increasing
+        // This means the foot just hit the lowest point (ground contact)
+        const threshold = 0.002; // Sensitivity threshold
+        
+        if (footLastY[label] !== Infinity) {
+            const deltaY = currentY - footLastY[label];
+            
+            // Foot was going down and now starting to go up = ground contact moment
+            if (deltaY > threshold && currentY < 0.15) { // 0.15 = reasonable foot height
+                // Trigger footstep effect at this position
+                const footWorldPos = new THREE.Vector3();
+                footBone.getWorldPosition(footWorldPos);
+                const localPos = pedestalGroup.worldToLocal(footWorldPos);
+                
+                triggerFootstepStomp(localPos.x, localPos.z);
+                footHitCooldown[label] = 0.35; // 350ms cooldown to prevent double-trigger
+            }
+        }
+
+        footLastY[label] = currentY;
+    }
+
+    function triggerFootstepStomp(x, z) {
+        spawnGroundCrack(x, z);
+        cameraShakeIntensity = 0.03; // Stronger shake
+
+        if (ring1Mat) ring1Mat.color.setHex(0xff7700);
+        if (ring2Mat) ring2Mat.color.setHex(0xff3300);
+    }
 
     const isRegister = window.location.pathname === '/register';
     const masterChief = isRegister 
@@ -184,8 +329,22 @@
         model.position.z = -center.z;
         model.position.y = -box.min.y; // Boots sit directly on the pedestal plane y = 0!
 
-        // Recolor armor to Weathered Battle-Worn Arctic White Ceramic + Icy Cyan Visor Glow
+        // Recolor armor & find foot bones
+        leftFootBone = null;
+        rightFootBone = null;
+
         model.traverse(function (child) {
+            if (child.isBone || child.type === 'Bone') {
+                const name = (child.name || '').toLowerCase();
+                if ((name.includes('left') || name.includes('_l') || name.startsWith('l_')) && 
+                    (name.includes('foot') || name.includes('ankle') || name.includes('toe'))) {
+                    leftFootBone = child;
+                } else if ((name.includes('right') || name.includes('_r') || name.startsWith('r_')) && 
+                    (name.includes('foot') || name.includes('ankle') || name.includes('toe'))) {
+                    rightFootBone = child;
+                }
+            }
+
             if (!child.isMesh) return;
             child.frustumCulled = false;
             if (child.material) {
@@ -198,19 +357,16 @@
                     const matName = (mat.name || '').toLowerCase();
                     const meshName = (child.name || '').toLowerCase();
 
-                    // Check if material/mesh is the Visor/Helmet Face Accents
                     if (matName.includes('visor') || meshName.includes('visor') || matName.includes('glass')) {
                         mat.color.setHex(0x38bdf8); // Glowing Icy Cyan Visor
                         if (mat.emissive) mat.emissive.setHex(0x0284c7);
                         if (mat.roughness !== undefined) mat.roughness = 0.1;
                         if (mat.metalness !== undefined) mat.metalness = 0.95;
                     } else {
-                        // Weathered Arctic Bone-White Ceramic Armor
                         mat.color.setHex(0xe2e8f0);
-                        if (mat.roughness !== undefined) mat.roughness = 0.52; // Matte weathered paint finish
-                        if (mat.metalness !== undefined) mat.metalness = 0.45; // Battle-worn ceramic composite
+                        if (mat.roughness !== undefined) mat.roughness = 0.52;
+                        if (mat.metalness !== undefined) mat.metalness = 0.45;
 
-                        // Boost normal map scratch depth so surface scratches & battle dents pop out aggressively
                         if (mat.normalScale) {
                             mat.normalScale.set(2.2, 2.2);
                         }
@@ -223,10 +379,22 @@
 
         characterGroup.add(model);
 
+        console.info('📦 GLTF Animations array:', gltf.animations);
+        console.info('📦 Animation count:', gltf.animations ? gltf.animations.length : 0);
+
         if (gltf.animations && gltf.animations.length) {
             mixer = new THREE.AnimationMixer(model);
-            mixer.clipAction(gltf.animations[0]).setLoop(THREE.LoopRepeat).play();
+            activeAction = mixer.clipAction(gltf.animations[0]);
+            activeAction.setLoop(THREE.LoopRepeat).play();
+            console.info('✅ Animation loaded:', gltf.animations[0].name, 'Duration:', gltf.animations[0].duration + 's');
+        } else {
+            console.warn('⚠️ No animations found in GLTF model - Using fallback footstep trigger');
         }
+
+        console.info('🦶 Left foot bone:', leftFootBone ? leftFootBone.name : 'NOT FOUND');
+        console.info('🦶 Right foot bone:', rightFootBone ? rightFootBone.name : 'NOT FOUND');
+
+        // Removed test trigger - effects now sync with actual walk animation
 
         if (loading) loading.style.display = 'none';
         console.info('3D asset loaded:', source);
@@ -245,7 +413,7 @@
     });
 
     // 8. Interaction Handlers & Raycasting Mesh Selection
-    const raycaster = new THREE.Raycaster();
+    // Note: raycaster already declared at line 163
     let clickTracker = { x: 0, y: 0, time: 0 };
 
     host.addEventListener('pointermove', function (event) {
@@ -253,7 +421,6 @@
         pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
 
-        // Hover Raycast: Show pointer cursor ONLY when hovering directly over Master Chief's 3D mesh
         if (!drag.active && model) {
             raycaster.setFromCamera(pointer, camera);
             const intersects = raycaster.intersectObject(model, true);
@@ -289,7 +456,6 @@
         const dist = Math.hypot(event.clientX - clickTracker.x, event.clientY - clickTracker.y);
         const duration = Date.now() - clickTracker.time;
 
-        // Precision Click: Navigate to home ONLY if the user clicked directly on Master Chief's 3D mesh
         if (dist < 8 && duration < 350 && model) {
             const rect = host.getBoundingClientRect();
             const clickMouse = new THREE.Vector2(
@@ -332,9 +498,52 @@
     const clock = new THREE.Clock();
     function animate() {
         requestAnimationFrame(animate);
-        const dt = clock.getDelta();
+        const dt = Math.min(clock.getDelta(), 0.1);
 
         if (mixer) mixer.update(dt);
+
+        // -------------------------------------------------------------
+        // Advanced Footstep Detection using Y-position tracking
+        // More accurate than timing-based approach
+        // -------------------------------------------------------------
+        if (leftFootBone && rightFootBone) {
+            detectFootstepByPosition(leftFootBone, 'left', dt);
+            detectFootstepByPosition(rightFootBone, 'right', dt);
+        }
+
+        // Update Ground Cracks (fade out)
+        for (let i = activeGroundCracks.length - 1; i >= 0; i--) {
+            const item = activeGroundCracks[i];
+            item.life -= dt;
+
+            // Fade out gradually
+            item.mat.opacity = Math.max(0, item.life / item.fadeDuration);
+
+            if (item.life <= 0) {
+                pedestalGroup.remove(item.crackMesh);
+                item.crackMesh.geometry.dispose();
+                item.mat.dispose();
+                activeGroundCracks.splice(i, 1);
+            }
+        }
+
+        // Restore Pedestal Ring Colors
+        if (ring1Mat && ring1Mat.color.getHex() !== 0x38bdf8) {
+            ring1Mat.color.lerp(new THREE.Color(0x38bdf8), 0.08);
+        }
+        if (ring2Mat && ring2Mat.color.getHex() !== 0x00ff9d) {
+            ring2Mat.color.lerp(new THREE.Color(0x00ff9d), 0.08);
+        }
+
+        // Camera Shake Decay
+        if (cameraShakeIntensity > 0.001) {
+            camera.position.x = (Math.random() - 0.5) * cameraShakeIntensity;
+            camera.position.y = 0.1 + (Math.random() - 0.5) * cameraShakeIntensity;
+            cameraShakeIntensity *= 0.82;
+        } else {
+            camera.position.x = 0;
+            camera.position.y = 0.1;
+        }
 
         // Rotate Holographic Pedestal
         ring1.rotation.z += 0.006;
@@ -357,8 +566,6 @@
                 targetRotation.y += dt * 0.5;
             }
 
-            // Desktop layout positioning:
-            // Position pedestal base at y = -0.82 so entire Master Chief character fits in full view (head at y = +0.73, well below top edge!)
             const isDesktop = window.innerWidth > 960;
             const targetX = isDesktop ? 0.42 : 0;
             const targetY = isDesktop ? -0.82 : -0.78;

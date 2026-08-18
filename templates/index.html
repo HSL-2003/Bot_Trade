@@ -4140,20 +4140,7 @@
                 });
 
                 window.addEventListener('pointerup', function (e) {
-                    const landing = document.getElementById('landingPageSection');
-                    const shouldNavigateHome = isDragging && !hasDragged && headModel && landing && landing.style.display !== 'none';
                     isDragging = false;
-
-                    if (!shouldNavigateHome) return;
-
-                    const bounds = canvas.getBoundingClientRect();
-                    pointer.x = ((e.clientX - bounds.left) / bounds.width) * 2 - 1;
-                    pointer.y = -((e.clientY - bounds.top) / bounds.height) * 2 + 1;
-                    raycaster.setFromCamera(pointer, camera);
-
-                    if (raycaster.intersectObject(headModel, true).length > 0) {
-                        window.location.assign('http://127.0.0.1:8000/');
-                    }
                 });
 
                 window.addEventListener('scroll', function () {
