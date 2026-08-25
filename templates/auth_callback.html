@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Authenticating · Confluence Bot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.143.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.143.0/examples/jsm/",
+            "three/examples/jsm/": "https://unpkg.com/three@0.143.0/examples/jsm/"
+        }
+    }
+    </script>
+    
+    <style>
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: #040710; color: #f8fafc; overflow: hidden; height: 100vh; font-family: 'Outfit', sans-serif; }
+        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; position: relative; }
+        
+        .auth-bg-grid {
+            position: absolute; inset: 0;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.08) 0%, transparent 60%),
+                linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
+            background-size: 100% 100%, 32px 32px, 32px 32px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .box {
+            text-align: center;
+            max-width: 440px;
+            width: 90%;
+            padding: 36px 28px;
+            background: linear-gradient(180deg, rgba(8, 16, 32, 0.94) 0%, rgba(4, 9, 20, 0.98) 100%);
+            border: 1px solid rgba(56, 189, 248, 0.22);
+            border-radius: 20px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.85), 0 0 30px rgba(56, 189, 248, 0.08);
+            position: relative;
+            z-index: 2;
+            backdrop-filter: blur(20px);
+        }
+        .box::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, #38bdf8 30%, #00ff9d 70%, transparent);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.6);
+        }
+
+        .spinner-wrapper {
+            position: relative;
+            width: 52px;
+            height: 52px;
+            margin: 0 auto 20px;
+        }
+        .spinner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 3px solid rgba(56, 189, 248, 0.15);
+            border-top-color: #38bdf8;
+            border-right-color: #00ff9d;
+            animation: spin 0.9s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
+            box-shadow: 0 0 18px rgba(56, 189, 248, 0.3);
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .auth-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(56, 189, 248, 0.08);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+        .badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #00ff9d;
+            box-shadow: 0 0 8px #00ff9d;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin: 0 0 6px;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            background: linear-gradient(135deg, #ffffff 40%, #e2e8f0 70%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        p { color: #94a3b8; font-size: 13px; margin: 0 0 8px; line-height: 1.5; }
+        .error { color: #f87171; font-family: 'JetBrains Mono', monospace; font-size: 12px; margin-top: 12px; word-break: break-all; }
+
+        @keyframes pulseScroll {
+            0%, 100% { transform: translateY(0); opacity: 0.5; }
+            50% { transform: translateY(6px); opacity: 1; }
+        }
+        #tunnel-skip-btn:hover {
+            background: rgba(56, 189, 248, 0.2) !important;
+            color: #38bdf8 !important;
+            border-color: rgba(56, 189, 248, 0.6) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-bg-grid"></div>
+
+    <div class="box" id="auth-status-box">
+        <div class="spinner-wrapper">
+            <div class="spinner"></div>
+        </div>
+        <div class="auth-badge">
+            <span class="badge-dot"></span>
+            <span>OAUTH GATEWAY</span>
+        </div>
+        <h1 id="status-heading">Verifying Access…</h1>
+        <p id="status-desc">Synchronizing security tokens with tactical command.</p>
+        <p class="error" id="error-msg"></p>
+    </div>
+
+    <!-- FULLSCREEN INTERACTIVE 3D WARP TUNNEL OVERLAY -->
+    <div id="login-tunnel-overlay" style="display: none; position: fixed; inset: 0; z-index: 99999; background: #02040a; opacity: 0; transition: opacity 0.4s ease; pointer-events: auto;">
+        <canvas id="login-tunnel-canvas" style="position: absolute; inset: 0; width: 100vw; height: 100vh; display: block;"></canvas>
+        <div style="position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; padding: 36px; pointer-events: none; background: radial-gradient(circle at center, transparent 30%, rgba(2, 4, 10, 0.65) 85%);">
+            
+            <!-- Top HUD Bar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; pointer-events: auto;">
+                <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(6, 15, 30, 0.85); border: 1px solid rgba(56, 189, 248, 0.3); padding: 8px 18px; border-radius: 999px; font-size: 11px; letter-spacing: 2px; color: #38bdf8; backdrop-filter: blur(10px); box-shadow: 0 0 25px rgba(56, 189, 248, 0.2); font-family: 'JetBrains Mono', monospace;">
+                    <span style="width: 7px; height: 7px; background: #00ff9d; border-radius: 50%; box-shadow: 0 0 10px #00ff9d;"></span>
+                    <span>WARP TUNNEL // INTERACTIVE</span>
+                </div>
+                <button id="tunnel-skip-btn" type="button" style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.25); color: #94a3b8; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1.5px; padding: 7px 16px; border-radius: 999px; cursor: pointer; transition: all 0.2s ease; pointer-events: auto;">
+                    SKIP / ENTER NOW ➔
+                </button>
+            </div>
+
+            <!-- Center Telemetry & Progress -->
+            <div style="text-align: center; margin: auto; max-width: 650px; font-family: 'JetBrains Mono', monospace;">
+                <div id="tunnel-status-eyebrow" style="font-size: 12px; letter-spacing: 4px; color: #38bdf8; text-transform: uppercase; margin-bottom: 12px; text-shadow: 0 0 15px rgba(56, 189, 248, 0.6);">AUTHENTICATED · MANUAL WARP DRIVE</div>
+                <h1 id="tunnel-status-title" style="font-family: 'Outfit', sans-serif; font-size: clamp(2rem, 4.5vw, 3.2rem); font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 16px; background: linear-gradient(135deg, #ffffff 30%, #38bdf8 80%, #00ff9d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Scroll to Enter Terminal</h1>
+                <div style="width: 320px; height: 5px; background: rgba(56, 189, 248, 0.15); border-radius: 999px; margin: 0 auto 14px; overflow: hidden; border: 1px solid rgba(56, 189, 248, 0.25);">
+                    <div id="tunnel-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8, #00ff9d); box-shadow: 0 0 16px #38bdf8; transition: width 0.05s linear;"></div>
+                </div>
+                <div id="tunnel-status-details" style="font-size: 11px; color: #94a3b8; letter-spacing: 1px;">SCROLL OR SWIPE DOWN TO ADVANCE (0%)</div>
+            </div>
+
+            <!-- Bottom Scroll Indicator & Telemetry -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                <div id="tunnel-scroll-guidance" style="display: flex; flex-direction: column; align-items: center; gap: 6px; animation: pulseScroll 1.8s ease-in-out infinite;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 3px; color: rgba(56, 189, 248, 0.85); text-transform: uppercase;">SCROLL DOWN TO ADVANCE</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(56, 189, 248, 0.9)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14M5 12l7 7 7-7"/>
+                    </svg>
+                </div>
+                <div style="display: flex; justify-content: space-between; width: 100%; font-size: 10px; letter-spacing: 2px; color: rgba(148, 163, 184, 0.7); font-family: 'JetBrains Mono', monospace;">
+                    <span>CONFLUENCE ALGO BOT v2.4</span>
+                    <span>NODE: ENCRYPTED // DEPTH SYNC</span>
+                </div>
+            </div>
+        </div>
+        <div id="tunnel-flash-overlay" style="position: fixed; inset: 0; background: #ffffff; opacity: 0; pointer-events: none; z-index: 100; transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);"></div>
+    </div>
+
+    <script type="module">
+        import { initTunnel } from '/static/tunnel.js';
+
+        window.triggerLoginTunnelTransition = function(nextUrl = '/app?view=terminal') {
+            const overlay = document.getElementById('login-tunnel-overlay');
+            const canvas = document.getElementById('login-tunnel-canvas');
+            const progressBar = document.getElementById('tunnel-progress-bar');
+            const statusTitle = document.getElementById('tunnel-status-title');
+            const statusEyebrow = document.getElementById('tunnel-status-eyebrow');
+            const statusDetails = document.getElementById('tunnel-status-details');
+            const flashOverlay = document.getElementById('tunnel-flash-overlay');
+            const skipBtn = document.getElementById('tunnel-skip-btn');
+
+            if (!overlay || !canvas) {
+                window.location.href = nextUrl;
+                return;
+            }
+
+            overlay.style.display = 'block';
+            requestAnimationFrame(() => {
+                overlay.style.opacity = '1';
+            });
+
+            // Initialize Three.js wormhole tunnel
+            let tunnel = null;
+            try {
+                tunnel = initTunnel(canvas, {
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                });
+            } catch (err) {
+                console.error("Tunnel init notice:", err);
+            }
+
+            let targetProgress = 0;
+            let currentProgress = 0;
+            let isCompleting = false;
+
+            // Auto-advance momentum so it warps smoothly even if user just watches
+            let autoAdvance = true;
+
+            function finishWarp() {
+                if (isCompleting) return;
+                isCompleting = true;
+                if (flashOverlay) flashOverlay.style.opacity = '0.9';
+                setTimeout(() => {
+                    window.location.href = nextUrl;
+                }, 220);
+            }
+
+            if (skipBtn) {
+                skipBtn.onclick = finishWarp;
+            }
+
+            function onUserInteract() {
+                autoAdvance = false;
+            }
+
+            // Interactive Wheel Handler
+            function onWheel(e) {
+                if (isCompleting) return;
+                onUserInteract();
+                e.preventDefault();
+                const delta = e.deltaY;
+                const step = delta > 0 ? Math.min(0.12, delta * 0.0012) : Math.max(-0.12, delta * 0.0012);
+                targetProgress = Math.max(0, Math.min(1.0, targetProgress + step));
+            }
+
+            // Interactive Touch / Swipe Handler
+            let touchStartY = 0;
+            function onTouchStart(e) {
+                onUserInteract();
+                if (e.touches && e.touches[0]) touchStartY = e.touches[0].clientY;
+            }
+            function onTouchMove(e) {
+                if (isCompleting || !e.touches || !e.touches[0]) return;
+                e.preventDefault();
+                const dy = touchStartY - e.touches[0].clientY;
+                touchStartY = e.touches[0].clientY;
+                targetProgress = Math.max(0, Math.min(1.0, targetProgress + dy * 0.0035));
+            }
+
+            // Keyboard Handler
+            function onKeyDown(e) {
+                if (isCompleting) return;
+                onUserInteract();
+                if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+                    e.preventDefault();
+                    targetProgress = Math.min(1.0, targetProgress + 0.08);
+                } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+                    e.preventDefault();
+                    targetProgress = Math.max(0, targetProgress - 0.08);
+                } else if (e.key === 'Enter') {
+                    finishWarp();
+                }
+            }
+
+            window.addEventListener('wheel', onWheel, { passive: false });
+            window.addEventListener('touchstart', onTouchStart, { passive: true });
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            window.addEventListener('keydown', onKeyDown);
+
+            function updateLoop() {
+                if (autoAdvance && targetProgress < 1.0) {
+                    targetProgress += 0.0045; // Smooth gentle auto acceleration
+                }
+
+                currentProgress += (targetProgress - currentProgress) * 0.10;
+
+                if (tunnel && typeof tunnel.setScroll === 'function') {
+                    tunnel.setScroll(currentProgress * 0.96);
+                }
+
+                const pct = Math.floor(currentProgress * 100);
+                if (progressBar) progressBar.style.width = pct + '%';
+
+                if (currentProgress < 0.35) {
+                    if (statusEyebrow) statusEyebrow.textContent = 'OAUTH NEURAL LINK ESTABLISHED';
+                    if (statusTitle) statusTitle.textContent = 'Scroll to Enter Terminal';
+                    if (statusDetails) statusDetails.textContent = `SCROLL DOWN TO WARP THROUGH (${pct}%)`;
+                } else if (currentProgress < 0.75) {
+                    if (statusEyebrow) statusEyebrow.textContent = 'CONNECTING TO MT5 BRIDGE';
+                    if (statusTitle) statusTitle.textContent = 'Warping Through Matrix';
+                    if (statusDetails) statusDetails.textContent = `SYNCHRONIZING TELEMETRY STREAM (${pct}%)`;
+                } else if (currentProgress < 0.96) {
+                    if (statusEyebrow) statusEyebrow.textContent = 'ACCESS GRANTED';
+                    if (statusTitle) statusTitle.textContent = 'Terminal Ready';
+                    if (statusDetails) statusDetails.textContent = 'APPROACHING COMMAND GATEWAY // SCROLL TO DOCK';
+                } else {
+                    finishWarp();
+                }
+
+                if (!isCompleting) {
+                    requestAnimationFrame(updateLoop);
+                }
+            }
+
+            requestAnimationFrame(updateLoop);
+        };
+
+        // Execute OAuth token exchange on load
+        (function () {
+            const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+            const queryParams = new URLSearchParams(window.location.search);
+            const token = params.get('access_token') || queryParams.get('access_token');
+            const error = params.get('error') || params.get('error_description') || queryParams.get('error');
+            
+            try { localStorage.removeItem('access_token'); localStorage.removeItem('account_id'); } catch (e) {}
+
+            if (!token) {
+                document.querySelector('#status-heading').textContent = 'Authentication Failed';
+                document.querySelector('#error-msg').textContent = error || 'No access token received from authentication provider.';
+                setTimeout(() => { location.href = '/login'; }, 2500);
+                return;
+            }
+
+            fetch('/api/auth/social/callback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token })
+            })
+                .then(async res => {
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Unable to complete sign-in.');
+                    localStorage.setItem('access_token', data.access_token);
+                    if (data.account_id) localStorage.setItem('account_id', data.account_id);
+                    
+                    document.querySelector('#status-heading').textContent = 'Identity Verified';
+                    document.querySelector('#status-desc').textContent = 'Initiating Warp Drive…';
+
+                    // Trigger full 3D interactive warp tunnel
+                    if (typeof window.triggerLoginTunnelTransition === 'function') {
+                        window.triggerLoginTunnelTransition('/app?view=terminal');
+                    } else {
+                        setTimeout(() => { location.href = '/app?view=terminal'; }, 150);
+                    }
+                })
+                .catch(err => {
+                    document.querySelector('#status-heading').textContent = 'Sign-in Error';
+                    document.querySelector('#error-msg').textContent = err.message;
+                    setTimeout(() => { location.href = '/login'; }, 2500);
+                });
+        })();
+    </script>
+</body>
+</html>

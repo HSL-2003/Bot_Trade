@@ -12,6 +12,310 @@
         rel="stylesheet">
     <link rel="stylesheet" href="/static/marketing.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.143.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.143.0/examples/jsm/",
+            "three/examples/jsm/": "https://unpkg.com/three@0.143.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        /* ── Clean Auth Page (no tunnel) ── */
+        html, body { margin: 0; padding: 0; background: #040710; }
+
+        /* Auth shell: fully visible immediately */
+        .auth-page { background: #040710; }
+        .auth-shell {
+            position: relative;
+            z-index: 1;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Showcase panel */
+        .auth-showcase {
+            background: linear-gradient(135deg, #050e1a 0%, #030609 100%) !important;
+            border-right: 1px solid rgba(56, 189, 248, 0.15) !important;
+        }
+        /* Form panel */
+        .auth-panel {
+            background: #060c1a !important;
+            padding: 40px 24px !important;
+        }
+
+        /* Auth Card Redesign */
+        .auth-card {
+            width: min(440px, 100%) !important;
+            margin: 0 auto !important;
+            padding: 32px 28px 26px !important;
+            background: linear-gradient(180deg, rgba(8, 16, 32, 0.95) 0%, rgba(4, 9, 20, 0.98) 100%) !important;
+            border: 1px solid rgba(56, 189, 248, 0.22) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(56, 189, 248, 0.08), 0 0 40px rgba(56, 189, 248, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+            position: relative !important;
+            backdrop-filter: blur(24px) !important;
+            overflow: hidden !important;
+        }
+        .auth-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #38bdf8 30%, #00ff9d 70%, transparent);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.6);
+        }
+        .auth-card::after {
+            display: none !important;
+        }
+        .auth-card > * {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-hud-badge {
+            display: inline-flex !important;
+            align-items: center;
+            gap: 7px;
+            padding: 4px 10px !important;
+            border-radius: 999px !important;
+            background: rgba(56, 189, 248, 0.08) !important;
+            border: 1px solid rgba(56, 189, 248, 0.25) !important;
+            color: #38bdf8 !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: 10.5px !important;
+            font-weight: 700 !important;
+            letter-spacing: 1.5px !important;
+            text-transform: uppercase;
+            margin-bottom: 12px !important;
+        }
+        .hud-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #00ff9d;
+            box-shadow: 0 0 8px #00ff9d;
+            animation: pulseHudDot 2s infinite ease-in-out;
+        }
+        @keyframes pulseHudDot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        .auth-card h1 {
+            font-family: 'Outfit', sans-serif !important;
+            font-size: clamp(1.85rem, 3.2vw, 2.35rem) !important;
+            font-weight: 800 !important;
+            letter-spacing: -0.02em !important;
+            line-height: 1.15 !important;
+            margin: 0 0 6px !important;
+            background: linear-gradient(135deg, #ffffff 40%, #e2e8f0 70%, #94a3b8 100%) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+        }
+        .auth-subtitle {
+            color: #94a3b8 !important;
+            font-size: 13px !important;
+            line-height: 1.5 !important;
+            margin: 0 0 20px !important;
+        }
+
+        /* Form Inputs */
+        .input-group {
+            margin-bottom: 15px !important;
+        }
+        .input-group label {
+            display: block !important;
+            color: #cbd5e1 !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            letter-spacing: 1px !important;
+            text-transform: uppercase !important;
+            margin-bottom: 6px !important;
+        }
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        .input-icon {
+            position: absolute;
+            left: 13px;
+            color: #64748b;
+            pointer-events: none;
+            transition: color 0.2s ease;
+            z-index: 2;
+        }
+        .auth-card input {
+            width: 100% !important;
+            padding: 12px 42px 12px 40px !important;
+            border: 1px solid rgba(56, 189, 248, 0.2) !important;
+            border-radius: 10px !important;
+            background: rgba(6, 12, 24, 0.85) !important;
+            color: #ffffff !important;
+            font-family: 'Outfit', sans-serif !important;
+            font-size: 14px !important;
+            transition: all 0.2s ease !important;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+        }
+        .auth-card input:focus {
+            outline: none !important;
+            border-color: #38bdf8 !important;
+            background: rgba(10, 20, 38, 0.98) !important;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18), 0 0 16px rgba(56, 189, 248, 0.12), inset 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+        }
+        .auth-card input:focus ~ .input-icon,
+        .input-wrapper:focus-within .input-icon {
+            color: #38bdf8 !important;
+        }
+
+        .auth-card button.toggle-password-btn {
+            position: absolute !important;
+            right: 10px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            width: 30px !important;
+            height: 30px !important;
+            background: transparent !important;
+            border: 0 !important;
+            color: #64748b !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 6px !important;
+            transition: color 0.2s ease, background 0.2s ease !important;
+            z-index: 10 !important;
+        }
+        .auth-card button.toggle-password-btn:hover {
+            color: #38bdf8 !important;
+            background: rgba(56, 189, 248, 0.1) !important;
+        }
+
+        /* Primary Submit Button */
+        .submit-btn {
+            width: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 8px !important;
+            margin-top: 6px !important;
+            padding: 12px 20px !important;
+            background: linear-gradient(135deg, #0284c7 0%, #38bdf8 55%, #00e5ff 100%) !important;
+            color: #020814 !important;
+            border: none !important;
+            border-radius: 10px !important;
+            font-family: 'Outfit', sans-serif !important;
+            font-size: 14.5px !important;
+            font-weight: 800 !important;
+            letter-spacing: 0.3px !important;
+            cursor: pointer !important;
+            box-shadow: 0 4px 18px rgba(56, 189, 248, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+        .submit-btn:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 25px rgba(56, 189, 248, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+            background: linear-gradient(135deg, #0369a1 0%, #38bdf8 50%, #22d3ee 100%) !important;
+        }
+        .submit-btn:active {
+            transform: translateY(0) scale(0.99) !important;
+        }
+
+        /* Social / OAuth Divider */
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 18px 0 14px;
+            color: #64748b;
+            font-size: 10.5px;
+            letter-spacing: 1.5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+        .auth-divider::before, .auth-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.22), transparent);
+        }
+
+        /* Social Login Buttons */
+        .social-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .social-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            padding: 10px 14px;
+            background: rgba(15, 23, 42, 0.65);
+            color: #e2e8f0;
+            border: 1px solid rgba(56, 189, 248, 0.22);
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+        .social-btn .social-icon {
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+        }
+        .social-btn:hover {
+            transform: translateY(-2px);
+            color: #ffffff;
+        }
+        .social-btn.google-btn:hover {
+            background: rgba(66, 133, 244, 0.12);
+            border-color: rgba(66, 133, 244, 0.45);
+            box-shadow: 0 4px 16px rgba(66, 133, 244, 0.22);
+        }
+        .social-btn.github-btn:hover {
+            background: rgba(240, 246, 252, 0.09);
+            border-color: rgba(240, 246, 252, 0.35);
+            box-shadow: 0 4px 16px rgba(255, 255, 255, 0.12);
+        }
+        .social-btn:hover .social-icon {
+            transform: scale(1.08);
+        }
+        .social-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Switch link */
+        .switch {
+            margin: 0 !important;
+            padding-top: 14px !important;
+            border-top: 1px solid rgba(56, 189, 248, 0.1) !important;
+            text-align: center !important;
+            color: #94a3b8 !important;
+            font-size: 12.5px !important;
+        }
+        .switch a {
+            color: #38bdf8 !important;
+            font-weight: 700 !important;
+            text-decoration: none !important;
+            transition: all 0.2s ease !important;
+        }
+        .switch a:hover {
+            color: #7dd3fc !important;
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5) !important;
+        }
+    </style>
 </head>
 
 <body class="auth-page">
@@ -88,7 +392,7 @@
 
             <div class="auth-card">
                 <div class="card-hud-badge">
-                    <span class="lock-icon"></span> SECURE TERMINAL
+                    <span class="hud-status-dot"></span> SECURE TERMINAL
                 </div>
                 <h1>{{ heading }}</h1>
                 <p class="auth-subtitle">Authenticate to access your automated trading command center.</p>
@@ -142,6 +446,28 @@
                     </button>
                 </form>
 
+                <div class="auth-divider">
+                    <span>OR CONTINUE WITH</span>
+                </div>
+
+                <div class="social-grid">
+                    <a href="/api/auth/google" class="social-btn google-btn" id="google-auth-btn" title="Continue with Google">
+                        <svg class="social-icon" width="18" height="18" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                        </svg>
+                        <span>Google</span>
+                    </a>
+                    <a href="/api/auth/github" class="social-btn github-btn" id="github-auth-btn" title="Continue with GitHub">
+                        <svg class="social-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+                        </svg>
+                        <span>GitHub</span>
+                    </a>
+                </div>
+
                 <p class="switch">{{ footer|safe }}</p>
             </div>
 
@@ -151,9 +477,191 @@
         </section>
     </main>
 
+    <!-- FULLSCREEN USER-CONTROLLED TUNNEL TRANSITION OVERLAY -->
+    <div id="login-tunnel-overlay" style="display: none; position: fixed; inset: 0; z-index: 99999; background: #02040a; opacity: 0; transition: opacity 0.4s ease; pointer-events: auto;">
+        <canvas id="login-tunnel-canvas" style="position: absolute; inset: 0; width: 100vw; height: 100vh; display: block;"></canvas>
+        <div style="position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; padding: 36px; pointer-events: none; background: radial-gradient(circle at center, transparent 30%, rgba(2, 4, 10, 0.65) 85%);">
+            
+            <!-- Top HUD Bar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; pointer-events: auto;">
+                <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(6, 15, 30, 0.85); border: 1px solid rgba(56, 189, 248, 0.3); padding: 8px 18px; border-radius: 999px; font-size: 11px; letter-spacing: 2px; color: #38bdf8; backdrop-filter: blur(10px); box-shadow: 0 0 25px rgba(56, 189, 248, 0.2); font-family: 'JetBrains Mono', monospace;">
+                    <span style="width: 7px; height: 7px; background: #00ff9d; border-radius: 50%; box-shadow: 0 0 10px #00ff9d;"></span>
+                    <span>WARP TUNNEL // INTERACTIVE</span>
+                </div>
+                <button id="tunnel-skip-btn" type="button" style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.25); color: #94a3b8; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1.5px; padding: 7px 16px; border-radius: 999px; cursor: pointer; transition: all 0.2s ease; pointer-events: auto;">
+                    SKIP / ENTER NOW ➔
+                </button>
+            </div>
+
+            <!-- Center Telemetry & Progress -->
+            <div style="text-align: center; margin: auto; max-width: 650px; font-family: 'JetBrains Mono', monospace;">
+                <div id="tunnel-status-eyebrow" style="font-size: 12px; letter-spacing: 4px; color: #38bdf8; text-transform: uppercase; margin-bottom: 12px; text-shadow: 0 0 15px rgba(56, 189, 248, 0.6);">AUTHENTICATED · MANUAL WARP DRIVE</div>
+                <h1 id="tunnel-status-title" style="font-family: 'Outfit', sans-serif; font-size: clamp(2rem, 4.5vw, 3.2rem); font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 16px; background: linear-gradient(135deg, #ffffff 30%, #38bdf8 80%, #00ff9d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Scroll to Enter Terminal</h1>
+                <div style="width: 320px; height: 5px; background: rgba(56, 189, 248, 0.15); border-radius: 999px; margin: 0 auto 14px; overflow: hidden; border: 1px solid rgba(56, 189, 248, 0.25);">
+                    <div id="tunnel-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8, #00ff9d); box-shadow: 0 0 16px #38bdf8; transition: width 0.05s linear;"></div>
+                </div>
+                <div id="tunnel-status-details" style="font-size: 11px; color: #94a3b8; letter-spacing: 1px;">SCROLL OR SWIPE DOWN TO ADVANCE (0%)</div>
+            </div>
+
+            <!-- Bottom Scroll Indicator & Telemetry -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                <div id="tunnel-scroll-guidance" style="display: flex; flex-direction: column; align-items: center; gap: 6px; animation: pulseScroll 1.8s ease-in-out infinite;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 3px; color: rgba(56, 189, 248, 0.85); text-transform: uppercase;">SCROLL DOWN TO ADVANCE</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(56, 189, 248, 0.9)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14M5 12l7 7 7-7"/>
+                    </svg>
+                </div>
+                <div style="display: flex; justify-content: space-between; width: 100%; font-size: 10px; letter-spacing: 2px; color: rgba(148, 163, 184, 0.7); font-family: 'JetBrains Mono', monospace;">
+                    <span>CONFLUENCE ALGO BOT v2.4</span>
+                    <span>NODE: ENCRYPTED // DEPTH SYNC</span>
+                </div>
+            </div>
+        </div>
+        <div id="tunnel-flash-overlay" style="position: fixed; inset: 0; background: #ffffff; opacity: 0; pointer-events: none; z-index: 100; transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);"></div>
+    </div>
+
+    <style>
+        @keyframes pulseScroll {
+            0%, 100% { transform: translateY(0); opacity: 0.5; }
+            50% { transform: translateY(6px); opacity: 1; }
+        }
+        #tunnel-skip-btn:hover {
+            background: rgba(56, 189, 248, 0.2) !important;
+            color: #38bdf8 !important;
+            border-color: rgba(56, 189, 248, 0.6) !important;
+        }
+    </style>
+
     <script src="/static/three.min.js"></script>
     <script src="/static/GLTFLoader.js"></script>
     <script src="/static/auth-scene.js"></script>
+    <script type="module">
+        import { initTunnel } from '/static/tunnel.js';
+
+        window.triggerLoginTunnelTransition = function(nextUrl = '/app?view=terminal') {
+            const overlay = document.getElementById('login-tunnel-overlay');
+            const canvas = document.getElementById('login-tunnel-canvas');
+            const progressBar = document.getElementById('tunnel-progress-bar');
+            const statusTitle = document.getElementById('tunnel-status-title');
+            const statusEyebrow = document.getElementById('tunnel-status-eyebrow');
+            const statusDetails = document.getElementById('tunnel-status-details');
+            const flashOverlay = document.getElementById('tunnel-flash-overlay');
+            const skipBtn = document.getElementById('tunnel-skip-btn');
+
+            if (!overlay || !canvas) {
+                window.location.href = nextUrl;
+                return;
+            }
+
+            overlay.style.display = 'block';
+            requestAnimationFrame(() => {
+                overlay.style.opacity = '1';
+            });
+
+            // Initialize Three.js wormhole tunnel
+            let tunnel = null;
+            try {
+                tunnel = initTunnel(canvas, {
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                });
+            } catch (err) {
+                console.error("Tunnel init notice:", err);
+            }
+
+            let targetProgress = 0;
+            let currentProgress = 0;
+            let isCompleting = false;
+
+            function finishWarp() {
+                if (isCompleting) return;
+                isCompleting = true;
+                if (flashOverlay) flashOverlay.style.opacity = '0.9';
+                setTimeout(() => {
+                    window.location.href = nextUrl;
+                }, 220);
+            }
+
+            if (skipBtn) {
+                skipBtn.onclick = finishWarp;
+            }
+
+            // Interactive Wheel Handler (User scrolls at own pace)
+            function onWheel(e) {
+                if (isCompleting) return;
+                e.preventDefault();
+                const delta = e.deltaY;
+                const step = delta > 0 ? Math.min(0.12, delta * 0.0012) : Math.max(-0.12, delta * 0.0012);
+                targetProgress = Math.max(0, Math.min(1.0, targetProgress + step));
+            }
+
+            // Interactive Touch / Swipe Handler
+            let touchStartY = 0;
+            function onTouchStart(e) {
+                if (e.touches && e.touches[0]) touchStartY = e.touches[0].clientY;
+            }
+            function onTouchMove(e) {
+                if (isCompleting || !e.touches || !e.touches[0]) return;
+                e.preventDefault();
+                const dy = touchStartY - e.touches[0].clientY;
+                touchStartY = e.touches[0].clientY;
+                targetProgress = Math.max(0, Math.min(1.0, targetProgress + dy * 0.0035));
+            }
+
+            // Keyboard Handler (ArrowDown, PageDown, Space)
+            function onKeyDown(e) {
+                if (isCompleting) return;
+                if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+                    e.preventDefault();
+                    targetProgress = Math.min(1.0, targetProgress + 0.08);
+                } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+                    e.preventDefault();
+                    targetProgress = Math.max(0, targetProgress - 0.08);
+                } else if (e.key === 'Enter') {
+                    finishWarp();
+                }
+            }
+
+            window.addEventListener('wheel', onWheel, { passive: false });
+            window.addEventListener('touchstart', onTouchStart, { passive: true });
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            window.addEventListener('keydown', onKeyDown);
+
+            function updateLoop() {
+                // Smooth damping lerp towards user's scroll position
+                currentProgress += (targetProgress - currentProgress) * 0.10;
+
+                if (tunnel && typeof tunnel.setScroll === 'function') {
+                    tunnel.setScroll(currentProgress * 0.96);
+                }
+
+                const pct = Math.floor(currentProgress * 100);
+                if (progressBar) progressBar.style.width = pct + '%';
+
+                if (currentProgress < 0.35) {
+                    if (statusEyebrow) statusEyebrow.textContent = 'NEURAL LINK ESTABLISHED';
+                    if (statusTitle) statusTitle.textContent = 'Scroll to Enter Terminal';
+                    if (statusDetails) statusDetails.textContent = `SCROLL DOWN TO WARP THROUGH (${pct}%)`;
+                } else if (currentProgress < 0.75) {
+                    if (statusEyebrow) statusEyebrow.textContent = 'CONNECTING TO MT5 BRIDGE';
+                    if (statusTitle) statusTitle.textContent = 'Warping Through Matrix';
+                    if (statusDetails) statusDetails.textContent = `SYNCHRONIZING TELEMETRY STREAM (${pct}%)`;
+                } else if (currentProgress < 0.96) {
+                    if (statusEyebrow) statusEyebrow.textContent = 'ACCESS GRANTED';
+                    if (statusTitle) statusTitle.textContent = 'Terminal Ready';
+                    if (statusDetails) statusDetails.textContent = 'APPROACHING COMMAND GATEWAY // SCROLL TO DOCK';
+                } else {
+                    finishWarp();
+                }
+
+                if (!isCompleting) {
+                    requestAnimationFrame(updateLoop);
+                }
+            }
+
+            requestAnimationFrame(updateLoop);
+        };
+    </script>
     <script src="/static/auth.js"></script>
 </body>
 

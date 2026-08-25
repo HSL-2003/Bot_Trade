@@ -104,6 +104,15 @@
     coreDisk.rotation.x = Math.PI / 2;
     pedestalGroup.add(coreDisk);
 
+    // Invisible ground collider plane — Raycaster fires downward from foot bones and intersects this mesh
+    // Must be large enough to always catch both feet regardless of walking stance width
+    const groundColliderGeo = new THREE.PlaneGeometry(6, 6);
+    const groundColliderMat = new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide });
+    const groundMesh = new THREE.Mesh(groundColliderGeo, groundColliderMat);
+    groundMesh.rotation.x = -Math.PI / 2;
+    groundMesh.position.y = 0;
+    pedestalGroup.add(groundMesh);
+
     // 6. Tactical Data Particle System
     const particleCount = 150;
     const particleGeo = new THREE.BufferGeometry();
@@ -111,293 +120,316 @@
     const particleVelocities = new Float32Array(particleCount);
 
     for (let i = 0; i < particleCount; i++) {
-        particlePositions[i * 3] = (Math.random() - 0.5) * 4.0;
+        particlePositions[i * 3]     = (Math.random() - 0.5) * 4.0;
         particlePositions[i * 3 + 1] = -0.85 + Math.random() * 2.8;
         particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 3.5;
         particleVelocities[i] = 0.003 + Math.random() * 0.006;
     }
-
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
 
     function createParticleTexture() {
         const canvas = document.createElement('canvas');
-        canvas.width = 16;
-        canvas.height = 16;
+        canvas.width = 16; canvas.height = 16;
         const ctx = canvas.getContext('2d');
         const grad = ctx.createRadialGradient(8, 8, 0, 8, 8, 8);
-        grad.addColorStop(0, 'rgba(56, 189, 248, 1)');
+        grad.addColorStop(0,   'rgba(56, 189, 248, 1)');
         grad.addColorStop(0.4, 'rgba(0, 240, 255, 0.6)');
-        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        grad.addColorStop(1,   'rgba(0, 0, 0, 0)');
         ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(8, 8, 8, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(8, 8, 8, 0, Math.PI * 2); ctx.fill();
         return new THREE.CanvasTexture(canvas);
     }
 
     const particleMat = new THREE.PointsMaterial({
-        size: 0.085,
-        map: createParticleTexture(),
-        transparent: true,
-        opacity: 0.85,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
+        size: 0.085, map: createParticleTexture(),
+        transparent: true, opacity: 0.85,
+        blending: THREE.AdditiveBlending, depthWrite: false
     });
     const particles = new THREE.Points(particleGeo, particleMat);
     scene.add(particles);
 
-    // 7. GLTF Model Loader & Material Enhancement + Footstep Effects
-    let model;
-    let mixer;
+    // 7. GLTF Model Loader & Material Enhancement
+    let model     = null;
+    let mixer     = null;
     let activeAction = null;
-    let leftFootBone = null;
-    let rightFootBone = null;
-    let lastStepPhase = '';
+
     let autoOrbit = false;
-    let cameraShakeIntensity = 0;
-    const activeGroundCracks = [];
-    
-    // Advanced footstep detection using Y-position tracking
-    const footLastY = { left: Infinity, right: Infinity };
-    const footHitCooldown = { left: 0, right: 0 };
-    const raycaster = new THREE.Raycaster();
-    const downDir = new THREE.Vector3(0, -1, 0);
 
-    const pointer = new THREE.Vector2();
+    const pointer       = new THREE.Vector2();
     const targetRotation = new THREE.Vector2(-0.02, -0.35);
-    const drag = { active: false, x: 0, y: 0 };
-    const loader = new THREE.GLTFLoader();
-
-    // -------------------------------------------------------------
-    // PROCEDURAL TEXTURE GENERATOR (Small Ground Cracks Only)
-    // -------------------------------------------------------------
-    function createGroundCrackTexture() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 256;
-        canvas.height = 256;
-        const ctx = canvas.getContext('2d');
-        const cx = 128, cy = 128;
-
-        ctx.clearRect(0, 0, 256, 256);
-
-        function drawBranch(x, y, angle, length, width, depth) {
-            if (depth <= 0 || length < 2) return;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            let curX = x;
-            let curY = y;
-            const steps = Math.floor(length / 5);
-
-            for (let i = 0; i < steps; i++) {
-                const stepLen = 3 + Math.random() * 5;
-                const stepAngle = angle + (Math.random() - 0.5) * 0.6;
-                curX += Math.cos(stepAngle) * stepLen;
-                curY += Math.sin(stepAngle) * stepLen;
-                ctx.lineTo(curX, curY);
-
-                if (Math.random() < 0.3 && depth > 1) {
-                    const branchAngle = stepAngle + (Math.random() - 0.5) * 1.2;
-                    const branchLen = length * (0.3 + Math.random() * 0.2);
-                    drawBranch(curX, curY, branchAngle, branchLen, width * 0.6, depth - 1);
-                }
-            }
-
-            // Simple thin crack
-            ctx.shadowBlur = 3;
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-            ctx.strokeStyle = '#222222';
-            ctx.lineWidth = width * 1.2;
-            ctx.stroke();
-        }
-
-        const numBranches = 5 + Math.floor(Math.random() * 3);
-        for (let i = 0; i < numBranches; i++) {
-            const baseAngle = (i / numBranches) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
-            const branchLen = 30 + Math.random() * 20;
-            drawBranch(cx, cy, baseAngle, branchLen, 1.0, 2);
-        }
-
-        return new THREE.CanvasTexture(canvas);
-    }
-
-    const crackTexture = createGroundCrackTexture();
-
-    // -------------------------------------------------------------
-    // GROUND CRACKS (Larger and More Visible)
-    // -------------------------------------------------------------
-    function spawnGroundCrack(x, z) {
-        const size = 0.5 + Math.random() * 0.4; // 0.5-0.9 units (larger cracks!)
-        const geo = new THREE.PlaneGeometry(size, size);
-        const mat = new THREE.MeshBasicMaterial({
-            map: crackTexture,
-            transparent: true,
-            opacity: 0.9, // Very visible
-            blending: THREE.NormalBlending,
-            depthWrite: false
-        });
-
-        const crackMesh = new THREE.Mesh(geo, mat);
-        crackMesh.rotation.x = -Math.PI / 2;
-        crackMesh.rotation.z = Math.random() * Math.PI * 2;
-        crackMesh.position.set(x, 0.002, z);
-        pedestalGroup.add(crackMesh);
-
-        activeGroundCracks.push({
-            crackMesh: crackMesh,
-            mat: mat,
-            life: 3.5,
-            fadeDuration: 3.5
-        });
-    }
-
-    // Advanced footstep detection: detects when foot Y-position reaches lowest point (ground contact)
-    function detectFootstepByPosition(footBone, label, dt) {
-        if (!footBone) return;
-
-        // Get world position of foot bone
-        const worldPos = new THREE.Vector3();
-        footBone.getWorldPosition(worldPos);
-        
-        // Convert to pedestal local space
-        pedestalGroup.worldToLocal(worldPos.clone());
-        
-        const currentY = worldPos.y;
-
-        // Cooldown timer
-        if (footHitCooldown[label] > 0) {
-            footHitCooldown[label] -= dt;
-            footLastY[label] = currentY;
-            return;
-        }
-
-        // Detect ground contact: when Y stops decreasing and starts increasing
-        // This means the foot just hit the lowest point (ground contact)
-        const threshold = 0.002; // Sensitivity threshold
-        
-        if (footLastY[label] !== Infinity) {
-            const deltaY = currentY - footLastY[label];
-            
-            // Foot was going down and now starting to go up = ground contact moment
-            if (deltaY > threshold && currentY < 0.15) { // 0.15 = reasonable foot height
-                // Trigger footstep effect at this position
-                const footWorldPos = new THREE.Vector3();
-                footBone.getWorldPosition(footWorldPos);
-                const localPos = pedestalGroup.worldToLocal(footWorldPos);
-                
-                triggerFootstepStomp(localPos.x, localPos.z);
-                footHitCooldown[label] = 0.35; // 350ms cooldown to prevent double-trigger
-            }
-        }
-
-        footLastY[label] = currentY;
-    }
-
-    function triggerFootstepStomp(x, z) {
-        spawnGroundCrack(x, z);
-        cameraShakeIntensity = 0.03; // Stronger shake
-
-        if (ring1Mat) ring1Mat.color.setHex(0xff7700);
-        if (ring2Mat) ring2Mat.color.setHex(0xff3300);
-    }
+    const drag          = { active: false, x: 0, y: 0 };
+    const loader        = new THREE.GLTFLoader();
 
     const isRegister = window.location.pathname === '/register';
-    const masterChief = isRegister 
+    const masterChief = isRegister
         ? '/static/models/halo_b_model/scene.gltf'
         : '/static/models/halo_mk_v_model/scene.gltf';
     const fallback = '/static/DamagedHelmet/DamagedHelmet.gltf';
 
     const statusTextEl = document.querySelector('.status-text');
     if (statusTextEl) {
-        statusTextEl.textContent = isRegister 
-            ? 'HALO INFINITE SPARTAN // GLTF 3D MODEL' 
+        statusTextEl.textContent = isRegister
+            ? 'HALO INFINITE SPARTAN // GLTF 3D MODEL'
             : 'HALO SPARTAN MK V // GLTF 3D MODEL';
     }
 
     function prepare(gltf, source) {
         model = gltf.scene;
 
-        // Scale model to a comfortable height (1.55 units total height)
-        const initialBox = new THREE.Box3().setFromObject(model);
+        // Scale model to comfortable height (1.55 world units total)
+        const initialBox  = new THREE.Box3().setFromObject(model);
         const initialSize = initialBox.getSize(new THREE.Vector3());
-        const fitScale = 1.55 / Math.max(initialSize.x, initialSize.y, initialSize.z, 0.01);
+        const fitScale    = 1.55 / Math.max(initialSize.x, initialSize.y, initialSize.z, 0.01);
         model.scale.setScalar(fitScale);
 
-        // Align model so bottom of boots rests EXACTLY at y = 0 on top of the hologram pedestal!
-        const box = new THREE.Box3().setFromObject(model);
+        // Align bottom of boots to sit exactly on the pedestal at y = 0
+        const box    = new THREE.Box3().setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
         model.position.x = -center.x;
         model.position.z = -center.z;
-        model.position.y = -box.min.y; // Boots sit directly on the pedestal plane y = 0!
-
-        // Recolor armor & find foot bones
-        leftFootBone = null;
-        rightFootBone = null;
+        model.position.y = -box.min.y;
 
         model.traverse(function (child) {
-            if (child.isBone || child.type === 'Bone') {
-                const name = (child.name || '').toLowerCase();
-                if ((name.includes('left') || name.includes('_l') || name.startsWith('l_')) && 
-                    (name.includes('foot') || name.includes('ankle') || name.includes('toe'))) {
-                    leftFootBone = child;
-                } else if ((name.includes('right') || name.includes('_r') || name.startsWith('r_')) && 
-                    (name.includes('foot') || name.includes('ankle') || name.includes('toe'))) {
-                    rightFootBone = child;
-                }
-            }
-
             if (!child.isMesh) return;
             child.frustumCulled = false;
-            if (child.material) {
-                const materials = Array.isArray(child.material) ? child.material : [child.material];
-                materials.forEach(function (mat) {
-                    mat.side = THREE.DoubleSide;
-                    mat.transparent = false;
-                    mat.depthWrite = true;
+            if (!child.material) return;
 
-                    const matName = (mat.name || '').toLowerCase();
-                    const meshName = (child.name || '').toLowerCase();
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach(function (mat) {
+                mat.side        = THREE.DoubleSide;
+                mat.transparent = false;
+                mat.depthWrite  = true;
 
-                    if (matName.includes('visor') || meshName.includes('visor') || matName.includes('glass')) {
-                        mat.color.setHex(0x38bdf8); // Glowing Icy Cyan Visor
-                        if (mat.emissive) mat.emissive.setHex(0x0284c7);
-                        if (mat.roughness !== undefined) mat.roughness = 0.1;
-                        if (mat.metalness !== undefined) mat.metalness = 0.95;
-                    } else {
-                        mat.color.setHex(0xe2e8f0);
-                        if (mat.roughness !== undefined) mat.roughness = 0.52;
-                        if (mat.metalness !== undefined) mat.metalness = 0.45;
+                const matName  = (mat.name  || '').toLowerCase();
+                const meshName = (child.name || '').toLowerCase();
 
-                        if (mat.normalScale) {
-                            mat.normalScale.set(2.2, 2.2);
-                        }
-                    }
-
-                    mat.needsUpdate = true;
-                });
-            }
+                if (matName.includes('visor') || meshName.includes('visor') || matName.includes('glass')) {
+                    // Glowing Icy Cyan Visor
+                    mat.color.setHex(0x38bdf8);
+                    if (mat.emissive) mat.emissive.setHex(0x0284c7);
+                    if (mat.roughness  !== undefined) mat.roughness  = 0.1;
+                    if (mat.metalness  !== undefined) mat.metalness  = 0.95;
+                } else {
+                    // Weathered Arctic Bone-White Ceramic Armor
+                    mat.color.setHex(0xe2e8f0);
+                    if (mat.roughness  !== undefined) mat.roughness  = 0.52;
+                    if (mat.metalness  !== undefined) mat.metalness  = 0.45;
+                    if (mat.normalScale) mat.normalScale.set(2.2, 2.2);
+                }
+                mat.needsUpdate = true;
+            });
         });
-
         characterGroup.add(model);
-
-        console.info('📦 GLTF Animations array:', gltf.animations);
-        console.info('📦 Animation count:', gltf.animations ? gltf.animations.length : 0);
+        
 
         if (gltf.animations && gltf.animations.length) {
             mixer = new THREE.AnimationMixer(model);
             activeAction = mixer.clipAction(gltf.animations[0]);
             activeAction.setLoop(THREE.LoopRepeat).play();
-            console.info('✅ Animation loaded:', gltf.animations[0].name, 'Duration:', gltf.animations[0].duration + 's');
-        } else {
-            console.warn('⚠️ No animations found in GLTF model - Using fallback footstep trigger');
         }
-
-        console.info('🦶 Left foot bone:', leftFootBone ? leftFootBone.name : 'NOT FOUND');
-        console.info('🦶 Right foot bone:', rightFootBone ? rightFootBone.name : 'NOT FOUND');
-
-        // Removed test trigger - effects now sync with actual walk animation
 
         if (loading) loading.style.display = 'none';
         console.info('3D asset loaded:', source);
+    }
+
+    
+    // Finds the ankle/ball foot bones of whichever Spartan model is loaded
+    // (halo_b: foot_l_082 / ball_l_083 · halo_mk_v: foot.L_56 / toe.L_54)
+    function setupFootBones(model) {
+        function pickFirst(matches) {
+            let found = null;
+            model.traverse(function (child) {
+                if (found) return;
+                const n = (child.name || '').toLowerCase();
+                if (matches(n)) found = child;
+            });
+            return found;
+        }
+
+        function sideTest(n, side) {
+            if (side === 'left')  return n.includes('_l') || n.includes('l_') || n.includes('.l') || n.includes('left');
+            return n.includes('_r') || n.includes('r_') || n.includes('.r') || n.includes('right');
+        }
+
+        // Only names that START with foot/toe/heel/ball are real contact bones,
+        // which excludes IK controllers like "ik_foot_l" that never animate.
+        ['left', 'right'].forEach(function (side) {
+            const bone = pickFirst(function (n) { return sideTest(n, side) && /^foot/.test(n); })
+                      || pickFirst(function (n) { return sideTest(n, side) && /^(toe|heel|ball)/.test(n); });
+            const toe  = pickFirst(function (n) { return sideTest(n, side) && /^(toe|heel|ball)/.test(n); });
+            footState[side].bone    = bone || null;
+            footState[side].toeBone = (toe && toe !== bone) ? toe : null;
+            if (bone) console.info('Footstep impact ready — ' + side + ' foot bone:', bone.name);
+        });
+    }
+
+    function handleFootstep() {
+        if (!activeAction || !mixer) return;
+        const clip     = activeAction.getClip();
+        const duration = clip ? clip.duration : 0;
+        if (!(duration > 0)) return;
+
+        // Planted-phase windows measured from the animation data itself:
+        // halo_b "Walk"   → right foot plants at 0.10, left at 0.35        (register)
+        // halo_mk_v "MK VAction" → left foot steps at 0.34, right closes at 0.78 (login)
+        const W = isRegister
+            ? { l0: 0.28, l1: 0.42, r0: 0.05, r1: 0.17 }
+            : { l0: 0.31, l1: 0.40, r0: 0.74, r1: 0.84 };
+        const normTime = (activeAction.time % duration) / duration;
+
+        let side = '';
+        if (normTime >= W.l0 && normTime <= W.l1) {
+            if (lastStepPhase !== 'left') { lastStepPhase = 'left'; side = 'left'; }
+        } else if (normTime >= W.r0 && normTime <= W.r1) {
+            if (lastStepPhase !== 'right') { lastStepPhase = 'right'; side = 'right'; }
+        } else {
+            lastStepPhase = ''; // reset between steps
+        }
+
+        if (side) triggerFootstepStomp(side);
+    }
+
+    function triggerFootstepStomp(side) {
+        // Place the crack exactly under the striking foot via a downward Raycaster
+        let hitPoint = null;
+        const foot = side === 'left' ? footState.left : footState.right;
+        if (foot.bone) {
+            foot.bone.getWorldPosition(_footWorldPos);
+            footRaycaster.set(_footWorldPos, downDirection);
+            footRaycaster.far = 6;
+            const hits = footRaycaster.intersectObject(groundMesh, false);
+            if (hits.length) hitPoint = hits[0].point;
+        }
+        // Fallback: crack at the pedestal center under the character
+        if (!hitPoint && characterGroup) {
+            characterGroup.getWorldPosition(_footWorldPos);
+            _footWorldPos.y += 0.5;
+            footRaycaster.set(_footWorldPos, downDirection);
+            footRaycaster.far = 6;
+            const hits = footRaycaster.intersectObject(groundMesh, false);
+            if (hits.length) hitPoint = hits[0].point;
+        }
+        spawnGroundCrack(hitPoint, side);
+
+        // Soft camera kick fired exactly on the foot plant, then decays in the loop
+        cameraShakeIntensity = 0.07;
+        if (ring1Mat) ring1Mat.color.setHex(0xff7700);
+        if (ring2Mat) ring2Mat.color.setHex(0xff3300);
+    }
+
+    function ensureCrackAssets() {
+        if (crackTexture) return;
+        crackTexture  = createCrackTexture();
+        crackGeometry = new THREE.PlaneGeometry(1, 1);
+    }
+
+    function spawnGroundCrack(hitPoint, side) {
+        ensureCrackAssets();
+        const targetSize = side === 'left' ? 1.2 : 1.0;
+
+        const material = new THREE.MeshBasicMaterial({
+            map: crackTexture,
+            transparent: true,
+            opacity: 0.95,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+
+        const crack = new THREE.Mesh(crackGeometry, material);
+        crack.rotation.x = -Math.PI / 2;
+        crack.rotation.z = Math.random() * Math.PI * 2;
+        crack.position.set(
+            hitPoint ? hitPoint.x : 0,
+            hitPoint ? hitPoint.y + 0.004 : -0.78,
+            hitPoint ? hitPoint.z : 0
+        );
+        crack.scale.set(0.12, 0.12, 1);
+        crack.userData = { life: 0, maxLife: 5.0, targetSize: targetSize, currentSize: 0.12 };
+        scene.add(crack);
+        activeCracks.push(crack);
+
+        // Remove the oldest crack if we exceed the cap
+        if (activeCracks.length > MAX_CRACKS) {
+            const oldest = activeCracks.shift();
+            scene.remove(oldest);
+            oldest.material.dispose();
+        }
+    }
+
+    function createCrackTexture() {
+        const c = document.createElement('canvas');
+        c.width = 256; c.height = 256;
+        const ctx = c.getContext('2d');
+        ctx.clearRect(0, 0, 256, 256);
+
+        const cx = 128, cy = 128;
+
+        // Dark jagged fracture veins radiating from the impact point, with a hot
+        // molten-orange edge so the crack looks freshly smashed open
+        ctx.shadowColor = 'rgba(255, 120, 20, 0.95)';
+        ctx.shadowBlur  = 12;
+        ctx.strokeStyle = 'rgba(10, 8, 8, 0.92)';
+        ctx.lineWidth   = 5;
+        ctx.lineCap     = 'round';
+        ctx.lineJoin    = 'round';
+
+        for (let i = 0; i < 11; i++) {
+            const baseAngle = (i / 11) * Math.PI * 2 + Math.random() * 0.45;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            let x = cx, y = cy;
+            const segments = 3 + (i % 3);
+            for (let s = 0; s < segments; s++) {
+                const a = baseAngle + (Math.random() - 0.5) * 0.75;
+                x += Math.cos(a) * (16 + Math.random() * 14);
+                y += Math.sin(a) * (16 + Math.random() * 14);
+                ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        // Impact crater core
+        const crater = ctx.createRadialGradient(cx, cy, 2, cx, cy, 26);
+        crater.addColorStop(0,    'rgba(5, 5, 6, 0.98)');
+        crater.addColorStop(0.55, 'rgba(30, 24, 20, 0.9)');
+        crater.addColorStop(0.85, 'rgba(255, 120, 20, 0.55)');
+        crater.addColorStop(1,    'rgba(255, 90, 10, 0)');
+        ctx.fillStyle = crater;
+        ctx.beginPath(); ctx.arc(cx, cy, 26, 0, Math.PI * 2); ctx.fill();
+
+        // Molten rim glow
+        ctx.strokeStyle = 'rgba(255, 140, 40, 0.6)';
+        ctx.lineWidth   = 2;
+        ctx.beginPath(); ctx.arc(cx, cy, 29, 0, Math.PI * 2); ctx.stroke();
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.anisotropy = 4;
+        return tex;
+    }
+
+    function updateCracks(dt) {
+        const POP_TIME = 0.22; // crack "bursts" open in the first frames
+        for (let i = activeCracks.length - 1; i >= 0; i--) {
+            const crack = activeCracks[i];
+            const u = crack.userData;
+            u.life += dt;
+
+            if (u.life < POP_TIME) {
+                const p = u.life / POP_TIME;
+                const s = THREE.MathUtils.lerp(u.currentSize, u.targetSize, p);
+                crack.scale.set(s, s, 1);
+            } else {
+                crack.scale.set(u.targetSize, u.targetSize, 1);
+                const fade = 1 - ((u.life - POP_TIME) / (u.maxLife - POP_TIME));
+                crack.material.opacity = 0.95 * Math.max(0, fade);
+            }
+
+            if (u.life >= u.maxLife) {
+                scene.remove(crack);
+                crack.material.dispose();
+                activeCracks.splice(i, 1);
+            }
+        }
     }
 
     loader.load(masterChief, function (gltf) {
@@ -412,18 +444,19 @@
         });
     });
 
-    // 8. Interaction Handlers & Raycasting Mesh Selection
-    // Note: raycaster already declared at line 163
+    // 8. Interaction Handlers & Raycasting Mesh Selection (separate raycaster for UI)
+    const uiRaycaster  = new THREE.Raycaster();
     let clickTracker = { x: 0, y: 0, time: 0 };
 
     host.addEventListener('pointermove', function (event) {
         const rect = host.getBoundingClientRect();
-        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+        pointer.x =  ((event.clientX - rect.left) / rect.width)  * 2 - 1;
+        pointer.y = -(((event.clientY - rect.top)  / rect.height) * 2 - 1);
 
+        // Hover Raycast: Show pointer cursor ONLY when hovering directly over Master Chief's 3D mesh
         if (!drag.active && model) {
-            raycaster.setFromCamera(pointer, camera);
-            const intersects = raycaster.intersectObject(model, true);
+            uiRaycaster.setFromCamera(pointer, camera);
+            const intersects = uiRaycaster.intersectObject(model, true);
             host.style.cursor = (intersects && intersects.length > 0) ? 'pointer' : 'grab';
         }
 
@@ -443,29 +476,28 @@
         drag.active = true;
         drag.x = event.clientX;
         drag.y = event.clientY;
-        clickTracker.x = event.clientX;
-        clickTracker.y = event.clientY;
+        clickTracker.x    = event.clientX;
+        clickTracker.y    = event.clientY;
         clickTracker.time = Date.now();
         host.setPointerCapture(event.pointerId);
     });
 
     host.addEventListener('pointerup', function (event) {
         drag.active = false;
-        try { host.releasePointerCapture(event.pointerId); } catch (e) {}
+        try { host.releasePointerCapture(event.pointerId); } catch (e) { }
 
-        const dist = Math.hypot(event.clientX - clickTracker.x, event.clientY - clickTracker.y);
+        const dist     = Math.hypot(event.clientX - clickTracker.x, event.clientY - clickTracker.y);
         const duration = Date.now() - clickTracker.time;
 
+        // Precision Click: Navigate to home ONLY if the user clicked directly on Master Chief's 3D mesh
         if (dist < 8 && duration < 350 && model) {
-            const rect = host.getBoundingClientRect();
+            const rect       = host.getBoundingClientRect();
             const clickMouse = new THREE.Vector2(
-                ((event.clientX - rect.left) / rect.width) * 2 - 1,
-                -(((event.clientY - rect.top) / rect.height) * 2 - 1)
+                 ((event.clientX - rect.left) / rect.width)  * 2 - 1,
+                -(((event.clientY - rect.top)  / rect.height) * 2 - 1)
             );
-
-            raycaster.setFromCamera(clickMouse, camera);
-            const intersects = raycaster.intersectObject(model, true);
-
+            uiRaycaster.setFromCamera(clickMouse, camera);
+            const intersects = uiRaycaster.intersectObject(model, true);
             if (intersects && intersects.length > 0) {
                 console.info('Direct 3D Master Chief Mesh Clicked — Navigating to Landing Page...');
                 window.location.href = '/';
@@ -475,14 +507,8 @@
 
     // Global HUD controls expose
     window.authSceneControls = {
-        resetView: function () {
-            targetRotation.set(-0.02, -0.35);
-            autoOrbit = false;
-        },
-        toggleOrbit: function () {
-            autoOrbit = !autoOrbit;
-            return autoOrbit;
-        }
+        resetView:    function () { targetRotation.set(-0.02, -0.35); autoOrbit = false; },
+        toggleOrbit:  function () { autoOrbit = !autoOrbit; return autoOrbit; }
     };
 
     function resize() {
@@ -494,85 +520,53 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // 9. Animation Loop
+    // =====================================================================
+    // 9. ANIMATION LOOP
+    // =====================================================================
     const clock = new THREE.Clock();
+
     function animate() {
         requestAnimationFrame(animate);
         const dt = Math.min(clock.getDelta(), 0.1);
 
         if (mixer) mixer.update(dt);
 
-        // -------------------------------------------------------------
-        // Advanced Footstep Detection using Y-position tracking
-        // More accurate than timing-based approach
-        // -------------------------------------------------------------
-        if (leftFootBone && rightFootBone) {
-            detectFootstepByPosition(leftFootBone, 'left', dt);
-            detectFootstepByPosition(rightFootBone, 'right', dt);
-        }
+        
 
-        // Update Ground Cracks (fade out)
-        for (let i = activeGroundCracks.length - 1; i >= 0; i--) {
-            const item = activeGroundCracks[i];
-            item.life -= dt;
-
-            // Fade out gradually
-            item.mat.opacity = Math.max(0, item.life / item.fadeDuration);
-
-            if (item.life <= 0) {
-                pedestalGroup.remove(item.crackMesh);
-                item.crackMesh.geometry.dispose();
-                item.mat.dispose();
-                activeGroundCracks.splice(i, 1);
-            }
-        }
-
-        // Restore Pedestal Ring Colors
-        if (ring1Mat && ring1Mat.color.getHex() !== 0x38bdf8) {
+        // ── Restore Pedestal Ring Colors ──────────────────────────────────
+        if (ring1Mat && ring1Mat.color.getHex() !== 0x38bdf8)
             ring1Mat.color.lerp(new THREE.Color(0x38bdf8), 0.08);
-        }
-        if (ring2Mat && ring2Mat.color.getHex() !== 0x00ff9d) {
+        if (ring2Mat && ring2Mat.color.getHex() !== 0x00ff9d)
             ring2Mat.color.lerp(new THREE.Color(0x00ff9d), 0.08);
-        }
 
-        // Camera Shake Decay
-        if (cameraShakeIntensity > 0.001) {
-            camera.position.x = (Math.random() - 0.5) * cameraShakeIntensity;
-            camera.position.y = 0.1 + (Math.random() - 0.5) * cameraShakeIntensity;
-            cameraShakeIntensity *= 0.82;
-        } else {
-            camera.position.x = 0;
-            camera.position.y = 0.1;
-        }
-
-        // Rotate Holographic Pedestal
+        // ── Rotate Holographic Pedestal ───────────────────────────────────
         ring1.rotation.z += 0.006;
         ring2.rotation.z -= 0.009;
 
-        // Floating Data Particles Animation
-        const positions = particleGeo.attributes.position.array;
+        // ── Floating Data Particles ───────────────────────────────────────
+        const pos = particleGeo.attributes.position.array;
         for (let i = 0; i < particleCount; i++) {
-            positions[i * 3 + 1] += particleVelocities[i];
-            if (positions[i * 3 + 1] > 1.9) {
-                positions[i * 3 + 1] = -0.85;
-                positions[i * 3] = (Math.random() - 0.5) * 4.0;
+            pos[i*3+1] += particleVelocities[i];
+            if (pos[i*3+1] > 1.9) {
+                pos[i*3+1] = -0.85;
+                pos[i*3]   = (Math.random() - 0.5) * 4.0;
             }
         }
         particleGeo.attributes.position.needsUpdate = true;
 
-        // Smooth Sway & Position Adjustment
+        
+
+        // ── Character Group Smooth Sway & Position ────────────────────────
         if (characterGroup) {
-            if (autoOrbit && !drag.active) {
-                targetRotation.y += dt * 0.5;
-            }
+            if (autoOrbit && !drag.active) targetRotation.y += dt * 0.5;
 
             const isDesktop = window.innerWidth > 960;
-            const targetX = isDesktop ? 0.42 : 0;
-            const targetY = isDesktop ? -0.82 : -0.78;
+            const targetX   = isDesktop ? 0.42 : 0;
+            const targetY   = isDesktop ? -0.82 : -0.78;
 
             characterGroup.position.x += (targetX - characterGroup.position.x) * 0.08;
             characterGroup.position.y += (targetY + Math.sin(clock.getElapsedTime() * 1.5) * 0.01 - characterGroup.position.y) * 0.08;
-            characterGroup.position.z = 0;
+            characterGroup.position.z  = 0;
 
             characterGroup.rotation.y += (targetRotation.y - characterGroup.rotation.y) * 0.08;
             characterGroup.rotation.x += (targetRotation.x - characterGroup.rotation.x) * 0.08;

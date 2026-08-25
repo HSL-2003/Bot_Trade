@@ -14,7 +14,29 @@
     <!-- TradingView Widget script -->
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 
+    <script>
+        (function() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const isTerminal = params.get('view') === 'terminal' || window.location.pathname === '/app';
+                if (isTerminal && localStorage.getItem('access_token')) {
+                    document.documentElement.classList.add('direct-terminal-view');
+                }
+            } catch (e) {}
+        })();
+    </script>
+
     <style>
+        /* Instant Terminal Display: No Landing Page Flash */
+        html.direct-terminal-view #landingPageSection {
+            display: none !important;
+        }
+        html.direct-terminal-view #tradingTerminalSection {
+            display: flex !important;
+            opacity: 1 !important;
+            transform: none !important;
+        }
+
         :root {
             --bg-base: #090d16;
             --bg-card: #111726;
@@ -986,6 +1008,69 @@
             background-color: #dc2626;
         }
 
+        /* Pagination Controls */
+        .pagination-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0.25rem;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .pagination-buttons {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+
+        .page-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-secondary);
+            padding: 0.25rem 0.55rem;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
+            min-height: 26px;
+        }
+
+        .page-btn:hover:not(:disabled):not(.active) {
+            background: rgba(56, 189, 248, 0.12);
+            border-color: rgba(56, 189, 248, 0.4);
+            color: #ffffff;
+        }
+
+        .page-btn.active {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            border-color: var(--accent-primary);
+            color: #ffffff;
+            font-weight: 800;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+        }
+
+        .page-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .page-ellipsis {
+            color: var(--text-secondary);
+            padding: 0 0.25rem;
+            font-family: var(--font-mono);
+        }
+
         /* Chart */
         .chart-container {
             position: relative;
@@ -1763,20 +1848,19 @@
                             <!-- Period Filter Controls (visible when history tab is active) -->
                             <div id="history-period-controls" style="display: none; gap: 0.35rem; align-items: center;">
                                 <span
-                                    style="font-size: 0.65rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Mốc
-                                    thời gian:</span>
+                                    style="font-size: 0.65rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">PERIOD:</span>
                                 <button id="btn-period-all" class="btn-primary"
                                     style="padding: 0.2rem 0.5rem; font-size: 0.68rem;"
-                                    onclick="setHistoryPeriod('all')">Tất cả</button>
+                                    onclick="setHistoryPeriod('all')">ALL</button>
                                 <button id="btn-period-day" class="btn-secondary"
                                     style="padding: 0.2rem 0.5rem; font-size: 0.68rem;"
-                                    onclick="setHistoryPeriod('day')">Hôm nay</button>
+                                    onclick="setHistoryPeriod('day')">TODAY</button>
                                 <button id="btn-period-week" class="btn-secondary"
                                     style="padding: 0.2rem 0.5rem; font-size: 0.68rem;"
-                                    onclick="setHistoryPeriod('week')">7 Ngày</button>
+                                    onclick="setHistoryPeriod('week')">7 DAYS</button>
                                 <button id="btn-period-month" class="btn-secondary"
                                     style="padding: 0.2rem 0.5rem; font-size: 0.68rem;"
-                                    onclick="setHistoryPeriod('month')">Tháng này</button>
+                                    onclick="setHistoryPeriod('month')">THIS MONTH</button>
                             </div>
                         </div>
                     </div>
@@ -1837,7 +1921,7 @@
                                 <th>Symbol</th>
                                 <th>Order Type</th>
                                 <th>Lots</th>
-                                <th>Trigger Price (Giá chờ)</th>
+                                <th>Trigger Price</th>
                                 <th>Stop Loss (SL)</th>
                                 <th>Take Profit (TP)</th>
                                 <th>Created At</th>
@@ -1847,8 +1931,7 @@
                         <tbody id="pending-tbody">
                             <tr>
                                 <td colspan="9"
-                                    style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">Không có
-                                    lệnh chờ nào</td>
+                                    style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">No pending orders</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1861,45 +1944,39 @@
                         style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.4rem; background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 0.5rem;">
                         <div style="display: flex; flex-direction: column;">
                             <span
-                                style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Lợi
-                                Nhuận (Gross)</span>
+                                style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">GROSS PROFIT</span>
                             <span id="hist-gross-profit"
                                 style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-success);">$0.00</span>
                         </div>
                         <div style="display: flex; flex-direction: column;">
                             <span
-                                style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Tổng
-                                Lỗ (Gross)</span>
+                                style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">GROSS LOSS</span>
                             <span id="hist-gross-loss"
                                 style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-danger);">$0.00</span>
                         </div>
                         <div style="display: flex; flex-direction: column;">
                             <span
-                                style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Net
-                                Profit</span>
+                                style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">NET PROFIT</span>
                             <span id="hist-net-profit"
                                 style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-success);">$0.00</span>
                         </div>
                         <div style="display: flex; flex-direction: column;">
                             <span
-                                style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Tổng
-                                Pips</span>
+                                style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">TOTAL PIPS</span>
                             <span id="hist-total-pips"
                                 style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: #a78bfa;">0.0
                                 pips</span>
                         </div>
                         <div style="display: flex; flex-direction: column;">
                             <span
-                                style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">Win
-                                Rate / PF</span>
+                                style="font-size: 0.6rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">WIN RATE / PF</span>
                             <span id="hist-winrate-pf"
                                 style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-secondary);">0%
                                 / 0.0</span>
                         </div>
                         <div style="display: flex; flex-direction: column;">
                             <span
-                                style="font-size: 0.6rem; color: var(--accent-warning); font-weight: 800; text-transform: uppercase;">Balance
-                                Thống Kê</span>
+                                style="font-size: 0.6rem; color: var(--accent-warning); font-weight: 800; text-transform: uppercase;">STATISTICAL BALANCE</span>
                             <span id="hist-account-balance"
                                 style="font-size: 0.9rem; font-weight: 800; font-family: var(--font-mono); color: #ffffff;">$0.00</span>
                         </div>
@@ -1910,25 +1987,41 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Ticket</th>
-                                    <th>Symbol</th>
-                                    <th>Type</th>
-                                    <th>Lots</th>
-                                    <th>Open Price</th>
-                                    <th>Close Price</th>
-                                    <th>Pips</th>
-                                    <th>Profit/Loss ($)</th>
-                                    <th>Close Time</th>
+                                    <th onclick="sortTable('history', 'ticket', 'num')" style="cursor: pointer; user-select: none;">Ticket <span id="sort-hist-ticket">⇅</span></th>
+                                    <th onclick="sortTable('history', 'symbol', 'str')" style="cursor: pointer; user-select: none;">Symbol <span id="sort-hist-symbol">⇅</span></th>
+                                    <th onclick="sortTable('history', 'type', 'str')" style="cursor: pointer; user-select: none;">Type <span id="sort-hist-type">⇅</span></th>
+                                    <th onclick="sortTable('history', 'volume', 'num')" style="cursor: pointer; user-select: none;">Lots <span id="sort-hist-volume">⇅</span></th>
+                                    <th onclick="sortTable('history', 'open_price', 'num')" style="cursor: pointer; user-select: none;">Open Price <span id="sort-hist-open_price">⇅</span></th>
+                                    <th onclick="sortTable('history', 'close_price', 'num')" style="cursor: pointer; user-select: none;">Close Price <span id="sort-hist-close_price">⇅</span></th>
+                                    <th onclick="sortTable('history', 'pips', 'num')" style="cursor: pointer; user-select: none;">Pips <span id="sort-hist-pips">⇅</span></th>
+                                    <th onclick="sortTable('history', 'profit', 'num')" style="cursor: pointer; user-select: none;">Profit/Loss ($) <span id="sort-hist-profit">⇅</span></th>
+                                    <th onclick="sortTable('history', 'close_time', 'time')" style="cursor: pointer; user-select: none;">Close Time <span id="sort-hist-close_time">⇅</span></th>
                                 </tr>
                             </thead>
                             <tbody id="history-tbody">
                                 <tr>
                                     <td colspan="9"
-                                        style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">Không
-                                        tìm thấy lịch sử lệnh phù hợp</td>
+                                        style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">No closed trades found for this period</td>
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- History Pagination Controls -->
+                    <div id="history-pagination-container" class="pagination-container">
+                        <div id="history-pagination-info" style="font-weight: 600; font-family: var(--font-mono);">Showing 0-0 of 0 trades</div>
+                        <div id="history-pagination-buttons" class="pagination-buttons">
+                            <!-- Dynamic Page Buttons -->
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <span style="font-size: 0.7rem; color: var(--text-secondary);">Per page:</span>
+                            <select id="history-page-size" onchange="onHistoryPageSizeChange(this.value)" style="background: var(--bg-card); color: #fff; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; padding: 0.15rem 0.4rem; font-size: 0.7rem; outline: none; cursor: pointer;">
+                                <option value="10">10</option>
+                                <option value="20" selected>20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -2053,6 +2146,30 @@
                 </div>
             </div>
 
+        <!-- Modify SL/TP Modal -->
+        <div id="modify-sltp-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; width: min(380px, 90vw); display: flex; flex-direction: column; gap: 1rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 id="modal-modify-title" style="margin: 0; font-size: 0.95rem; font-weight: 800; color: #fff;">Modify Stop Loss / Take Profit</h3>
+                    <button onclick="closeModifyModal()" style="background: none; border: none; color: var(--text-secondary); font-size: 1.2rem; cursor: pointer; padding: 0;">✕</button>
+                </div>
+                <input type="hidden" id="modal-modify-ticket">
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <div>
+                        <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Stop Loss (SL)</label>
+                        <input type="number" id="modal-modify-sl" step="any" placeholder="e.g. 2650.00 (0 to remove)" style="width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.45rem 0.6rem; color: #fff; font-family: var(--font-mono); font-size: 0.85rem; outline: none; margin-top: 0.25rem;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Take Profit (TP)</label>
+                        <input type="number" id="modal-modify-tp" step="any" placeholder="e.g. 2700.00 (0 to remove)" style="width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.45rem 0.6rem; color: #fff; font-family: var(--font-mono); font-size: 0.85rem; outline: none; margin-top: 0.25rem;">
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                    <button class="btn-secondary" style="padding: 0.35rem 0.85rem; font-size: 0.75rem;" onclick="closeModifyModal()">Cancel</button>
+                    <button class="btn-primary" style="padding: 0.35rem 1rem; font-size: 0.75rem;" onclick="submitModifySLTP()">Save Changes</button>
+                </div>
+            </div>
+        </div>
 
         </main>
 
@@ -2125,9 +2242,100 @@
                 history: { col: null, dir: 'desc', dataType: 'num' }
             };
 
-            function closeAllPositions() {
-                if (confirm("Bro có chắc chắn muốn đóng TOÀN BỘ lệnh đang mở không?")) {
-                    fetch('/api/close-all', { method: 'POST', headers: authHeaders() }).catch(err => console.error(err));
+            function authHeaders() {
+                const token = localStorage.getItem('access_token');
+                return {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                };
+            }
+
+            async function closePosition(ticket) {
+                if (!confirm(`Bạn có chắc chắn muốn đóng lệnh #${ticket} không?`)) return;
+                
+                // Optimistically remove row from Active Positions table immediately
+                latestPositionsData = latestPositionsData.filter(p => String(p.ticket) !== String(ticket));
+                renderPositionsTable(latestPositionsData);
+
+                try {
+                    const res = await fetch(`/api/close/${ticket}`, {
+                        method: 'POST',
+                        headers: authHeaders()
+                    });
+                    if (res.ok) {
+                        setTimeout(() => {
+                            if (typeof fetchHistoryAnalytics === 'function') {
+                                fetchHistoryAnalytics(currentHistoryPeriod);
+                            }
+                        }, 300);
+                    } else {
+                        const err = await res.json().catch(() => ({}));
+                        alert(`Lỗi khi đóng lệnh: ${err.detail || 'Không thể đóng vị thế'}`);
+                    }
+                } catch (e) {
+                    console.error("Close position error:", e);
+                }
+            }
+
+            async function closeAllPositions() {
+                if (!confirm("Bạn có chắc chắn muốn ĐÓNG TOÀN BỘ lệnh đang mở không?")) return;
+
+                // Optimistically clear Active Positions table immediately
+                latestPositionsData = [];
+                renderPositionsTable(latestPositionsData);
+
+                try {
+                    const res = await fetch('/api/close-all', {
+                        method: 'POST',
+                        headers: authHeaders()
+                    });
+                    if (res.ok) {
+                        setTimeout(() => {
+                            if (typeof fetchHistoryAnalytics === 'function') {
+                                fetchHistoryAnalytics(currentHistoryPeriod);
+                            }
+                        }, 300);
+                    } else {
+                        const err = await res.json().catch(() => ({}));
+                        alert(`Lỗi khi đóng toàn bộ lệnh: ${err.detail || 'Không thể đóng'}`);
+                    }
+                } catch (err) {
+                    console.error("Close all positions error:", err);
+                }
+            }
+
+            function openModifySLTP(ticket, sl, tp, symbol) {
+                document.getElementById('modal-modify-ticket').value = ticket;
+                document.getElementById('modal-modify-title').innerText = `Modify SL/TP - #${ticket} (${symbol})`;
+                document.getElementById('modal-modify-sl').value = (sl && sl > 0) ? sl : '';
+                document.getElementById('modal-modify-tp').value = (tp && tp > 0) ? tp : '';
+                document.getElementById('modify-sltp-modal').style.display = 'flex';
+            }
+
+            function closeModifyModal() {
+                document.getElementById('modify-sltp-modal').style.display = 'none';
+            }
+
+            async function submitModifySLTP() {
+                const ticket = document.getElementById('modal-modify-ticket').value;
+                const sl = parseFloat(document.getElementById('modal-modify-sl').value) || 0.0;
+                const tp = parseFloat(document.getElementById('modal-modify-tp').value) || 0.0;
+
+                try {
+                    const res = await fetch(`/api/modify-sltp/${ticket}`, {
+                        method: 'POST',
+                        headers: authHeaders(),
+                        body: JSON.stringify({ sl, tp })
+                    });
+                    if (res.ok) {
+                        closeModifyModal();
+                    } else {
+                        const err = await res.json().catch(() => ({}));
+                        alert(`Không thể sửa SL/TP: ${err.detail || 'Sàn từ chối'}`);
+                    }
+                } catch (e) {
+                    console.error("Modify SL/TP error:", e);
+                    alert("Lỗi kết nối khi cập nhật SL/TP!");
                 }
             }
 
@@ -2216,35 +2424,66 @@
                 return new Date(str).getTime() || 0;
             }
 
+            function escapeHtml(str) {
+                if (str === null || str === undefined) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
             function renderPositionsTable(positions) {
                 const tbody = document.getElementById('positions-tbody');
+                if (!tbody) return;
+                // Sync cache so an optimistic re-render isn't overwritten by the next identical WS tick
+                window.__lastPositionsKey = JSON.stringify(positions || []);
                 if (positions && positions.length > 0) {
-                    tbody.innerHTML = '';
-                    positions.forEach(pos => {
-                        const row = document.createElement('tr');
+                    const rows = positions.map(pos => {
                         const colorClass = pos.profit >= 0 ? 'flash-up' : 'flash-down';
                         const dec = getDecimals(pos.symbol);
-                        row.innerHTML = `
-                        <td>${pos.ticket}</td>
-                        <td>${pos.symbol}</td>
-                        <td style="color: ${pos.type === 'BUY' ? 'var(--accent-success)' : 'var(--accent-danger)'}; font-weight: 800;">${pos.type}</td>
-                        <td>${pos.volume.toFixed(2)}</td>
-                        <td>${pos.open_price.toFixed(dec)}</td>
-                        <td>${pos.current_price.toFixed(dec)}</td>
-                        <td>${pos.sl.toFixed(dec)}</td>
-                        <td>${pos.tp.toFixed(dec)}</td>
+                        return `<tr>
+                        <td>${escapeHtml(pos.ticket)}</td>
+                        <td>${escapeHtml(pos.symbol)}</td>
+                        <td style="color: ${pos.type === 'BUY' ? 'var(--accent-success)' : 'var(--accent-danger)'}; font-weight: 800;">${escapeHtml(pos.type)}</td>
+                        <td>${Number(pos.volume || 0).toFixed(2)}</td>
+                        <td>${Number(pos.open_price || 0).toFixed(dec)}</td>
+                        <td>${Number(pos.current_price || 0).toFixed(dec)}</td>
+                        <td>${Number(pos.sl || 0).toFixed(dec)}</td>
+                        <td>${Number(pos.tp || 0).toFixed(dec)}</td>
                         <td class="${colorClass}" style="font-weight: 800">${formatUSD(pos.profit, true)}</td>
                         <td>
-                            <button class="btn-primary" style="padding: 0.2rem 0.5rem; font-size: 0.68rem; margin-right: 0.25rem;" onclick="openModifySLTP(${pos.ticket}, ${pos.sl}, ${pos.tp}, '${pos.symbol}')">EDIT</button>
-                            <button class="btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.68rem;" onclick="closePosition(${pos.ticket})">CLOSE</button>
+                            <button class="btn-primary" style="padding: 0.2rem 0.5rem; font-size: 0.68rem; margin-right: 0.25rem;" data-action="edit" data-ticket="${escapeHtml(pos.ticket)}" data-sl="${escapeHtml(pos.sl)}" data-tp="${escapeHtml(pos.tp)}" data-symbol="${escapeHtml(pos.symbol)}">EDIT</button>
+                            <button class="btn-danger" style="padding: 0.2rem 0.5rem; font-size: 0.68rem;" data-action="close" data-ticket="${escapeHtml(pos.ticket)}">CLOSE</button>
                         </td>
-                    `;
-                        tbody.appendChild(row);
-                    });
+                    </tr>`;
+                    }).join('');
+                    tbody.innerHTML = rows;
                 } else {
                     tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">No active positions</td></tr>`;
                 }
             }
+
+            // Event delegation: CLOSE / EDIT buttons work instantly even while table re-renders
+            document.addEventListener('click', function (ev) {
+                const t = ev.target;
+                const btn = t && t.closest ? t.closest('button[data-action]') : null;
+                if (!btn) return;
+                if (!document.getElementById('tradingTerminalSection')) return;
+                const action = btn.getAttribute('data-action');
+                const ticket = btn.getAttribute('data-ticket');
+                if (action === 'close') {
+                    ev.preventDefault();
+                    closePosition(ticket);
+                } else if (action === 'edit') {
+                    ev.preventDefault();
+                    const sl = parseFloat(btn.getAttribute('data-sl')) || 0;
+                    const tp = parseFloat(btn.getAttribute('data-tp')) || 0;
+                    const symbol = btn.getAttribute('data-symbol') || '';
+                    openModifySLTP(ticket, sl, tp, symbol);
+                }
+            });
 
             function getDecimals(symbol) {
                 if (!symbol) return 5;
@@ -2303,21 +2542,44 @@
                 }
             }
 
-            function setHistoryPeriod(period) {
-                currentHistoryPeriod = period;
-                ['all', 'day', 'week', 'month'].forEach(p => {
-                    const btn = document.getElementById(`btn-period-${p}`);
-                    if (btn) btn.className = p === period ? 'btn-primary' : 'btn-secondary';
-                });
-                fetchHistoryAnalytics(period);
-            }
+            let historyCurrentPage = 1;
+            let historyPageSize = 20;
+            let currentDisplayedHistoryTrades = [];
+            // Race-safety guards: track the latest fetch so an earlier in-flight
+            // request's response can never overwrite a fresher one (prevents the
+            // Closed Trades list from vanishing after a redundant refresh).
+            let _historyFetchSeq = 0;
+            let _historyAbortController = null;
 
-            async function fetchHistoryAnalytics(period) {
+            async function fetchHistoryAnalytics(period = 'all') {
+                // Cancel the previous in-flight request (if any) so its late
+                // response cannot clobber the data we are about to request.
+                if (_historyAbortController) _historyAbortController.abort();
+                const controller = new AbortController();
+                _historyAbortController = controller;
+                const seq = ++_historyFetchSeq;
                 try {
-                    const res = await fetch(`/api/history/analytics?period=${period}`);
-                    if (res.ok) {
-                        cachedAnalyticsData = await res.json();
-                        const query = (document.getElementById('trade-search-input').value || '').trim();
+                    currentHistoryPeriod = period;
+                    historyCurrentPage = 1; // Reset to page 1 on period change
+                    const buttons = ['all', 'day', 'week', 'month'];
+                    buttons.forEach(p => {
+                        const btn = document.getElementById(`btn-hist-${p}`);
+                        if (btn) {
+                            if (p === period) {
+                                btn.className = 'btn-primary';
+                            } else {
+                                btn.className = 'btn-secondary';
+                            }
+                        }
+                    });
+
+                    const token = localStorage.getItem('access_token');
+                    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                    const res = await fetch(`/api/history/analytics?period=${period}`, { headers, signal: controller.signal });
+                    if (res.ok && seq === _historyFetchSeq) {
+                        const data = await res.json();
+                        cachedAnalyticsData = data;
+                        const query = (document.getElementById('trade-search-input') ? document.getElementById('trade-search-input').value : '').trim();
                         if (query) {
                             filterTradesBySymbol();
                         } else {
@@ -2325,12 +2587,156 @@
                         }
                     }
                 } catch (err) {
-                    console.error("Failed to fetch history analytics:", err);
+                    if (err && err.name !== 'AbortError') {
+                        console.error("Failed to fetch history analytics:", err);
+                    }
+                }
+            }
+
+            function onHistoryPageSizeChange(newSize) {
+                historyPageSize = parseInt(newSize, 10) || 20;
+                historyCurrentPage = 1;
+                renderHistoryTablePage();
+            }
+
+            function goToHistoryPage(page) {
+                const totalTrades = currentDisplayedHistoryTrades.length;
+                const totalPages = Math.max(1, Math.ceil(totalTrades / historyPageSize));
+                if (page < 1) page = 1;
+                if (page > totalPages) page = totalPages;
+                historyCurrentPage = page;
+                renderHistoryTablePage();
+            }
+
+            function renderHistoryTablePage() {
+                const hbody = document.getElementById('history-tbody');
+                if (!hbody) return;
+                const infoEl = document.getElementById('history-pagination-info');
+                const btnsEl = document.getElementById('history-pagination-buttons');
+                const totalTrades = currentDisplayedHistoryTrades.length;
+
+                if (!totalTrades) {
+                    hbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">No closed trades found for this period</td></tr>`;
+                    if (infoEl) infoEl.innerText = 'Showing 0-0 of 0 trades';
+                    if (btnsEl) btnsEl.innerHTML = '';
+                    return;
+                }
+
+                const totalPages = Math.max(1, Math.ceil(totalTrades / historyPageSize));
+                if (historyCurrentPage > totalPages) historyCurrentPage = totalPages;
+                if (historyCurrentPage < 1) historyCurrentPage = 1;
+
+                const startIdx = (historyCurrentPage - 1) * historyPageSize;
+                const endIdx = Math.min(startIdx + historyPageSize, totalTrades);
+                const pageTrades = currentDisplayedHistoryTrades.slice(startIdx, endIdx);
+
+                // Update Info Text
+                if (infoEl) {
+                    infoEl.innerText = `Showing ${startIdx + 1}-${endIdx} of ${totalTrades} trades (Page ${historyCurrentPage}/${totalPages})`;
+                }
+
+                // Render Table Rows (single innerHTML assign = fast)
+                const rows = pageTrades.map(h => {
+                    const colorClass = h.profit > 0 ? 'flash-up' : (h.profit < 0 ? 'flash-down' : '');
+                    const dec = getDecimals(h.symbol);
+                    const pips = h.pips !== undefined ? h.pips : calculatePips(h);
+                    const pipsClass = pips >= 0 ? 'flash-up' : 'flash-down';
+                    return `<tr>
+                        <td>${escapeHtml(h.ticket)}</td>
+                        <td>${escapeHtml(h.symbol)}</td>
+                        <td style="color: ${h.type === 'BUY' ? 'var(--accent-success)' : 'var(--accent-danger)'}; font-weight: 800;">${escapeHtml(h.type)}</td>
+                        <td>${Number(h.volume || 0).toFixed(2)}</td>
+                        <td>${Number(h.open_price || 0).toFixed(dec)}</td>
+                        <td>${Number(h.close_price || 0).toFixed(dec)}</td>
+                        <td class="${pipsClass}" style="font-weight: 700">${pips >= 0 ? '+' : ''}${pips.toFixed(1)}</td>
+                        <td class="${colorClass}" style="font-weight: 800">${formatUSD(h.profit, true)}</td>
+                        <td>${escapeHtml(h.close_time ? h.close_time.replace('T', ' ').substring(0, 19) : '--:--:--')}</td>
+                    </tr>`;
+                }).join('');
+                hbody.innerHTML = rows;
+
+                // Build Pagination Buttons
+                if (btnsEl) {
+                    btnsEl.innerHTML = '';
+
+                    // Prev Button
+                    const prevBtn = document.createElement('button');
+                    prevBtn.className = 'page-btn';
+                    prevBtn.innerHTML = '‹ Prev';
+                    prevBtn.disabled = historyCurrentPage === 1;
+                    prevBtn.onclick = () => goToHistoryPage(historyCurrentPage - 1);
+                    btnsEl.appendChild(prevBtn);
+
+                    // Page Buttons generation
+                    const maxVisible = 7;
+                    let startPage = 1;
+                    let endPage = totalPages;
+
+                    if (totalPages > maxVisible) {
+                        const half = Math.floor(maxVisible / 2);
+                        if (historyCurrentPage <= half + 1) {
+                            startPage = 1;
+                            endPage = maxVisible - 1;
+                        } else if (historyCurrentPage >= totalPages - half) {
+                            startPage = totalPages - maxVisible + 2;
+                            endPage = totalPages;
+                        } else {
+                            startPage = historyCurrentPage - 1;
+                            endPage = historyCurrentPage + 1;
+                        }
+                    }
+
+                    if (startPage > 1) {
+                        const p1 = document.createElement('button');
+                        p1.className = `page-btn ${historyCurrentPage === 1 ? 'active' : ''}`;
+                        p1.innerText = '1';
+                        p1.onclick = () => goToHistoryPage(1);
+                        btnsEl.appendChild(p1);
+
+                        if (startPage > 2) {
+                            const dots = document.createElement('span');
+                            dots.className = 'page-ellipsis';
+                            dots.innerText = '...';
+                            btnsEl.appendChild(dots);
+                        }
+                    }
+
+                    for (let p = startPage; p <= endPage; p++) {
+                        const pBtn = document.createElement('button');
+                        pBtn.className = `page-btn ${p === historyCurrentPage ? 'active' : ''}`;
+                        pBtn.innerText = p;
+                        pBtn.onclick = () => goToHistoryPage(p);
+                        btnsEl.appendChild(pBtn);
+                    }
+
+                    if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) {
+                            const dots = document.createElement('span');
+                            dots.className = 'page-ellipsis';
+                            dots.innerText = '...';
+                            btnsEl.appendChild(dots);
+                        }
+
+                        const pLast = document.createElement('button');
+                        pLast.className = `page-btn ${historyCurrentPage === totalPages ? 'active' : ''}`;
+                        pLast.innerText = totalPages;
+                        pLast.onclick = () => goToHistoryPage(totalPages);
+                        btnsEl.appendChild(pLast);
+                    }
+
+                    // Next Button
+                    const nextBtn = document.createElement('button');
+                    nextBtn.className = 'page-btn';
+                    nextBtn.innerHTML = 'Next ›';
+                    nextBtn.disabled = historyCurrentPage === totalPages;
+                    nextBtn.onclick = () => goToHistoryPage(historyCurrentPage + 1);
+                    btnsEl.appendChild(nextBtn);
                 }
             }
 
             function filterTradesBySymbol() {
                 const query = (document.getElementById('trade-search-input') ? document.getElementById('trade-search-input').value : '').trim().toUpperCase();
+                historyCurrentPage = 1; // Reset to page 1 on search filter
 
                 // 1. Filter Active Positions Table
                 const pRows = document.querySelectorAll('#positions-tbody tr');
@@ -2395,35 +2801,9 @@
                 document.getElementById('hist-winrate-pf').innerText = `${data.win_rate.toFixed(1)}% / PF ${data.profit_factor.toFixed(2)}`;
                 document.getElementById('hist-account-balance').innerText = formatUSD(data.account_balance);
 
-                // Update History Table
-                const hbody = document.getElementById('history-tbody');
-                if (data.trades && data.trades.length > 0) {
-                    hbody.innerHTML = '';
-                    // Render top 30 trades for selected period
-                    const sliceTrades = data.trades.slice(0, 30);
-                    sliceTrades.forEach(h => {
-                        const row = document.createElement('tr');
-                        const colorClass = h.profit > 0 ? 'flash-up' : (h.profit < 0 ? 'flash-down' : '');
-                        const dec = getDecimals(h.symbol);
-                        const pips = h.pips !== undefined ? h.pips : calculatePips(h);
-                        const pipsClass = pips >= 0 ? 'flash-up' : 'flash-down';
-
-                        row.innerHTML = `
-                        <td>${h.ticket}</td>
-                        <td>${h.symbol}</td>
-                        <td style="color: ${h.type === 'BUY' ? 'var(--accent-success)' : 'var(--accent-danger)'}; font-weight: 800;">${h.type}</td>
-                        <td>${h.volume.toFixed(2)}</td>
-                        <td>${h.open_price.toFixed(dec)}</td>
-                        <td>${h.close_price.toFixed(dec)}</td>
-                        <td class="${pipsClass}" style="font-weight: 700">${pips >= 0 ? '+' : ''}${pips.toFixed(1)}</td>
-                        <td class="${colorClass}" style="font-weight: 800">${formatUSD(h.profit, true)}</td>
-                        <td>${h.close_time ? h.close_time.replace('T', ' ').substring(0, 19) : '--:--:--'}</td>
-                    `;
-                        hbody.appendChild(row);
-                    });
-                } else {
-                    hbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 1.5rem;">Không tìm thấy lịch sử lệnh phù hợp</td></tr>`;
-                }
+                // Update Displayed Trades list and render page
+                currentDisplayedHistoryTrades = data.trades || [];
+                renderHistoryTablePage();
             }
 
             function getTradingViewSymbol(symbol) {
@@ -2846,7 +3226,12 @@
                 } else {
                     latestPositionsData.reverse();
                 }
-                renderPositionsTable(latestPositionsData);
+                // Skip re-render if positions didn't change (prevents click-swallowing on every WS tick)
+                const posKey = JSON.stringify(latestPositionsData);
+                if (window.__lastPositionsKey === undefined || window.__lastPositionsKey !== posKey) {
+                    window.__lastPositionsKey = posKey;
+                    renderPositionsTable(latestPositionsData);
+                }
                 updateSortIcons('positions');
 
                 // Pending Orders Table
@@ -3313,8 +3698,29 @@
                 });
             }
 
-            function closePosition(ticket) {
-                fetch(`/api/close/${ticket}`, { method: 'POST' }).catch(err => console.error(err));
+            async function closePosition(ticket) {
+                if (!confirm(`Bạn có chắc chắn muốn đóng lệnh #${ticket} không?`)) return;
+                window.__closingTickets = window.__closingTickets || {};
+                window.__closingTickets[String(ticket)] = true;
+                latestPositionsData = latestPositionsData.filter(p => String(p.ticket) !== String(ticket));
+                renderPositionsTable(latestPositionsData);
+                try {
+                    const res = await fetch(`/api/close/${ticket}`, {
+                        method: 'POST',
+                        headers: authHeaders()
+                    });
+                    if (res.ok) {
+                        delete window.__closingTickets[String(ticket)];
+                        if (typeof fetchHistoryAnalytics === 'function') setTimeout(() => fetchHistoryAnalytics(currentHistoryPeriod), 300);
+                    } else {
+                        delete window.__closingTickets[String(ticket)];
+                        const err = await res.json().catch(() => ({}));
+                        alert(`Lỗi khi đóng lệnh: ${err.detail || 'Không thể đóng vị thế'}`);
+                    }
+                } catch (e) {
+                    delete window.__closingTickets[String(ticket)];
+                    console.error("Close position error:", e);
+                }
             }
 
             // --- Modify SL/TP Modal ---
@@ -3432,7 +3838,7 @@
 
                 fetch(`/api/modify-sltp/${currentModifyingTicket}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders(),
                     body: JSON.stringify({ sl, tp })
                 }).then(async res => {
                     if (res.ok) {
@@ -3919,13 +4325,19 @@
         window.enterTerminal = enterTerminal;
         window.showLandingPage = showLandingPage;
 
-        // A direct /app visit is allowed only after server-side session validation.
-        window.addEventListener('load', function () {
-            if (new URLSearchParams(window.location.search).get('view') === 'terminal') {
+        // Direct terminal view: run immediately when script executes or on DOMContentLoaded
+        function checkDirectTerminal() {
+            const isTerminal = new URLSearchParams(window.location.search).get('view') === 'terminal' || window.location.pathname === '/app';
+            if (isTerminal && localStorage.getItem('access_token')) {
                 enterTerminal();
             }
-        });
-        ;
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', checkDirectTerminal);
+        } else {
+            checkDirectTerminal();
+        }
+        window.addEventListener('load', checkDirectTerminal);
     </script>
 
     <!-- THREE.JS 3D ENGINE SCRIPT (100% Local Bundle, Immunity to AdBlock & CORS) -->

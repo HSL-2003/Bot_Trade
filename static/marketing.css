@@ -7,14 +7,14 @@
 
 :root {
   --cyan: #38bdf8;
-  --cyan-glow: rgba(56, 189, 248, 0.4);
+  --cyan-glow: rgba(56, 189, 248, 0.55);
   --emerald: #10b981;
-  --emerald-glow: rgba(16, 185, 129, 0.4);
-  --bg-deep: #050811;
-  --panel-bg: #070c18;
-  --card-bg: rgba(11, 20, 36, 0.78);
-  --input-bg: rgba(6, 12, 22, 0.9);
-  --text-main: #f1f5f9;
+  --emerald-glow: rgba(16, 185, 129, 0.5);
+  --bg-deep: #040710;
+  --panel-bg: #060b17;
+  --card-bg: rgba(6, 12, 24, 0.92);
+  --input-bg: rgba(4, 8, 18, 0.96);
+  --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --font-display: 'Outfit', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -41,9 +41,10 @@
   min-height: 100vh;
   position: relative;
   overflow: hidden;
-  background: radial-gradient(circle at 45% 45%, rgba(14, 85, 120, 0.32), transparent 55%),
-              linear-gradient(135deg, #07111e, #03060c 80%);
-  border-right: 1px solid rgba(56, 189, 248, 0.2);
+  background: radial-gradient(circle at 45% 45%, rgba(10, 50, 80, 0.55), transparent 55%),
+              linear-gradient(135deg, #050e1a 0%, #02040a 85%);
+  border-right: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: inset -1px 0 30px rgba(56, 189, 248, 0.06);
 }
 
 .auth-showcase-grid {
@@ -68,9 +69,9 @@
 }
 .hud-corner {
   position: absolute;
-  width: 18px;
-  height: 18px;
-  border-color: rgba(56, 189, 248, 0.4);
+  width: 22px;
+  height: 22px;
+  border-color: rgba(56, 189, 248, 0.75);
   border-style: solid;
 }
 .hud-corner.top-left { top: 0; left: 0; border-width: 2px 0 0 2px; }
@@ -99,7 +100,7 @@
   text-transform: uppercase;
   pointer-events: auto;
   cursor: pointer;
-  transition: transform 0.2s ease, text-shadow 0.2s ease, opacity 0.2s ease;
+  transition: transform 0.5s cubic-bezier(0.32,0.72,0,1), text-shadow 0.4s cubic-bezier(0.32,0.72,0,1), opacity 0.3s ease;
 }
 .brand:hover {
   opacity: 0.95;
@@ -149,19 +150,21 @@
   margin: 20px 0 16px;
   color: #ffffff;
   letter-spacing: -0.03em;
-  text-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 2px 24px rgba(0,0,0,0.9), 0 0 60px rgba(0,0,0,0.8);
 }
 .auth-showcase-copy h2 em {
   font-style: normal;
-  background: linear-gradient(135deg, var(--cyan) 0%, #38bdf8 40%, #00ff9d 100%);
+  background: linear-gradient(135deg, #7ae8ff 0%, var(--cyan) 40%, #00ff9d 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 12px rgba(56,189,248,0.6));
 }
 .showcase-lead {
-  color: #94a3b8;
-  font-size: 0.95rem;
+  color: #c8d9ec;
+  font-size: 0.96rem;
   line-height: 1.65;
   max-width: 340px;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.8);
 }
 
 /* 3D Scene Viewport */
@@ -220,17 +223,18 @@
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  background: rgba(6, 14, 24, 0.65);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 6px;
+  background: rgba(4, 10, 22, 0.72);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 999px;
   color: #cbd5e1;
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 1px;
   cursor: pointer;
-  backdrop-filter: blur(10px);
-  transition: all 0.2s ease;
+  backdrop-filter: blur(12px);
+  transition: all 0.4s cubic-bezier(0.32,0.72,0,1);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
 }
 .hud-btn:hover {
   background: rgba(14, 30, 48, 0.85);
@@ -292,21 +296,52 @@
   flex-direction: column;
   padding: 48px 36px;
   position: relative;
-  background: radial-gradient(circle at 60% 40%, rgba(14, 60, 95, 0.25), transparent 45%), var(--panel-bg);
+  background: radial-gradient(circle at 60% 40%, rgba(10, 40, 70, 0.35), transparent 45%),
+              rgba(4, 8, 18, 0.82);
+  border-left: 1px solid rgba(56, 189, 248, 0.20);
 }
 
+/* ── Double-Bezel card (Doppelrand outer shell + inner core) ── */
+/* Outer shell: the 'aluminum tray' that holds the glass plate */
 .auth-card {
   width: min(450px, 100%);
   margin: 0;
-  padding: 40px;
-  background: var(--card-bg);
+  /* Outer shell */
+  padding: 3px;
+  background: rgba(56, 189, 248, 0.06);
   border: 1px solid rgba(56, 189, 248, 0.22);
-  border-radius: 16px;
-  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(56, 189, 248, 0.08);
-  backdrop-filter: blur(20px) saturate(180%);
+  border-radius: 20px;
+  box-shadow:
+    0 40px 100px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(56, 189, 248, 0.05),
+    0 0 60px rgba(56, 189, 248, 0.10);
   position: relative;
   overflow: hidden;
 }
+/* Inner core: the 'glass plate' with its own highlight */
+.auth-card > * {
+  /* inner core positioning handled by padding below */
+}
+.auth-card::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 17px;
+  background: rgba(6, 12, 24, 0.94);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.07), inset 0 0 40px rgba(56,189,248,0.04);
+  pointer-events: none;
+  z-index: 0;
+}
+.auth-card > * { position: relative; z-index: 1; }
+/* Card top padding since outer shell now handles border */
+.auth-card { padding: 3px; }
+.auth-card > .card-hud-badge, .auth-card > h1, .auth-card > .auth-subtitle,
+.auth-card > #message, .auth-card > form, .auth-card > p {
+  margin-left: 37px; margin-right: 37px;
+}
+.auth-card > .card-hud-badge { padding-top: 37px; }
+.auth-card > p:last-child { padding-bottom: 37px; }
+
 
 .auth-card::before {
   content: '';
@@ -315,7 +350,8 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--cyan), var(--emerald), transparent);
+  background: linear-gradient(90deg, transparent, var(--cyan) 30%, #00ff9d 70%, transparent);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
 }
 
 .card-top-bar {
@@ -368,7 +404,7 @@
 }
 
 .auth-subtitle {
-  color: var(--text-muted);
+  color: #b0c4d8;
   font-size: 14px;
   line-height: 1.6;
   margin: 0 0 28px;
@@ -403,11 +439,12 @@
 }
 .input-group label {
   display: block;
-  color: #cbd5e1;
+  color: #e2e8f0;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 8px;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
+  text-shadow: 0 0 12px rgba(56,189,248,0.2);
 }
 .input-wrapper {
   position: relative;
@@ -428,7 +465,7 @@
 .auth-card input {
   width: 100%;
   padding: 13px 44px 13px 44px;
-  border: 1px solid #1e293b;
+  border: 1px solid rgba(42, 60, 88, 0.9);
   border-radius: 8px;
   background: var(--input-bg);
   color: #ffffff;
@@ -439,8 +476,8 @@
 .auth-card input:focus {
   outline: none;
   border-color: var(--cyan);
-  background: rgba(9, 18, 33, 0.95);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15), 0 0 20px rgba(56, 189, 248, 0.1);
+  background: rgba(4, 10, 22, 0.99);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.20), 0 0 25px rgba(56, 189, 248, 0.15);
 }
 .auth-card input:focus ~ .input-icon,
 .input-wrapper:focus-within .input-icon {
@@ -482,28 +519,40 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   margin-top: 10px;
   padding: 15px 24px;
-  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
-  color: #040914 !important;
+  /* Nested button-in-button trailing icon architecture */
+  background: linear-gradient(135deg, #0369a1 0%, #38bdf8 50%, #22d3ee 100%);
+  color: #020a14 !important;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   font-family: var(--font-display);
   font-size: 15px;
   font-weight: 800;
   letter-spacing: 0.5px;
   cursor: pointer;
-  box-shadow: 0 4px 20px rgba(56, 189, 248, 0.35);
-  transition: all 0.25s ease;
+  box-shadow: 0 4px 24px rgba(56, 189, 248, 0.4), inset 0 1px 0 rgba(255,255,255,0.25);
+  transition: all 0.5s cubic-bezier(0.32,0.72,0,1);
+  position: relative;
+  overflow: hidden;
 }
+.submit-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.12));
+  border-radius: inherit;
+}
+
 .submit-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(56, 189, 248, 0.5);
-  background: linear-gradient(135deg, #0369a1 0%, #38bdf8 100%);
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 12px 40px rgba(56, 189, 248, 0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+  background: linear-gradient(135deg, #0284c7 0%, #38bdf8 45%, #34d9f0 100%);
 }
 .submit-btn:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.3);
 }
 .btn-arrow {
   transition: transform 0.2s ease;

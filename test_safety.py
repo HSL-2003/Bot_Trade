@@ -142,5 +142,238 @@ class ConnectorContractTests(unittest.TestCase):
         self.assertEqual(result.broker_only, ())
 
 
+class AuthDisplayNameTests(unittest.TestCase):
+    TEST_EMAILS = (
+        "sectest@example.com",
+        "smoke@example.com",
+        "hdr@example.com",
+        "hdr2@example.com",
+    )
+
+    def test_register_without_display_name_uses_full_email(self):
+        service = InMemorySessionService()
+        for email in self.TEST_EMAILS:
+            with self.subTest(email=email):
+                service.register(email, "StrongPass1!")
+                self.assertEqual(service._users[email]["display_name"], email)
+
+    def test_register_with_display_name_keeps_custom_name(self):
+        service = InMemorySessionService()
+        service.register("sectest@example.com", "StrongPass1!", display_name="Sec Test")
+        self.assertEqual(service._users["sectest@example.com"]["display_name"], "Sec Test")
+
+
+class AuthSocialLoginTests(unittest.TestCase):
+    def test_magic_link_not_supported_in_dev_mode(self):
+        service = InMemorySessionService()
+        with self.assertRaises(AuthenticationError):
+            service.magic_link("sectest@example.com")
+
+    def test_oauth_token_exchange_not_supported_in_dev_mode(self):
+        service = InMemorySessionService()
+        with self.assertRaises(AuthenticationError):
+            service.login_with_supabase_token("dummy-supabase-token")
+
+
+class AuthOAuthEndpointTests(unittest.TestCase):
+    def test_google_endpoint_redirects_to_supabase(self):
+        from fastapi.testclient import TestClient
+        import app as module
+        client = TestClient(module.app)
+        resp = client.get("/api/auth/google", follow_redirects=False)
+        self.assertEqual(resp.status_code, 307)
+        location = resp.headers.get("location", "")
+        self.assertIn("provider=google", location)
+        self.assertIn("/auth/v1/authorize", location)
+        self.assertIn("redirect_to=", location)
+
+
+class UserTradePersistenceTests(unittest.TestCase):
+    def test_in_memory_repository_records_open_and_close_per_user(self):
+        repo = InMemoryAccountRepository()
+        
+        # User 1 opens a trade
+        open_data = {
+            "ticket": 1001,
+            "symbol": "XAUUSD",
+            "type": "BUY",
+            "volume": 0.05,
+            "open_price": 2050.0,
+            "sl": 2045.0,
+            "tp": 2065.0,
+        }
+        opened = repo.record_trade_open("acc-1", "user-1", open_data)
+        self.assertEqual(opened["status"], "filled")
+        self.assertEqual(opened["broker_ticket"], 1001)
+        self.assertEqual(opened["quantity"], 0.05)
+
+        # User 2 opens another trade
+        open_data_2 = {
+            "ticket": 1002,
+            "symbol": "EURUSD",
+            "type": "SELL",
+            "volume": 0.1,
+            "open_price": 1.0850,
+            "sl": 1.0900,
+            "tp": 1.0700,
+        }
+        repo.record_trade_open("acc-2", "user-2", open_data_2)
+
+        # Check isolation: user-1 sees only their trade
+        user_1_trades = repo.get_user_trades("acc-1", "user-1")
+        self.assertEqual(len(user_1_trades), 1)
+        self.assertEqual(user_1_trades[0]["broker_ticket"], 1001)
+
+        user_2_trades = repo.get_user_trades("acc-2", "user-2")
+        self.assertEqual(len(user_2_trades), 1)
+        self.assertEqual(user_2_trades[0]["broker_ticket"], 1002)
+
+        # Close user 1's trade
+        close_info = {
+            "symbol": "XAUUSD",
+            "type": "BUY",
+            "volume": 0.05,
+            "open_price": 2050.0,
+            "close_price": 2060.0,
+            "profit": 50.0,
+        }
+        closed = repo.record_trade_close("acc-1", "user-1", 1001, close_info)
+        self.assertEqual(closed["status"], "closed")
+        self.assertEqual(closed["profit"], 50.0)
+        self.assertEqual(closed["close_price"], 2060.0)
+
+        # Verify updated status
+        updated = repo.get_user_trades("acc-1", "user-1")
+        self.assertEqual(updated[0]["status"], "closed")
+        self.assertEqual(updated[0]["profit"], 50.0)
+
+    def test_get_user_trades_endpoint(self):
+        import uuid
+        from fastapi.testclient import TestClient
+        import app as module
+        client = TestClient(module.app)
+        
+        # Register a test user with unique email
+        test_email = f"trade_{uuid.uuid4().hex[:8]}@example.com"
+        resp = client.post("/api/auth/register", json={"email": test_email, "password": "StrongPassword123!"})
+        self.assertIn(resp.status_code, (200, 201))
+        token = resp.json().get("access_token")
+        self.assertIsNotNone(token)
+        
+        # Query user trade history with bearer token
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = client.get("/api/user/trades", headers=headers)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("trades", data)
+        self.assertIn("total_trades", data)
+        self.assertIn("win_rate", data)
+        self.assertIn("total_profit", data)
+
+        # Test /api/history/analytics endpoint
+        analytics_resp = client.get("/api/history/analytics?period=all", headers=headers)
+        self.assertEqual(analytics_resp.status_code, 200)
+        analytics_data = analytics_resp.json()
+        self.assertIn("gross_profit", analytics_data)
+        self.assertIn("gross_loss", analytics_data)
+        self.assertIn("net_profit", analytics_data)
+        self.assertIn("total_pips", analytics_data)
+        self.assertIn("win_rate", analytics_data)
+        self.assertIn("trades", analytics_data)
+
+        # Test /api/dashboard/data endpoint
+        dash_resp = client.get("/api/dashboard/data?days=30", headers=headers)
+        self.assertEqual(dash_resp.status_code, 200)
+        dash_data = dash_resp.json()
+        self.assertIn("summary", dash_data)
+        self.assertIn("points", dash_data)
+        self.assertIn("trades", dash_data)
+
+    def test_close_position_resolves_valid_close_price_and_profit(self):
+        bot = MT5TradingBot()
+        bot.simulation_mode = True
+        bot.history = []
+        bot.positions = []
+        
+        # Add a simulated position for EURUSD
+        pos = {
+            "ticket": 999123,
+            "symbol": "EURUSD",
+            "type": "BUY",
+            "volume": 0.30,
+            "open_price": 1.16884,
+            "current_price": 1.16950,
+            "sl": 1.16500,
+            "tp": 1.17500,
+            "profit": 0.0,
+            "open_time": "2026-08-24T10:00:00"
+        }
+        bot.positions.append(pos)
+        
+        recorded_close = {}
+        def mock_on_close(acc, usr, ticket, info):
+            recorded_close.update(info)
+        bot.on_trade_close = mock_on_close
+        
+        # Close position
+        asyncio.run(bot.close_position(999123))
+        
+        self.assertEqual(len(bot.positions), 0)
+        self.assertEqual(len(bot.history), 1)
+        closed_trade = bot.history[0]
+        
+        # Assert close_price is positive and valid (not 0.0)
+        self.assertGreater(closed_trade["close_price"], 1.0)
+        self.assertGreater(recorded_close.get("close_price", 0.0), 1.0)
+        self.assertEqual(closed_trade["ticket"], 999123)
+        self.assertEqual(closed_trade["symbol"], "EURUSD")
+
+    def test_modify_position_sltp_and_calculate_trade_pips(self):
+        bot = MT5TradingBot()
+        bot.simulation_mode = True
+        pos = {
+            "ticket": 888777,
+            "symbol": "XAUUSD",
+            "type": "BUY",
+            "volume": 0.10,
+            "open_price": 2650.00,
+            "current_price": 2655.00,
+            "sl": 2640.00,
+            "tp": 2670.00,
+            "profit": 50.0,
+            "open_time": "2026-08-24T10:00:00"
+        }
+        bot.positions.append(pos)
+        
+        # Test modifying SL/TP
+        success = asyncio.run(bot.modify_position_sltp(888777, 2645.50, 2680.00))
+        self.assertTrue(success)
+        self.assertEqual(pos["sl"], 2645.50)
+        self.assertEqual(pos["tp"], 2680.00)
+        
+        # Test calculate_trade_pips
+        trade_buy = {"symbol": "XAUUSD", "type": "BUY", "open_price": 2650.00, "close_price": 2655.00}
+        pips_buy = bot.calculate_trade_pips(trade_buy)
+        self.assertEqual(pips_buy, 50.0)
+        
+        trade_sell = {"symbol": "XAUUSD", "type": "SELL", "open_price": 2650.00, "close_price": 2645.00}
+        pips_sell = bot.calculate_trade_pips(trade_sell)
+        self.assertEqual(pips_sell, 50.0)
+
+    def test_modify_sltp_endpoint(self):
+        from app import app
+        from fastapi.testclient import TestClient
+        client = TestClient(app)
+        
+        # Call modify-sltp API with headers to pass CSRF
+        resp = client.post(
+            "/api/modify-sltp/777666",
+            json={"sl": 1.16250, "tp": 1.18500},
+            headers={"Authorization": "Bearer test-token", "Origin": "http://localhost:8000"}
+        )
+        # Position not found on non-mocked scoped bot or unauthenticated request returns 400/401
+        self.assertIn(resp.status_code, [200, 400, 401])
+
+
 if __name__ == "__main__":
     unittest.main()

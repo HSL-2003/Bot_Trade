@@ -201,6 +201,40 @@ docker run --env-file .env -p 8000:8000 confluence-algo-bot
 
 The complete request and response schemas are available through Swagger UI at http://127.0.0.1:8000/docs.
 
+## Security
+
+Hardening already implemented in the codebase:
+
+- **Rate limiting** on authentication endpoints (SlowAPI).
+- **Security headers** middleware (CSP, HSTS, X-Frame-Options, nosniff).
+- **CSRF protection** (double-submit cookie) for cookie-authenticated changes;
+  requests authenticated with `Authorization: Bearer` are exempt.
+- **HttpOnly session cookie** (`session_token`, `SameSite=Strict`) set on
+  login/register; API clients may still use the `Authorization` header.
+- **WebSocket authentication** on `/ws` (token via query param or session cookie).
+- **Request size limit** (1 MB) to harden against oversized-payload DoS.
+- **Correlation ids** (`X-Correlation-Id`) across responses and security logs.
+- **Pinned dependencies** in `requirements.txt`.
+
+Operational requirements before production deployment:
+
+1. **Rotate credentials.** If the keys in your local `.env` were ever exposed,
+   regenerate `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` in the
+   Supabase dashboard immediately, then check Git history for accidental commits:
+   ```bash
+   git log --all --full-history -- "*/.env"
+   git log --all --full-history -S "SUPABASE_SERVICE_ROLE_KEY"
+   ```
+2. **Use environment variables from the hosting platform** (Railway, Render,
+   Fly, etc.) instead of committing a real `.env`. A template lives in `.env.example`.
+3. **Serve over HTTPS.** In production put Uvicorn behind a TLS-terminating
+   reverse proxy (example in `deploy/nginx.conf`) or set `force_https = true`
+   on Fly. Never bind Uvicorn to `0.0.0.0` without a proxy.
+4. **Set strict CORS origins** via `ALLOWED_ORIGINS` and keep
+   `ENABLE_SDLC_AGENTS=false` unless it is intentionally required.
+5. **Keep authentication enabled** (`REQUIRE_AUTH=true` / `ENVIRONMENT=production`)
+   on any publicly reachable deployment.
+
 ## License
 
 This project is released under the MIT License. See `LICENSE` for details.

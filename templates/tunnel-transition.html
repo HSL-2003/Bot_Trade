@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Connecting to Command Layer · Confluence Bot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@600;800;900&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.143.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.143.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #02040a;
+            font-family: 'JetBrains Mono', monospace;
+            color: #f8fafc;
+        }
+
+        #tunnel-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            z-index: 1;
+        }
+
+        .hud-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 40px;
+            background: radial-gradient(circle at center, transparent 30%, rgba(2, 4, 10, 0.6) 80%);
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(6, 15, 30, 0.85);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 8px 18px;
+            border-radius: 999px;
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: #38bdf8;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.2);
+        }
+
+        .pulse-light {
+            width: 7px;
+            height: 7px;
+            background: #00ff9d;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #00ff9d;
+            animation: blink 1.2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.7); }
+        }
+
+        .hud-center {
+            text-align: center;
+            margin: auto;
+            max-width: 600px;
+        }
+
+        .status-eyebrow {
+            font-size: 12px;
+            letter-spacing: 4px;
+            color: #38bdf8;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            text-shadow: 0 0 15px rgba(56, 189, 248, 0.6);
+        }
+
+        .status-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2rem, 4.5vw, 3.2rem);
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #ffffff 30%, #38bdf8 80%, #00ff9d 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+        }
+
+        .progress-bar-container {
+            width: 320px;
+            height: 4px;
+            background: rgba(56, 189, 248, 0.15);
+            border-radius: 999px;
+            margin: 0 auto 16px;
+            overflow: hidden;
+            border: 1px solid rgba(56, 189, 248, 0.25);
+        }
+
+        .progress-bar-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #0284c7, #38bdf8, #00ff9d);
+            box-shadow: 0 0 16px #38bdf8;
+            transition: width 0.1s linear;
+        }
+
+        .status-details {
+            font-size: 11px;
+            color: #94a3b8;
+            letter-spacing: 1px;
+        }
+
+        .hud-bottom {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: rgba(148, 163, 184, 0.7);
+        }
+
+        /* Flash white transition right before final navigation */
+        #flash-overlay {
+            position: fixed;
+            inset: 0;
+            background: #ffffff;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="tunnel-canvas"></canvas>
+
+    <div class="hud-overlay">
+        <div class="hud-top">
+            <div class="brand-pill">
+                <span class="pulse-light"></span>
+                <span>WARP DRIVE // ACTIVE</span>
+            </div>
+            <div style="color: #64748b; font-size: 11px; letter-spacing: 2px;">
+                SECURE AUTH SESSION
+            </div>
+        </div>
+
+        <div class="hud-center">
+            <div class="status-eyebrow" id="status-eyebrow">INITIALIZING PROTOCOL</div>
+            <h1 class="status-title" id="status-title">Entering Command Layer</h1>
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" id="progress-bar"></div>
+            </div>
+            <div class="status-details" id="status-details">SYNCHRONIZING TELEMETRY STREAM...</div>
+        </div>
+
+        <div class="hud-bottom">
+            <span>CONFLUENCE ALGO BOT v2.4</span>
+            <span>NODE: ENCRYPTED // LATENCY 12ms</span>
+        </div>
+    </div>
+
+    <div id="flash-overlay"></div>
+
+    <script type="module">
+        import { initTunnel } from '/static/tunnel.js';
+
+        const canvas = document.getElementById('tunnel-canvas');
+        const progressBar = document.getElementById('progress-bar');
+        const statusTitle = document.getElementById('status-title');
+        const statusEyebrow = document.getElementById('status-eyebrow');
+        const statusDetails = document.getElementById('status-details');
+        const flashOverlay = document.getElementById('flash-overlay');
+
+        // Extract destination URL from query params
+        const urlParams = new URLSearchParams(window.location.search);
+        const nextUrl = urlParams.get('next') || '/app?view=terminal';
+
+        // Initialize tunnel
+        const tunnel = initTunnel(canvas);
+
+        let progress = 0;
+        const totalDuration = 2200; // 2.2 seconds warp flight
+        const startTime = performance.now();
+
+        function updateSequence(now) {
+            const elapsed = now - startTime;
+            progress = Math.min(1, elapsed / totalDuration);
+
+            // Warp drive acceleration effect on tunnel
+            if (tunnel) {
+                // Accelerate camera deeper down the tunnel
+                tunnel.setScroll(progress * 0.95);
+            }
+
+            const pct = Math.floor(progress * 100);
+            progressBar.style.width = pct + '%';
+
+            if (progress < 0.35) {
+                statusEyebrow.textContent = 'NEURAL LINK ESTABLISHED';
+                statusTitle.textContent = 'Decrypting Stream';
+                statusDetails.textContent = 'ALLOCATING GPU CONFLUENCE ENGINE... ' + pct + '%';
+            } else if (progress < 0.75) {
+                statusEyebrow.textContent = 'CONNECTING TO MT5 BRIDGE';
+                statusTitle.textContent = 'Entering Command Layer';
+                statusDetails.textContent = 'STREAMING REAL-TIME MARKET TELEMETRY... ' + pct + '%';
+            } else if (progress < 0.92) {
+                statusEyebrow.textContent = 'ACCESS GRANTED';
+                statusTitle.textContent = 'Terminal Ready';
+                statusDetails.textContent = 'FINALIZING WORKSPACE CONFIGURATION...';
+            } else {
+                flashOverlay.style.opacity = '0.85';
+            }
+
+            if (progress < 1) {
+                requestAnimationFrame(updateSequence);
+            } else {
+                setTimeout(() => {
+                    window.location.href = nextUrl;
+                }, 200);
+            }
+        }
+
+        requestAnimationFrame(updateSequence);
+    </script>
+</body>
+</html>

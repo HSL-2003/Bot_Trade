@@ -11,6 +11,8 @@ import secrets
 import hashlib
 import httpx
 import re
+import bcrypt
+
 
 
 class AuthenticationError(ValueError):
@@ -25,6 +27,25 @@ def normalize_email(email: str) -> str:
     if not EMAIL_RE.fullmatch(email):
         raise AuthenticationError("A valid email address is required")
     return email
+
+
+def validate_password_strength(password: str) -> None:
+    if len(password) < 8:
+        raise AuthenticationError("Password must be at least 8 characters long")
+    if not any(c.isupper() for c in password):
+        raise AuthenticationError("Password must contain at least one uppercase letter")
+    if not any(c.islower() for c in password):
+        raise AuthenticationError("Password must contain at least one lowercase letter")
+    if not any(c.isdigit() for c in password):
+        raise AuthenticationError("Password must contain at least one number")
+
+
+def sanitize_display_name(name: str | None) -> str | None:
+    if not name:
+        return None
+    # Strip HTML tags & non-printable characters, limit to 50 chars
+    cleaned = re.sub(r"<[^>]*>", "", name).strip()
+    return cleaned[:50] if cleaned else None
 
 
 @dataclass(frozen=True)
@@ -53,10 +74,24 @@ class InMemorySessionService:
 
     @staticmethod
     def _hash_pw(password: str) -> str:
-        return hashlib.sha256(password.encode("utf-8")).hexdigest()
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+    @staticmethod
+    def _verify_pw(password: str, hashed: str) -> bool:
+        if not hashed:
+            return False
+        if hashed.startswith("$2b$") or hashed.startswith("$2a$"):
+            try:
+                return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
+            except Exception:
+                return False
+        # Fallback verification for legacy SHA256 hashes during migration
+        legacy_hash = hashlib.sha256(password.encode("utf-8")).hexdigest()
+        return secrets.compare_digest(legacy_hash, hashed)
 
     def register(self, email: str, password: str, display_name: str | None = None) -> dict:
         email = normalize_email(email)
+        validate_password_strength(password)
         if email in self._users:
             raise AuthenticationError("This email is already registered")
         user_id = secrets.token_hex(16)
@@ -65,7 +100,7 @@ class InMemorySessionService:
             "password_hash": self._hash_pw(password),
             "user_id": user_id,
             "account_id": account_id,
-            "display_name": display_name,
+            "display_name": sanitize_display_name(display_name) or email,
         }
         session = self.create(Principal(account_id, user_id))
         return {
@@ -79,7 +114,7 @@ class InMemorySessionService:
     def login(self, email: str, password: str) -> dict:
         email = normalize_email(email)
         user = self._users.get(email)
-        if not user or user["password_hash"] != self._hash_pw(password):
+        if not user or not self._verify_pw(password, user["password_hash"]):
             raise AuthenticationError("Invalid email or password")
         session = self.create(Principal(user["account_id"], user["user_id"]))
         return {
@@ -89,6 +124,12 @@ class InMemorySessionService:
             "user_id": user["user_id"],
             "account_id": user["account_id"],
         }
+
+    def magic_link(self, email: str) -> None:
+        raise AuthenticationError("Email sign-in is not supported in development mode")
+
+    def login_with_supabase_token(self, supabase_token: str) -> dict:
+        raise AuthenticationError("OAuth sign-in is not supported in development mode")
 
     def create(self, principal: Principal) -> Session:
         if not principal.account_id or not principal.user_id:
@@ -139,6 +180,8 @@ class SupabaseSessionService:
 
     def register(self, email: str, password: str, display_name: str | None = None) -> dict:
         email = normalize_email(email)
+        validate_password_strength(password)
+        sanitized_name = sanitize_display_name(display_name) or email
         response = self._request("POST", f"{self.auth_url}/admin/users", json={
             "email": email, "password": password, "email_confirm": False,
         })
@@ -146,7 +189,7 @@ class SupabaseSessionService:
         user_id = user["id"]
         account_id = f"acct-{user_id}"
         self._request("POST", f"{self.rest_url}/user_profiles", json={
-            "user_id": user_id, "display_name": display_name or email.split("@", 1)[0],
+            "user_id": user_id, "display_name": sanitized_name,
         }, headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
         self._request("POST", f"{self.rest_url}/trading_accounts", json={
             "id": account_id, "owner_user_id": user_id, "name": "Primary account",
@@ -171,6 +214,47 @@ class SupabaseSessionService:
             raise AuthenticationError("Invalid email or password")
         user = response.json().get("user") or {}
         user_id = user.get("id")
+        if not user_id:
+            raise AuthenticationError("Invalid authentication response")
+        account_id = self._ensure_account(user_id)
+        return self._create_session(user_id, account_id)
+
+    def magic_link(self, email: str) -> None:
+        """Send a passwordless sign-in (magic) link to the given email."""
+        email = normalize_email(email)
+        try:
+            response = httpx.post(f"{self.auth_url}/otp", headers=self.headers,
+                                  json={"email": email, "create_user": True}, timeout=10)
+        except httpx.HTTPError as exc:
+            raise AuthenticationError("Authentication service is unavailable") from exc
+        if response.status_code >= 400:
+            try:
+                detail = response.json().get("msg") or response.json().get("message") or response.text
+            except ValueError:
+                detail = response.text
+            raise AuthenticationError(detail or "Could not send a sign-in link")
+
+    def login_with_supabase_token(self, supabase_token: str) -> dict:
+        """Exchange a Supabase OAuth or magic-link token into an app session.
+
+        The user returns from GitHub OAuth / email link with a short-lived
+        Supabase access token in the URL fragment. We verify it against the
+        Supabase Auth /user endpoint, then mint our own session + account so
+        the rest of the app can scope by account_id as usual.
+        """
+        if not supabase_token:
+            raise AuthenticationError("Missing authentication token")
+        try:
+            response = httpx.get(
+                f"{self.auth_url}/user",
+                headers={**self.headers, "Authorization": f"Bearer {supabase_token}"},
+                timeout=10,
+            )
+        except httpx.HTTPError as exc:
+            raise AuthenticationError("Authentication service is unavailable") from exc
+        if response.status_code >= 400:
+            raise AuthenticationError("Invalid or expired sign-in token")
+        user_id = (response.json().get("id") or "").strip()
         if not user_id:
             raise AuthenticationError("Invalid authentication response")
         account_id = self._ensure_account(user_id)

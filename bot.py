@@ -6,7 +6,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 import random
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Callable
 import httpx
 from dotenv import load_dotenv
 from core.risk import InstrumentSpec, RiskCalculationError, calculate_volume
@@ -37,8 +37,7 @@ class MT5TradingBot:
         self.news_url = os.getenv("FOREX_FACTORY_NEWS_URL", "https://www.forexfactory.com/ffcal_week_this.xml")
         self.news_restriction_minutes = int(os.getenv("NEWS_RESTRICTION_MINUTES", 30))
 
-        # Trailing Stop & Breakeven Parameters
-        # ponytail: 5 giá = 500 points, 10 giá = 1000 points on Gold
+        # Trailing Stop & Breakeven Parameters (Ponytail rules)
         self.trailing_stop_points = int(os.getenv("TRAILING_STOP_POINTS", 500))
         self.trailing_step_points = int(os.getenv("TRAILING_STEP_POINTS", 500))
         self.trailing_stop_offset_points = int(os.getenv("TRAILING_STOP_OFFSET_POINTS", 1000))
@@ -61,6 +60,12 @@ class MT5TradingBot:
             self.roi_table = {0: 0.04, 30: 0.015, 60: 0.005, 120: 0.0}
         self.pair_locks = {}
 
+        # User & Database Context Hooks
+        self.account_id: Optional[str] = None
+        self.user_id: Optional[str] = None
+        self.on_trade_open: Optional[Callable] = None
+        self.on_trade_close: Optional[Callable] = None
+
         # Bot Runtime States
         self.is_running = False
         self.simulation_mode = not MT5_AVAILABLE
@@ -78,11 +83,11 @@ class MT5TradingBot:
         }
         
         # Real-time state fields
-        self.current_price = {"bid": 2350.00, "ask": 2350.15, "spread": 15}
+        self.current_price = {"bid": 4493.20, "ask": 4493.35, "spread": 15}
         self.watchlist_symbols = ["XAUUSD", "EURUSD", "GBPUSD", "USOIL"]
         self.enabled_symbols = {sym: True for sym in self.watchlist_symbols}
         self.watchlist_data = {
-            sym: {"bid": 0.0, "ask": 0.0, "spread": 0, "change": 0.0, "change_abs": 0.0}
+            sym: {"bid": 4493.20 if sym == "XAUUSD" else (1.1685 if sym == "EURUSD" else (1.3613 if sym == "GBPUSD" else 85.00)), "ask": 4493.35 if sym == "XAUUSD" else (1.1687 if sym == "EURUSD" else (1.3615 if sym == "GBPUSD" else 85.04)), "spread": 15, "change": 0.0, "change_abs": 0.0}
             for sym in self.watchlist_symbols
         }
         self.positions: List[Dict[str, Any]] = []
@@ -99,6 +104,8 @@ class MT5TradingBot:
         # Simulation Mode state persistence
         self.raw_closes = []
         self.simulation_basis = 0.0
+        self._last_tv_update = 0.0
+        self.binance_basis = {"XAUUSD": 13.50, "EURUSD": 0.0, "GBPUSD": 0.0, "USOIL": 0.0}
         
         # Trade History and Stats
         self.history: List[Dict[str, Any]] = []
@@ -123,6 +130,28 @@ class MT5TradingBot:
         except Exception:
             pass
 
+    def _trigger_trade_open(self, pos: Dict[str, Any], account_id: Optional[str] = None, user_id: Optional[str] = None):
+        if callable(self.on_trade_open):
+            try:
+                acc = account_id or pos.get("account_id") or self.account_id or "demo-account"
+                usr = user_id or pos.get("user_id") or self.user_id
+                res = self.on_trade_open(acc, usr, pos)
+                if asyncio.iscoroutine(res):
+                    asyncio.create_task(res)
+            except Exception as e:
+                logger.error(f"Error in on_trade_open callback: {e}")
+
+    def _trigger_trade_close(self, ticket: int, close_info: Dict[str, Any], account_id: Optional[str] = None, user_id: Optional[str] = None):
+        if callable(self.on_trade_close):
+            try:
+                acc = account_id or close_info.get("account_id") or self.account_id or "demo-account"
+                usr = user_id or close_info.get("user_id") or self.user_id
+                res = self.on_trade_close(acc, usr, ticket, close_info)
+                if asyncio.iscoroutine(res):
+                    asyncio.create_task(res)
+            except Exception as e:
+                logger.error(f"Error in on_trade_close callback: {e}")
+
     def get_pip_size(self, symbol: str) -> float:
         s = symbol.upper()
         if "XAU" in s:
@@ -136,11 +165,13 @@ class MT5TradingBot:
 
     def calculate_trade_pips(self, trade: Dict[str, Any]) -> float:
         symbol = trade.get("symbol", "XAUUSD")
-        open_price = float(trade.get("open_price", 0.0))
-        close_price = float(trade.get("close_price", 0.0))
-        t_type = trade.get("type", "BUY")
+        open_price = float(trade.get("open_price") or trade.get("entry_price") or 0.0)
+        close_price = float(trade.get("close_price") or 0.0)
+        t_type = (trade.get("type") or trade.get("side") or "BUY").upper()
         pip_size = self.get_pip_size(symbol)
         
+        if pip_size <= 0:
+            return 0.0
         if t_type == "BUY":
             pips = (close_price - open_price) / pip_size
         else:
@@ -166,24 +197,26 @@ class MT5TradingBot:
                 "risk_reward_ratio": 0.0,
                 "expectancy": 0.0
             }
-        wins = [t for t in self.history if t.get("profit", 0) > 0]
-        losses = [t for t in self.history if t.get("profit", 0) <= 0]
+        wins = [t for t in self.history if float(t.get("profit") or 0) > 0]
+        losses = [t for t in self.history if float(t.get("profit") or 0) <= 0]
         
         wins_count = len(wins)
         losses_count = len(losses)
         win_rate = round((wins_count / total) * 100, 2)
         
-        gross_profit = sum(t.get("profit", 0) for t in wins)
-        gross_loss = sum(abs(t.get("profit", 0)) for t in losses)
+        gross_profit = sum(float(t.get("profit") or 0) for t in wins)
+        gross_loss = sum(abs(float(t.get("profit") or 0)) for t in losses)
         net_profit = round(gross_profit - gross_loss, 2)
         
         profit_factor = round(gross_profit / gross_loss, 2) if gross_loss > 0 else (round(gross_profit, 2) if gross_profit > 0 else 0.0)
         
         total_pips = round(sum(self.calculate_trade_pips(t) for t in self.history), 1)
-        avg_pips = round(total_pips / total, 1) if total > 0 else 0.0
+        avg_pips = round(total_pips / total, 1)
         
         avg_win = round(gross_profit / wins_count, 2) if wins_count > 0 else 0.0
         avg_loss = round(gross_loss / losses_count, 2) if losses_count > 0 else 0.0
+        
+        # Risk-Reward Ratio (Average Win / Average Loss)
         rr_ratio = round(avg_win / avg_loss, 2) if avg_loss > 0 else (round(avg_win, 2) if avg_win > 0 else 0.0)
         
         # Expectancy ($ per trade) = (Win Rate % * Avg Win) - (Loss Rate % * Avg Loss)
@@ -208,17 +241,50 @@ class MT5TradingBot:
             "expectancy": expectancy
         }
 
-    def get_history_analytics(self, period: str = "all") -> Dict[str, Any]:
+    def calculate_trade_pips(self, trade: Dict[str, Any]) -> float:
+        """Calculate pips gained/lost for a trade"""
+        if "pips" in trade and trade["pips"] is not None:
+            try:
+                return round(float(trade["pips"]), 1)
+            except (ValueError, TypeError):
+                pass
+        sym = str(trade.get("symbol") or "XAUUSD").upper()
+        if "XAU" in sym:
+            pip_size = 0.10
+        elif "OIL" in sym or "USO" in sym or "JPY" in sym:
+            pip_size = 0.01
+        else:
+            pip_size = 0.0001
+        open_p = float(trade.get("open_price") or trade.get("entry_price") or 0.0)
+        close_p = float(trade.get("close_price") or 0.0)
+        if open_p <= 0 or close_p <= 0:
+            return 0.0
+        side = str(trade.get("type") or trade.get("side") or "BUY").upper()
+        if "BUY" in side:
+            pips = (close_p - open_p) / pip_size
+        else:
+            pips = (open_p - close_p) / pip_size
+        return round(pips, 1)
+
+    def get_history_analytics(self, period: str = "all", trades: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         now = datetime.now()
+        # Prefer the explicit trades source (Supabase). If it is empty or not
+        # provided (e.g. Supabase returned no rows / errored), fall back to the
+        # local in-memory history so the Closed Trades table never flashes and
+        # then disappears purely because the remote query came back empty.
+        source_trades = trades if trades else self.history
         filtered = []
-        
-        for t in self.history:
-            close_time_str = t.get("close_time")
+
+        for t in source_trades:
+            close_time_str = t.get("close_time") or t.get("closed_at") or t.get("submitted_at")
             if not close_time_str:
                 if period == "all": filtered.append(t)
                 continue
             try:
-                dt = datetime.fromisoformat(close_time_str)
+                clean_time = str(close_time_str).replace("Z", "+00:00")
+                dt = datetime.fromisoformat(clean_time)
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone().replace(tzinfo=None)
             except Exception:
                 if period == "all": filtered.append(t)
                 continue
@@ -233,23 +299,23 @@ class MT5TradingBot:
                 filtered.append(t)
                 
         total_trades = len(filtered)
-        wins = [t for t in filtered if t.get("profit", 0) > 0]
-        losses = [t for t in filtered if t.get("profit", 0) <= 0]
+        wins = [t for t in filtered if float(t.get("profit") or 0) > 0]
+        losses = [t for t in filtered if float(t.get("profit") or 0) <= 0]
         
-        gross_profit = round(sum(t.get("profit", 0) for t in wins), 2)
-        gross_loss = round(sum(abs(t.get("profit", 0)) for t in losses), 2)
+        gross_profit = round(sum(float(t.get("profit") or 0) for t in wins), 2)
+        gross_loss = round(sum(abs(float(t.get("profit") or 0)) for t in losses), 2)
         net_profit = round(gross_profit - gross_loss, 2)
         
         total_pips = round(sum(self.calculate_trade_pips(t) for t in filtered), 1)
         win_rate = round((len(wins) / total_trades * 100), 2) if total_trades > 0 else 0.0
         profit_factor = round(gross_profit / gross_loss, 2) if gross_loss > 0 else (round(gross_profit, 2) if gross_profit > 0 else 0.0)
         
-        # Calculate estimated account balance at the time
+        # Calculate estimated account balance
         initial_balance = 10000.0
         if self.account_info and "balance" in self.account_info and self.account_info["balance"] > 0:
             current_bal = self.account_info["balance"]
         else:
-            current_bal = initial_balance + sum(t.get("profit", 0) for t in self.history)
+            current_bal = initial_balance + sum(float(t.get("profit") or 0) for t in source_trades)
             
         return {
             "period": period,
@@ -263,13 +329,26 @@ class MT5TradingBot:
             "win_rate": win_rate,
             "profit_factor": profit_factor,
             "account_balance": round(current_bal, 2),
-            "trades": [
-                {
-                    **t,
-                    "pips": self.calculate_trade_pips(t)
-                } for t in reversed(filtered) # latest first
-            ]
+            "trades": self._build_history_trades(filtered)
         }
+
+    def _build_history_trades(self, filtered: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Normalize closed-trade rows for the Closed Trades History table."""
+        out = []
+        for t in reversed(filtered):
+            row = {
+                "ticket": t.get("broker_ticket") or t.get("ticket"),
+                "symbol": t.get("symbol", "XAUUSD"),
+                "type": (t.get("side") or t.get("type") or "BUY").upper(),
+                "volume": float(t.get("quantity") or t.get("volume") or 0.01),
+                "open_price": float(t.get("entry_price") or t.get("open_price") or 0.0),
+                "close_price": float(t.get("close_price") or 0.0),
+                "profit": float(t.get("profit") or 0.0),
+                "close_time": str(t.get("closed_at") or t.get("close_time") or t.get("submitted_at") or ""),
+                "pips": self.calculate_trade_pips(t)
+            }
+            out.append(row)
+        return out
 
     async def log_event(self, event_type: str, message: str, details: Optional[Dict[str, Any]] = None):
         """Structured logging (Auditing & Telemetry Layer)"""
@@ -807,6 +886,7 @@ class MT5TradingBot:
                         "open_time": datetime.now().isoformat()
                     }
                     self.positions.append(new_pos)
+                    self._trigger_trade_open(new_pos)
                     await self.log_event("TRADE_SUCCESS", f"Simulated position opened successfully! Ticket: {ticket}", new_pos)
                     self.is_pending_order = False
                     return
@@ -855,6 +935,17 @@ class MT5TradingBot:
 
                 if trade_res["success"]:
                     ret_obj = trade_res["result"]
+                    open_info = {
+                        "ticket": ret_obj.order,
+                        "symbol": symbol,
+                        "type": order_type,
+                        "volume": lot_size,
+                        "open_price": ret_obj.price,
+                        "sl": sl,
+                        "tp": tp,
+                        "open_time": datetime.now().isoformat()
+                    }
+                    self._trigger_trade_open(open_info)
                     await self.log_event("TRADE_SUCCESS", f"Order filled on MT5. Ticket: {ret_obj.order}", {
                         "ticket": ret_obj.order,
                         "price": ret_obj.price,
@@ -894,71 +985,114 @@ class MT5TradingBot:
         self.is_pending_order = False
         await self.log_event("TRADE_ERROR", "Order execution failed after maximum retries.")
 
+    def get_symbol_multiplier(self, symbol: str) -> float:
+        s = symbol.upper()
+        if "XAU" in s:
+            return 100.0
+        elif "OIL" in s or "USO" in s:
+            return 1000.0
+        elif "JPY" in s:
+            return 1000.0
+        else:
+            return 100000.0
+
     def get_current_price_for_symbol(self, symbol: str) -> Dict[str, float]:
         """Get symbol-specific bid/ask tick from watchlist_data or current_price fallback"""
         if hasattr(self, "watchlist_data") and symbol in self.watchlist_data:
             w_data = self.watchlist_data[symbol]
-            if w_data.get("bid", 0.0) > 0:
+            if float(w_data.get("bid", 0.0)) > 0:
                 return {
-                    "bid": w_data["bid"],
-                    "ask": w_data["ask"],
+                    "bid": float(w_data["bid"]),
+                    "ask": float(w_data["ask"]),
                     "spread": w_data.get("spread", 0)
                 }
-        return self.current_price
+        if hasattr(self, "current_price") and float(self.current_price.get("bid", 0.0)) > 0 and (symbol == self.symbol or "XAU" in symbol):
+            return self.current_price
+        
+        defaults = {
+            "XAUUSD": {"bid": 4488.90, "ask": 4490.40, "spread": 15},
+            "EURUSD": {"bid": 1.1685, "ask": 1.1687, "spread": 2},
+            "GBPUSD": {"bid": 1.3613, "ask": 1.3616, "spread": 3},
+            "USOIL": {"bid": 85.00, "ask": 85.03, "spread": 3}
+        }
+        return defaults.get(symbol, {"bid": 1.0, "ask": 1.0, "spread": 0})
 
     async def close_position(self, ticket: int):
         """Close an active position"""
+        print(f"[LOG][bot.close_position] BẮT ĐẦU đóng ticket={ticket} | simulation_mode={self.simulation_mode} | vị thế đang giữ={len(self.positions)}", flush=True)
         if self.simulation_mode:
             pos_to_close = None
-            for p in self.positions:
-                if p["ticket"] == ticket:
+            for p in list(self.positions):
+                if str(p.get("ticket")) == str(ticket):
                     pos_to_close = p
                     break
             if pos_to_close:
                 sym = pos_to_close["symbol"]
                 sym_price = self.get_current_price_for_symbol(sym)
-                bid = sym_price["bid"]
-                ask = sym_price["ask"]
-                close_price = bid if pos_to_close["type"] == "BUY" else ask
-                multiplier = self.get_symbol_multiplier(sym)
+                bid = float(sym_price.get("bid") or 0.0)
+                ask = float(sym_price.get("ask") or 0.0)
+                
+                open_p = float(pos_to_close.get("open_price") or 0.0)
+                curr_p = float(pos_to_close.get("current_price") or 0.0)
+                dec = 2 if ("XAU" in sym or "USO" in sym or "OIL" in sym) else (3 if "JPY" in sym else 5)
                 
                 if pos_to_close["type"] == "BUY":
-                    profit = round((close_price - pos_to_close["open_price"]) * pos_to_close["volume"] * multiplier, 2)
+                    close_price = bid if bid > 0 else (curr_p if curr_p > 0 else open_p)
                 else:
-                    profit = round((pos_to_close["open_price"] - close_price) * pos_to_close["volume"] * multiplier, 2)
+                    close_price = ask if ask > 0 else (curr_p if curr_p > 0 else open_p)
+                
+                if close_price <= 0:
+                    defaults = {"XAUUSD": 4488.90, "EURUSD": 1.1685, "GBPUSD": 1.3613, "USOIL": 85.00}
+                    close_price = defaults.get(sym, 1.0)
+                
+                multiplier = self.get_symbol_multiplier(sym)
+                close_price = round(close_price, dec)
+                
+                if pos_to_close["type"] == "BUY":
+                    profit = round((close_price - open_p) * float(pos_to_close["volume"]) * multiplier, 2)
+                else:
+                    profit = round((open_p - close_price) * float(pos_to_close["volume"]) * multiplier, 2)
                 
                 self.positions.remove(pos_to_close)
                 
-                # Pair Lock cooldown (disabled)
-                # symbol = pos_to_close["symbol"]
-                # self.pair_locks[symbol] = time.time() + self.cooldown_duration
-                
                 self.account_info["balance"] = round(self.account_info["balance"] + profit, 2)
-                self.history.append({
+                close_record = {
                     "ticket": pos_to_close["ticket"],
                     "symbol": pos_to_close["symbol"],
                     "type": pos_to_close["type"],
-                    "volume": pos_to_close["volume"],
-                    "open_price": pos_to_close["open_price"],
+                    "volume": float(pos_to_close["volume"]),
+                    "open_price": open_p,
                     "close_price": close_price,
                     "profit": profit,
                     "close_time": datetime.now().isoformat()
-                })
+                }
+                self.history.append(close_record)
                 self.save_history()
+                self._trigger_trade_close(ticket, close_record)
                 await self.log_event("TRADE_CLOSE", f"Simulated position closed: Ticket {ticket} ({sym}) at price {close_price} with profit {profit}")
+                print(f"[LOG][bot.close_position] SIMULATION: đã đóng ticket={ticket} {sym} giá={close_price} profit={profit}", flush=True)
+            else:
+                print(f"[LOG][bot.close_position] SIMULATION: KHÔNG TÌM THẤY ticket={ticket} trong {[p.get('ticket') for p in self.positions]}", flush=True)
             return
 
         # MT5 mode close
         def _close():
             pos = None
-            for p in mt5.positions_get(magic=self.magic_number):
+            for p in mt5.positions_get(magic=self.magic_number) or []:
                 if p.ticket == ticket:
                     pos = p
                     break
             if pos is None:
-                return False
+                for p in mt5.positions_get(ticket=ticket) or []:
+                    pos = p
+                    break
+            if pos is None:
+                return False, 0.0, 0.0, None
 
             symbol_info = mt5.symbol_info(pos.symbol)
+            if not symbol_info:
+                return False, 0.0, 0.0, None
+
             filling_mode = mt5.ORDER_FILLING_FOK
             if symbol_info.filling_mode & mt5.SYMBOL_FILLING_IOC:
                 filling_mode = mt5.ORDER_FILLING_IOC
@@ -967,14 +1101,18 @@ class MT5TradingBot:
             else:
                 filling_mode = mt5.ORDER_FILLING_RETURN
 
-            price = mt5.symbol_info_tick(pos.symbol).bid if pos.type == mt5.POSITION_TYPE_BUY else mt5.symbol_info_tick(pos.symbol).ask
+            tick = mt5.symbol_info_tick(pos.symbol)
+            tick_price = (tick.bid if pos.type == mt5.POSITION_TYPE_BUY else tick.ask) if tick else getattr(pos, "price_current", 0.0)
+            if not tick_price or tick_price <= 0:
+                tick_price = getattr(pos, "price_current", 0.0) or getattr(pos, "price_open", 0.0)
+
             request = {
                 "action": mt5.TRADE_ACTION_DEAL,
                 "symbol": pos.symbol,
                 "volume": pos.volume,
                 "type": mt5.ORDER_TYPE_SELL if pos.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_BUY,
                 "position": pos.ticket,
-                "price": price,
+                "price": tick_price,
                 "deviation": 20,
                 "magic": self.magic_number,
                 "comment": "Close position",
@@ -982,13 +1120,113 @@ class MT5TradingBot:
                 "type_filling": filling_mode,
             }
             result = mt5.order_send(request)
-            return result.retcode == mt5.TRADE_RETCODE_DONE
+            if result.retcode == mt5.TRADE_RETCODE_DONE:
+                # MT5 order_send result.price is often 0.0 for deal close
+                # Fallback cascade: result.price -> tick_price -> pos.price_current -> pos.price_open
+                close_p = 0.0
+                if hasattr(result, "price") and result.price and float(result.price) > 0:
+                    close_p = float(result.price)
+                elif tick_price and float(tick_price) > 0:
+                    close_p = float(tick_price)
+                elif hasattr(pos, "price_current") and pos.price_current and float(pos.price_current) > 0:
+                    close_p = float(pos.price_current)
+                else:
+                    close_p = float(getattr(pos, "price_open", 0.0))
 
-        success = await asyncio.to_thread(_close)
-        if success:
-            await self.log_event("TRADE_CLOSE", f"Position {ticket} closed successfully.")
+                dec = 2 if ("XAU" in pos.symbol or "USO" in pos.symbol or "OIL" in pos.symbol) else (3 if "JPY" in pos.symbol else 5)
+                close_p = round(close_p, dec)
+
+                profit_val = getattr(result, "profit", None)
+                if profit_val is None or float(profit_val) == 0.0:
+                    profit_val = getattr(pos, "profit", 0.0)
+                if float(profit_val) == 0.0 and close_p > 0 and getattr(pos, "price_open", 0.0) > 0:
+                    mult = self.get_symbol_multiplier(pos.symbol)
+                    if pos.type == mt5.POSITION_TYPE_BUY:
+                        profit_val = round((close_p - pos.price_open) * pos.volume * mult, 2)
+                    else:
+                        profit_val = round((pos.price_open - close_p) * pos.volume * mult, 2)
+                else:
+                    profit_val = round(float(profit_val), 2)
+
+                return True, close_p, profit_val, pos
+            return False, 0.0, 0.0, None
+
+        res_success, close_price, profit_val, pos_obj = await asyncio.to_thread(_close)
+        print(f"[LOG][bot.close_position] MT5 result: success={res_success} | close_price={close_price} | profit={profit_val}", flush=True)
+        if res_success:
+            for p in list(self.positions):
+                if int(p.get("ticket", 0)) == int(ticket):
+                    self.positions.remove(p)
+            close_record = {
+                "ticket": ticket,
+                "symbol": pos_obj.symbol if pos_obj else "XAUUSD",
+                "type": "BUY" if (pos_obj and pos_obj.type == mt5.POSITION_TYPE_BUY) else "SELL",
+                "volume": pos_obj.volume if pos_obj else 0.01,
+                "open_price": pos_obj.price_open if pos_obj else close_price,
+                "close_price": close_price,
+                "profit": profit_val,
+                "close_time": datetime.now().isoformat()
+            }
+            self.history.append(close_record)
+            self.save_history()
+            self._trigger_trade_close(ticket, close_record)
+            await self.log_event("TRADE_CLOSE", f"Position {ticket} closed successfully at price {close_price} with profit {profit_val}.")
         else:
             await self.log_event("ERROR", f"Failed to close position {ticket} on MT5.")
+
+    async def modify_position_sltp(self, ticket: int, sl: float, tp: float) -> bool:
+        """Modify Stop Loss and Take Profit for an active open position"""
+        try:
+            # 1. Simulation mode or fallback
+            if self.simulation_mode or not MT5_AVAILABLE:
+                found = False
+                for pos in self.positions:
+                    if int(pos.get("ticket", 0)) == int(ticket):
+                        dec = 2 if ("XAU" in pos.get("symbol", "") or "OIL" in pos.get("symbol", "") or "USO" in pos.get("symbol", "")) else (3 if "JPY" in pos.get("symbol", "") else 5)
+                        pos["sl"] = round(float(sl), dec) if float(sl) > 0 else 0.0
+                        pos["tp"] = round(float(tp), dec) if float(tp) > 0 else 0.0
+                        found = True
+                        await self.log_event("POSITION_MODIFY", f"Simulated Position #{ticket} SL/TP updated: SL={pos['sl']}, TP={pos['tp']}", pos)
+                        break
+                return found
+
+            # 2. Live MT5 mode
+            def _modify():
+                positions = mt5.positions_get(ticket=ticket)
+                if not positions:
+                    return False
+                pos = positions[0]
+                symbol_info = mt5.symbol_info(pos.symbol)
+                digits = symbol_info.digits if symbol_info else 2
+                req_sl = round(float(sl), digits) if float(sl) > 0 else 0.0
+                req_tp = round(float(tp), digits) if float(tp) > 0 else 0.0
+                
+                request = {
+                    "action": mt5.TRADE_ACTION_SLTP,
+                    "position": ticket,
+                    "symbol": pos.symbol,
+                    "sl": req_sl,
+                    "tp": req_tp,
+                }
+                result = mt5.order_send(request)
+                if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+                    for local_pos in self.positions:
+                        if int(local_pos.get("ticket", 0)) == int(ticket):
+                            local_pos["sl"] = req_sl
+                            local_pos["tp"] = req_tp
+                    return True
+                else:
+                    err_msg = result.comment if result else "None"
+                    logger.error(f"MT5 SL/TP modify failed for #{ticket}: {err_msg}")
+                    return False
+
+            res = await asyncio.to_thread(_modify)
+            if res:
+                await self.log_event("POSITION_MODIFY", f"Position #{ticket} SL/TP modified successfully on MT5: SL={sl}, TP={tp}")
+            return res
+        except Exception as e:
+            logger.error(f"Error modifying SL/TP for #{ticket}: {e}")
+            return False
 
     async def close_all_positions(self):
         """Close all active open positions"""
@@ -1258,205 +1496,186 @@ class MT5TradingBot:
         return 100.0 - (100.0 / (1.0 + rs))
 
     async def update_live_price(self):
-        """Fetch real-time live prices and indicators from TradingView APIs for all watchlist symbols in parallel"""
-        try:
-            async def fetch_cfd():
-                url = "https://scanner.tradingview.com/cfd/scan"
-                payload = {
-                    "symbols": {
-                        "tickers": ["OANDA:XAUUSD", "FX:USOIL"],
-                        "query": { "types": [] }
-                    },
-                    "columns": [
-                        "close", "bid", "ask", "change", "change_abs",
-                        "RSI|15", "EMA10|15", "EMA34|15", "EMA89|15", "EMA144|15", "EMA300|15"
-                    ]
+        """Fetch real-time live prices and indicators with 15s TradingView throttling and 1s realtime tick feed"""
+        now = time.time()
+        should_query_tv = (now - self._last_tv_update) >= 15.0
+        
+        cfd_res = {}
+        forex_res = {}
+        if should_query_tv:
+            try:
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                    "Origin": "https://www.tradingview.com",
+                    "Referer": "https://www.tradingview.com/"
                 }
-                async with httpx.AsyncClient() as client:
-                    r = await client.post(url, json=payload, timeout=5.0)
-                    if r.status_code == 200:
-                        res = r.json()
-                        results = {}
-                        for d in res.get("data", []):
-                            ticker = d["s"]
-                            sym = "XAUUSD" if "XAUUSD" in ticker else "USOIL"
-                            results[sym] = d["d"]
-                        return results
-                return {}
+                async def fetch_cfd():
+                    url = "https://scanner.tradingview.com/cfd/scan"
+                    payload = {
+                        "symbols": {
+                            "tickers": ["OANDA:XAUUSD", "FX:USOIL"],
+                            "query": { "types": [] }
+                        },
+                        "columns": [
+                            "close", "bid", "ask", "change", "change_abs",
+                            "RSI|15", "EMA10|15", "EMA34|15", "EMA89|15", "EMA144|15", "EMA300|15"
+                        ]
+                    }
+                    async with httpx.AsyncClient(headers=headers, timeout=4.0) as client:
+                        r = await client.post(url, json=payload)
+                        if r.status_code == 200:
+                            res = r.json()
+                            results = {}
+                            for d in res.get("data", []):
+                                ticker = d["s"]
+                                sym = "XAUUSD" if "XAUUSD" in ticker else "USOIL"
+                                results[sym] = d["d"]
+                            return results
+                    return {}
 
-            async def fetch_forex():
-                url = "https://scanner.tradingview.com/forex/scan"
-                payload = {
-                    "symbols": {
-                        "tickers": ["OANDA:EURUSD", "OANDA:GBPUSD"],
-                        "query": { "types": [] }
-                    },
-                    "columns": [
-                        "close", "bid", "ask", "change", "change_abs",
-                        "RSI|15", "EMA10|15", "EMA34|15", "EMA89|15", "EMA144|15", "EMA300|15"
-                    ]
-                }
-                async with httpx.AsyncClient() as client:
-                    r = await client.post(url, json=payload, timeout=5.0)
-                    if r.status_code == 200:
-                        res = r.json()
-                        results = {}
-                        for d in res.get("data", []):
-                            sym = d["s"].split(":")[-1]
-                            results[sym] = d["d"]
-                        return results
-                return {}
+                async def fetch_forex():
+                    url = "https://scanner.tradingview.com/forex/scan"
+                    payload = {
+                        "symbols": {
+                            "tickers": ["OANDA:EURUSD", "OANDA:GBPUSD"],
+                            "query": { "types": [] }
+                        },
+                        "columns": [
+                            "close", "bid", "ask", "change", "change_abs",
+                            "RSI|15", "EMA10|15", "EMA34|15", "EMA89|15", "EMA144|15", "EMA300|15"
+                        ]
+                    }
+                    async with httpx.AsyncClient(headers=headers, timeout=4.0) as client:
+                        r = await client.post(url, json=payload)
+                        if r.status_code == 200:
+                            res = r.json()
+                            results = {}
+                            for d in res.get("data", []):
+                                sym = d["s"].split(":")[-1]
+                                results[sym] = d["d"]
+                            return results
+                    return {}
 
-            cfd_res, forex_res = await asyncio.gather(fetch_cfd(), fetch_forex())
-            
-            # Process XAUUSD & USOIL from cfd_res
+                cfd_res, forex_res = await asyncio.gather(fetch_cfd(), fetch_forex(), return_exceptions=True)
+                if isinstance(cfd_res, Exception): cfd_res = {}
+                if isinstance(forex_res, Exception): forex_res = {}
+                self._last_tv_update = now
+            except Exception as e:
+                logger.debug(f"TradingView scanner throttle note: {e}")
+                self._last_tv_update = now + 15.0
+
+            # Process TradingView CFD (XAUUSD & USOIL) indicators & prices
             for sym in ["XAUUSD", "USOIL"]:
-                quote = cfd_res.get(sym)
-                if quote:
+                quote = cfd_res.get(sym) if isinstance(cfd_res, dict) else None
+                if quote and quote[0] is not None:
                     close = float(quote[0])
                     change = float(quote[3]) if quote[3] is not None else 0.0
                     change_abs = float(quote[4]) if quote[4] is not None else 0.0
-                    
                     point = self.get_symbol_point(sym)
                     spread = 15 if sym == "XAUUSD" else 4
                     bid = close
                     ask = round(close + (spread * point), 2)
-                    
-                    # Indicators
                     rsi_val = float(quote[5]) if quote[5] is not None else 50.0
                     ema_10_val = float(quote[6]) if quote[6] is not None else close
                     ema_34_val = float(quote[7]) if quote[7] is not None else close
                     ema_89_val = float(quote[8]) if quote[8] is not None else close
                     ema_144_val = float(quote[9]) if quote[9] is not None else close
                     ema_300_val = float(quote[10]) if quote[10] is not None else close
-                    
-                    # Calculate trend
-                    if close > ema_300_val and ema_10_val > ema_34_val:
-                        trend_val = "BULLISH"
-                    elif close < ema_300_val and ema_10_val < ema_34_val:
-                        trend_val = "BEARISH"
-                    else:
-                        trend_val = "NEUTRAL"
+                    trend_val = "BULLISH" if (close > ema_300_val and ema_10_val > ema_34_val) else ("BEARISH" if (close < ema_300_val and ema_10_val < ema_34_val) else "NEUTRAL")
                     
                     self.watchlist_data[sym] = {
-                        "bid": bid,
-                        "ask": ask,
-                        "spread": spread,
-                        "change": round(change, 2),
-                        "change_abs": round(change_abs, 2),
+                        "bid": bid, "ask": ask, "spread": spread, "change": round(change, 2), "change_abs": round(change_abs, 2),
                         "indicators": {
-                            "rsi": round(rsi_val, 2),
-                            "ema_10": round(ema_10_val, 2),
-                            "ema_34": round(ema_34_val, 2),
-                            "ema_89": round(ema_89_val, 2),
-                            "ema_144": round(ema_144_val, 2),
-                            "ema_300": round(ema_300_val, 2),
+                            "rsi": round(rsi_val, 2), "ema_10": round(ema_10_val, 2), "ema_34": round(ema_34_val, 2),
+                            "ema_89": round(ema_89_val, 2), "ema_144": round(ema_144_val, 2), "ema_300": round(ema_300_val, 2),
                             "trend": trend_val
                         }
                     }
-                    if self.symbol == sym:
-                        self.current_price = {"bid": bid, "ask": ask, "spread": spread}
-                        self.indicators = self.watchlist_data[sym]["indicators"]
 
-            # Process Forex
-            typical_spreads = {
-                "EURUSD": 12,
-                "GBPUSD": 15
-            }
+            # Process TradingView Forex
+            typical_spreads = {"EURUSD": 12, "GBPUSD": 15}
             for sym in ["EURUSD", "GBPUSD"]:
-                quote = forex_res.get(sym)
-                if quote:
+                quote = forex_res.get(sym) if isinstance(forex_res, dict) else None
+                if quote and quote[0] is not None:
                     close = float(quote[0])
                     change = float(quote[3]) if quote[3] is not None else 0.0
                     change_abs = float(quote[4]) if quote[4] is not None else 0.0
-                    
                     point = self.get_symbol_point(sym)
                     spread = typical_spreads.get(sym, 15)
                     bid = close
                     ask = round(close + (spread * point), 5)
-                    
-                    # Indicators
                     rsi_val = float(quote[5]) if quote[5] is not None else 50.0
                     ema_10_val = float(quote[6]) if quote[6] is not None else close
                     ema_34_val = float(quote[7]) if quote[7] is not None else close
                     ema_89_val = float(quote[8]) if quote[8] is not None else close
                     ema_144_val = float(quote[9]) if quote[9] is not None else close
                     ema_300_val = float(quote[10]) if quote[10] is not None else close
-                    
-                    # Calculate trend
-                    if close > ema_300_val and ema_10_val > ema_34_val:
-                        trend_val = "BULLISH"
-                    elif close < ema_300_val and ema_10_val < ema_34_val:
-                        trend_val = "BEARISH"
-                    else:
-                        trend_val = "NEUTRAL"
-                    
+                    trend_val = "BULLISH" if (close > ema_300_val and ema_10_val > ema_34_val) else ("BEARISH" if (close < ema_300_val and ema_10_val < ema_34_val) else "NEUTRAL")
                     self.watchlist_data[sym] = {
-                        "bid": bid,
-                        "ask": ask,
-                        "spread": spread,
-                        "change": round(change, 2),
-                        "change_abs": round(change_abs, 5),
+                        "bid": bid, "ask": ask, "spread": spread, "change": round(change, 2), "change_abs": round(change_abs, 5),
                         "indicators": {
-                            "rsi": round(rsi_val, 2),
-                            "ema_10": round(ema_10_val, 5),
-                            "ema_34": round(ema_34_val, 5),
-                            "ema_89": round(ema_89_val, 5),
-                            "ema_144": round(ema_144_val, 5),
-                            "ema_300": round(ema_300_val, 5),
+                            "rsi": round(rsi_val, 2), "ema_10": round(ema_10_val, 5), "ema_34": round(ema_34_val, 5),
+                            "ema_89": round(ema_89_val, 5), "ema_144": round(ema_144_val, 5), "ema_300": round(ema_300_val, 5),
                             "trend": trend_val
                         }
                     }
-                    if self.symbol == sym:
-                        self.current_price = {"bid": bid, "ask": ask, "spread": spread}
-                        self.indicators = self.watchlist_data[sym]["indicators"]
-            return
-        except Exception as e:
-            logger.error(f"Error in update_live_price: {e}")
 
-        # Fallback to minor fluctuations if API fails
-        for symbol in self.watchlist_symbols:
-            if self.watchlist_data[symbol]["bid"] == 0.0:
-                initial_bids = {"XAUUSD": 4038.40, "EURUSD": 1.14660, "GBPUSD": 1.35280, "USOIL": 75.00}
-                self.watchlist_data[symbol]["bid"] = initial_bids[symbol]
-                
-            spread = random.randint(12, 18)
-            fluctuation = random.uniform(-0.15, 0.15) if symbol == "XAUUSD" else random.uniform(-0.00015, 0.00015)
-            dec = 2 if "XAU" in symbol else 5
-            new_bid = round(self.watchlist_data[symbol]["bid"] + fluctuation, dec)
-            point = self.get_symbol_point(symbol)
+        # Continuous Real-Time Tick Updates (Every 1s loop)
+        binance_symbols = {"XAUUSD": "PAXGUSDT", "EURUSD": "EURUSDT", "GBPUSD": "GBPUSDT", "USOIL": "PAXGUSDT"}
+        for sym in self.watchlist_symbols:
+            current_sym = self.watchlist_data.get(sym, {})
+            current_bid = current_sym.get("bid", 0.0)
+            point = self.get_symbol_point(sym)
+            spread = current_sym.get("spread", 15)
+            dec = 2 if "XAU" in sym or "USO" in sym or "OIL" in sym else 5
             
-            prev_closes = {"XAUUSD": 4045.00, "EURUSD": 1.14600, "GBPUSD": 1.35300, "USOIL": 75.00}
-            change_abs = new_bid - prev_closes[symbol]
-            change_percent = (change_abs / prev_closes[symbol]) * 100 if prev_closes[symbol] > 0 else 0.0
+            # Fetch latest price from Binance and apply basis offset to match TradingView OANDA quote
+            b_sym = binance_symbols.get(sym)
+            if b_sym:
+                try:
+                    async with httpx.AsyncClient(timeout=1.5) as client:
+                        r = await client.get(f"https://api.binance.com/api/v3/ticker/price?symbol={b_sym}")
+                        if r.status_code == 200:
+                            raw_p = float(r.json()["price"])
+                            # Dynamically calibrate basis offset if we have valid TV baseline
+                            if should_query_tv and sym in ["XAUUSD", "USOIL"] and current_bid > 3000.0:
+                                self.binance_basis[sym] = round(current_bid - raw_p, 2)
+                            
+                            basis = self.binance_basis.get(sym, 0.0)
+                            jitter = random.uniform(-0.03, 0.03) if "XAU" in sym else random.uniform(-0.00003, 0.00003)
+                            new_bid = round(raw_p + basis + jitter, dec)
+                            current_bid = new_bid
+                except Exception:
+                    pass
+
+            # Micro-fluctuation fallback if network temporarily delayed
+            if current_bid <= 0:
+                initial_bids = {"XAUUSD": 4488.90, "EURUSD": 1.1685, "GBPUSD": 1.3613, "USOIL": 85.00}
+                current_bid = initial_bids.get(sym, 1.0)
+            else:
+                jitter = random.uniform(-0.02, 0.02) if "XAU" in sym else random.uniform(-0.00002, 0.00002)
+                current_bid = round(current_bid + jitter, dec)
+
+            new_ask = round(current_bid + (spread * point), dec)
+            prev_indicators = current_sym.get("indicators", self.indicators)
             
-            # Keep previous indicators if they exist in state, else set default
-            prev_indicators = self.watchlist_data[symbol].get("indicators", {
-                "rsi": 50.0,
-                "ema_10": new_bid,
-                "ema_34": new_bid,
-                "ema_89": new_bid,
-                "ema_144": new_bid,
-                "ema_300": new_bid,
-                "trend": "NEUTRAL"
-            })
-            
-            self.watchlist_data[symbol] = {
-                "bid": new_bid,
-                "ask": round(new_bid + (spread * point), dec),
+            self.watchlist_data[sym] = {
+                **current_sym,
+                "bid": current_bid,
+                "ask": new_ask,
                 "spread": spread,
-                "change": round(change_percent, 2),
-                "change_abs": round(change_abs, dec),
                 "indicators": prev_indicators
             }
-            
-            if symbol == self.symbol:
-                self.current_price = {
-                    "bid": self.watchlist_data[symbol]["bid"],
-                    "ask": self.watchlist_data[symbol]["ask"],
-                    "spread": self.watchlist_data[symbol]["spread"]
-                }
-                self.indicators = prev_indicators
+
+        # Sync active selected symbol
+        if self.symbol in self.watchlist_data and self.watchlist_data[self.symbol]["bid"] > 0:
+            self.current_price = {
+                "bid": self.watchlist_data[self.symbol]["bid"],
+                "ask": self.watchlist_data[self.symbol]["ask"],
+                "spread": self.watchlist_data[self.symbol]["spread"]
+            }
+            if "indicators" in self.watchlist_data[self.symbol]:
+                self.indicators = self.watchlist_data[self.symbol]["indicators"]
 
     async def update_simulation_history(self):
         """Fetch historical 15m rates from Binance to update S/R and Fib in Simulation Mode"""
@@ -1578,7 +1797,7 @@ class MT5TradingBot:
                         await self.log_event("POSITION_EXIT", f"Simulated SL Hit for Position {pos['ticket']} at {pos['sl']}", pos)
                         self.positions.remove(pos)
                         self.account_info["balance"] = round(self.account_info["balance"] + profit, 2)
-                        self.history.append({
+                        close_record = {
                             "ticket": pos["ticket"],
                             "symbol": pos["symbol"],
                             "type": pos["type"],
@@ -1587,14 +1806,16 @@ class MT5TradingBot:
                             "close_price": pos["sl"],
                             "profit": profit,
                             "close_time": datetime.now().isoformat()
-                        })
+                        }
+                        self.history.append(close_record)
                         self.save_history()
+                        self._trigger_trade_close(pos["ticket"], close_record)
                     elif pos["tp"] > 0 and bid >= pos["tp"]:
                         profit = round((pos["tp"] - pos["open_price"]) * pos["volume"] * multiplier, 2)
                         await self.log_event("POSITION_EXIT", f"Simulated TP Hit for Position {pos['ticket']} at {pos['tp']}", pos)
                         self.positions.remove(pos)
                         self.account_info["balance"] = round(self.account_info["balance"] + profit, 2)
-                        self.history.append({
+                        close_record = {
                             "ticket": pos["ticket"],
                             "symbol": pos["symbol"],
                             "type": pos["type"],
@@ -1603,8 +1824,10 @@ class MT5TradingBot:
                             "close_price": pos["tp"],
                             "profit": profit,
                             "close_time": datetime.now().isoformat()
-                        })
+                        }
+                        self.history.append(close_record)
                         self.save_history()
+                        self._trigger_trade_close(pos["ticket"], close_record)
                 elif pos["type"] == "SELL":
                     pos["profit"] = round((pos["open_price"] - ask) * pos["volume"] * multiplier, 2)
                     if pos["sl"] > 0 and ask >= pos["sl"]:
@@ -1612,7 +1835,7 @@ class MT5TradingBot:
                         await self.log_event("POSITION_EXIT", f"Simulated SL Hit for Position {pos['ticket']} at {pos['sl']}", pos)
                         self.positions.remove(pos)
                         self.account_info["balance"] = round(self.account_info["balance"] + profit, 2)
-                        self.history.append({
+                        close_record = {
                             "ticket": pos["ticket"],
                             "symbol": pos["symbol"],
                             "type": pos["type"],
@@ -1621,14 +1844,16 @@ class MT5TradingBot:
                             "close_price": pos["sl"],
                             "profit": profit,
                             "close_time": datetime.now().isoformat()
-                        })
+                        }
+                        self.history.append(close_record)
                         self.save_history()
+                        self._trigger_trade_close(pos["ticket"], close_record)
                     elif pos["tp"] > 0 and ask <= pos["tp"]:
                         profit = round((pos["open_price"] - pos["tp"]) * pos["volume"] * multiplier, 2)
                         await self.log_event("POSITION_EXIT", f"Simulated TP Hit for Position {pos['ticket']} at {pos['tp']}", pos)
                         self.positions.remove(pos)
                         self.account_info["balance"] = round(self.account_info["balance"] + profit, 2)
-                        self.history.append({
+                        close_record = {
                             "ticket": pos["ticket"],
                             "symbol": pos["symbol"],
                             "type": pos["type"],
@@ -1637,8 +1862,10 @@ class MT5TradingBot:
                             "close_price": pos["tp"],
                             "profit": profit,
                             "close_time": datetime.now().isoformat()
-                        })
+                        }
+                        self.history.append(close_record)
                         self.save_history()
+                        self._trigger_trade_close(pos["ticket"], close_record)
             
             await asyncio.sleep(1.0)
 
