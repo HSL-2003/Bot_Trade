@@ -1,0 +1,37 @@
+# Git and VCS
+.git
+.gitignore
+.github
+
+# Environment variables and secrets
+.env
+.env.*
+*.env
+
+# Python caches and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local data & caches
+*.log
+news_cache.json
+trade_history.json
+.ua/
+.understand-anything/
+.understand-anything-repo/
+
+# IDE & Editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Tests & temporary files
+test_*.py
+tests/
+scratch/

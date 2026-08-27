@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import secrets
 import hashlib
+import time
 import httpx
 import re
 import bcrypt
@@ -71,6 +72,7 @@ class InMemorySessionService:
         self._ttl = timedelta(seconds=ttl_seconds)
         self._sessions: dict[str, Session] = {}
         self._users: dict[str, dict] = {}  # email -> {password_hash, user_id, account_id}
+        self._user_roles: dict[str, frozenset[str]] = {}  # user_id -> roles (editable via admin)
 
     @staticmethod
     def _hash_pw(password: str) -> str:
@@ -102,7 +104,8 @@ class InMemorySessionService:
             "account_id": account_id,
             "display_name": sanitize_display_name(display_name) or email,
         }
-        session = self.create(Principal(account_id, user_id))
+        self._user_roles[user_id] = frozenset({"trader"})
+        session = self.create(Principal(account_id, user_id, self._user_roles.get(user_id) or frozenset({"trader"})))
         return {
             "access_token": session.token,
             "token_type": "bearer",
@@ -116,13 +119,15 @@ class InMemorySessionService:
         user = self._users.get(email)
         if not user or not self._verify_pw(password, user["password_hash"]):
             raise AuthenticationError("Invalid email or password")
-        session = self.create(Principal(user["account_id"], user["user_id"]))
+        roles = list(self._user_roles.get(user["user_id"]) or ["trader"])
+        session = self.create(Principal(user["account_id"], user["user_id"], frozenset(roles)))
         return {
             "access_token": session.token,
             "token_type": "bearer",
             "expires_at": session.expires_at,
             "user_id": user["user_id"],
             "account_id": user["account_id"],
+            "roles": roles,
         }
 
     def magic_link(self, email: str) -> None:
@@ -131,22 +136,42 @@ class InMemorySessionService:
     def login_with_supabase_token(self, supabase_token: str) -> dict:
         raise AuthenticationError("OAuth sign-in is not supported in development mode")
 
+    def _cleanup_expired(self) -> None:
+        now = datetime.now(timezone.utc)
+        expired = [token for token, session in self._sessions.items() if session.expires_at <= now]
+        for token in expired:
+            self._sessions.pop(token, None)
+        # Cap max active sessions to 1000 to prevent DoS memory leak
+        if len(self._sessions) > 1000:
+            oldest_tokens = sorted(self._sessions.keys(), key=lambda t: self._sessions[t].expires_at)[: len(self._sessions) - 1000]
+            for token in oldest_tokens:
+                self._sessions.pop(token, None)
+
     def create(self, principal: Principal) -> Session:
         if not principal.account_id or not principal.user_id:
             raise AuthenticationError("A user and account scope are required")
+        self._cleanup_expired()
         session = Session(secrets.token_urlsafe(32), principal, datetime.now(timezone.utc) + self._ttl)
         self._sessions[session.token] = session
         return session
 
     def authenticate(self, token: str) -> Principal:
+        self._cleanup_expired()
         session = self._sessions.get(token)
         if session is None or session.expires_at <= datetime.now(timezone.utc):
             self._sessions.pop(token, None)
             raise AuthenticationError("Invalid or expired session")
-        return session.principal
+        base = session.principal
+        roles = self._user_roles.get(base.user_id) or base.roles
+        return Principal(base.account_id, base.user_id, roles)
 
     def revoke(self, token: str) -> None:
         self._sessions.pop(token, None)
+
+    def set_user_roles(self, user_id: str, roles: list[str]) -> list[str]:
+        clean = sorted({r.strip() for r in roles if r.strip()} or ["trader"])
+        self._user_roles[user_id] = frozenset(clean)
+        return clean
 
 
 class SupabaseSessionService:
@@ -161,6 +186,9 @@ class SupabaseSessionService:
         self.rest_url = url.rstrip("/") + "/rest/v1"
         self.headers = {"apikey": service_role_key, "Authorization": f"Bearer {service_role_key}"}
         self.ttl = timedelta(seconds=ttl_seconds)
+        # Principal cache: skips 2 Supabase round-trips (~0.5s) per API call.
+        self._auth_cache: dict[str, tuple[float, Principal]] = {}
+        self._auth_cache_ttl = 15.0
 
     @staticmethod
     def _hash(token: str) -> str:
@@ -282,29 +310,70 @@ class SupabaseSessionService:
         }, headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
         return account_id
 
-    def _create_session(self, user_id: str, account_id: str) -> dict:
+    def _get_user_roles(self, user_id: str) -> list[str]:
+        try:
+            prof = self._request("GET", f"{self.rest_url}/user_profiles", params={
+                "user_id": f"eq.{user_id}", "select": "roles", "limit": "1",
+            }).json()
+            if prof and prof[0].get("roles"):
+                return list(prof[0]["roles"])
+        except Exception:
+            pass
+        return ["trader"]
+
+    def _create_session(self, user_id: str, account_id: str, roles: list[str] | None = None) -> dict:
         token = secrets.token_urlsafe(32)
         expires_at = datetime.now(timezone.utc) + self.ttl
+        if roles is None:
+            roles = self._get_user_roles(user_id)
         self._request("POST", f"{self.rest_url}/user_sessions", json={
             "user_id": user_id, "account_id": account_id, "token_hash": self._hash(token),
             "expires_at": expires_at.isoformat(),
+            "roles": roles,
         }, headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
+        
+        # Pre-warm cache so subsequent /api/auth/me or /api/admin/overview hit memory cache (0ms)
+        principal = Principal(account_id, user_id, frozenset(roles))
+        self._auth_cache[self._hash(token)] = (time.monotonic(), principal)
+        
         return {"access_token": token, "token_type": "bearer", "expires_at": expires_at,
-                "user_id": user_id, "account_id": account_id}
+                "user_id": user_id, "account_id": account_id, "roles": roles}
 
     def authenticate(self, token: str) -> Principal:
         if not token:
             raise AuthenticationError("Bearer token is required")
+        token_hash = self._hash(token)
+        now = time.monotonic()
+        hit = self._auth_cache.get(token_hash)
+        if hit and (now - hit[0]) < self._auth_cache_ttl:
+            return hit[1]
         rows = self._request("GET", f"{self.rest_url}/user_sessions", params={
-            "token_hash": f"eq.{self._hash(token)}", "is_active": "eq.true", "status": "eq.active",
+            "token_hash": f"eq.{token_hash}", "is_active": "eq.true", "status": "eq.active",
             "expires_at": f"gt.{datetime.now(timezone.utc).isoformat()}", "select": "user_id,account_id,roles", "limit": "1",
         }).json()
         if not rows:
             raise AuthenticationError("Invalid or expired session")
         row = rows[0]
-        return Principal(str(row["account_id"]), str(row["user_id"]), frozenset(row.get("roles") or ["trader"]))
+        user_id = str(row["user_id"])
+        # Source of truth for roles is user_profiles (admin-editable); fall back
+        # to the session's stored roles when the profile lookup fails.
+        roles = []
+        try:
+            prof = self._request("GET", f"{self.rest_url}/user_profiles", params={
+                "user_id": f"eq.{user_id}", "select": "roles", "limit": "1",
+            }).json()
+            if prof and prof[0].get("roles"):
+                roles = list(prof[0]["roles"])
+        except Exception:
+            roles = []
+        if not roles:
+            roles = list(row.get("roles") or ["trader"])
+        principal = Principal(str(row["account_id"]), user_id, frozenset(roles))
+        self._auth_cache[token_hash] = (now, principal)
+        return principal
 
     def revoke(self, token: str) -> None:
+        self._auth_cache.pop(self._hash(token), None)
         self._request("PATCH", f"{self.rest_url}/user_sessions", params={"token_hash": f"eq.{self._hash(token)}"},
                       json={"status": "revoked", "is_active": False, "revoked_at": datetime.now(timezone.utc).isoformat()},
                       headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})

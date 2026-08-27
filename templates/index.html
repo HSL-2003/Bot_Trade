@@ -1701,6 +1701,9 @@
                             style="padding: 0.35rem 0.7rem; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.3px;">
                             SIMULATION: ON
                         </button>
+                        <button id="btn-soft-lock" class="btn-secondary"
+                            onclick="toggleSoftLock()" title="Soft lock blocks new entries but keeps open positions & risk controls active"
+                            style="padding: 0.35rem 0.7rem; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.3px; border-color: #f59e0b; color: #f59e0b;">SOFT LOCK</button>
                         <button id="btn-force-lock" class="btn-danger"
                             onclick="triggerCircuitBreaker()">LOCKDOWN</button>
                     </div>
@@ -2242,12 +2245,20 @@
                 history: { col: null, dir: 'desc', dataType: 'num' }
             };
 
-            function authHeaders() {
+            function getCsrfToken() {
+                const match = document.cookie.match('(^|;)\\s*_csrf\\s*=\\s*([^;]+)');
+                return match ? decodeURIComponent(match[2]) : '';
+            }
+
+            function authHeaders(extra) {
+                const h = { 'Content-Type': 'application/json', ...(extra || {}) };
                 const token = localStorage.getItem('access_token');
-                return {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                };
+                const accountId = localStorage.getItem('account_id');
+                const csrf = getCsrfToken();
+                if (token) h['Authorization'] = `Bearer ${token}`;
+                if (accountId) h['X-Account-Id'] = accountId;
+                if (csrf) h['X-CSRF-Token'] = csrf;
+                return h;
             }
 
             async function closePosition(ticket) {
@@ -3018,12 +3029,31 @@
                     simBtn.disabled = state.is_running;
                 }
 
-                if (state.system_locked) {
+                if (state.lock_state === 'hard_locked') {
+                    badgeLock.textContent = 'HARD LOCK';
                     badgeLock.style.display = 'inline-flex';
                     document.getElementById('btn-force-lock').style.display = 'none';
+                    document.getElementById('btn-soft-lock').style.display = 'none';
+                    window.__LOCK_STATE__ = 'hard_locked';
+                } else if (state.lock_state === 'soft_locked') {
+                    badgeLock.textContent = 'SOFT LOCK';
+                    badgeLock.style.display = 'inline-flex';
+                    document.getElementById('btn-force-lock').style.display = 'none';
+                    const softBtn = document.getElementById('btn-soft-lock');
+                    softBtn.style.display = 'inline-flex';
+                    softBtn.textContent = 'UNLOCK';
+                    softBtn.style.borderColor = '';
+                    softBtn.style.color = '';
+                    window.__LOCK_STATE__ = 'soft_locked';
                 } else {
                     badgeLock.style.display = 'none';
                     document.getElementById('btn-force-lock').style.display = 'inline-flex';
+                    const softBtn = document.getElementById('btn-soft-lock');
+                    softBtn.style.display = 'inline-flex';
+                    softBtn.textContent = 'SOFT LOCK';
+                    softBtn.style.borderColor = '#f59e0b';
+                    softBtn.style.color = '#f59e0b';
+                    window.__LOCK_STATE__ = 'unlocked';
                 }
 
                 // Price Flashing
@@ -3539,14 +3569,7 @@
                 fetch(`/api/pending/cancel/${ticket}`, { method: 'POST', headers: authHeaders() }).catch(err => console.error(err));
             }
 
-            function authHeaders(extra) {
-                const h = extra ? { ...extra } : {};
-                const token = localStorage.getItem('access_token');
-                const accountId = localStorage.getItem('account_id');
-                if (token) h['Authorization'] = `Bearer ${token}`;
-                if (accountId) h['X-Account-Id'] = accountId;
-                return h;
-            }
+
 
             function toggleBot() {
                 const btn = document.getElementById('btn-toggle-bot');
@@ -3623,6 +3646,15 @@
 
             function triggerCircuitBreaker() {
                 fetch('/api/circuit-breaker/trigger', { method: 'POST', headers: authHeaders() }).catch(err => console.error(err));
+            }
+
+            function toggleSoftLock() {
+                const currentlySoft = window.__LOCK_STATE__ === 'soft_locked';
+                fetch('/api/lock', {
+                    method: 'POST',
+                    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ state: currentlySoft ? 'unlocked' : 'soft_locked' })
+                }).catch(err => console.error(err));
             }
 
             function resetCircuitBreaker() {

@@ -17,7 +17,15 @@ def csv_values(value: str, default: str) -> list[str]:
 
 
 def allowed_origins() -> list[str]:
-    return csv_values(os.getenv("ALLOWED_ORIGINS", "http://127.0.0.1:8000"), "http://127.0.0.1:8000")
+    origins = csv_values(os.getenv("ALLOWED_ORIGINS", "http://127.0.0.1:8000"), "http://127.0.0.1:8000")
+    # Never combine a "*" wildcard with allow_credentials=True (which app.py sets).
+    # A wildcard origin with credentialed CORS is silently rejected by browsers and
+    # signals a mis-configuration, so we fail closed by dropping it and refusing to
+    # run without an explicit origin allow-list.
+    filtered = [o for o in origins if o != "*" and o.strip()]
+    if filtered:
+        return filtered
+    raise RuntimeError("ALLOWED_ORIGINS must be an explicit origin allow-list (wildcard '*' is not supported with credentials)")
 
 
 def agents_enabled() -> bool:

@@ -2,6 +2,7 @@ from typing import Optional, Literal
 import os
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from urllib.parse import quote
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse, Response
@@ -14,11 +15,12 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from pydantic import BaseModel
 import uvicorn
+from datetime import datetime, timezone
 from bot import MT5TradingBot, MT5_AVAILABLE
 from config import SUPPORTED_SYMBOLS, agents_enabled, allowed_origins
 from services.account_service import TradingAccountService
 from services.auth_service import AuthenticationError, InMemorySessionService, SupabaseSessionService, normalize_email
-from repositories.persistence import InMemoryAccountRepository
+from repositories.persistence import InMemoryAccountRepository, LOCK_HARD, LOCK_SOFT, LOCK_UNLOCKED
 from repositories.supabase_repository import SupabaseAccountRepository
 from security import (
     CSRFProtectionMiddleware,
@@ -28,9 +30,44 @@ from security import (
 )
 
 security_logger = logging.getLogger("security")
+logger = logging.getLogger("app")
 
-limiter = Limiter(key_func=get_remote_address)
-app = FastAPI(title="MT5 Confluence Algo Bot")
+limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute", "10/second"])
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifecycle: initialize MT5, sync closed trades, feed prices on
+    startup; tear down broker/session resources on shutdown.
+
+    Note: ``bot``, ``repository`` and ``account_service`` are module-level globals
+    assigned later in this file. They are resolved at runtime (when the lifespan
+    coroutine actually runs at app startup) rather than at import time, so the
+    function may appear here before those names are bound.
+    """
+    # --- startup ---
+    await bot.initialize_mt5()
+    await bot.fetch_news_feed()
+    # Auto-heal & sync closed trades in Supabase using local history
+    if hasattr(repository, "sync_closed_trades") and bot.history:
+        try:
+            await asyncio.to_thread(repository.sync_closed_trades, bot.history)
+        except Exception:
+            pass
+    # Start the continuous price feed loop in the background
+    asyncio.create_task(bot.start_price_feed_loop())
+
+    try:
+        yield
+    finally:
+        # --- shutdown ---
+        await account_service.shutdown()
+        if not bot.simulation_mode and MT5_AVAILABLE:
+            import MetaTrader5 as mt5  # type: ignore[import-not-found]
+            mt5.shutdown()
+
+
+app = FastAPI(title="MT5 Confluence Algo Bot", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -77,7 +114,7 @@ app.add_middleware(
     allow_origins=allowed_origins(),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Account-Id"],
+    allow_headers=["Content-Type", "Authorization", "X-Account-Id", "X-CSRF-Token"],
     max_age=600,
 )
 
@@ -112,7 +149,10 @@ def account_id_from_request(request: Request) -> str:
     account_id = request.headers.get("X-Account-Id") or request.query_params.get("account_id")
     authorization = request.headers.get("Authorization", "")
     # Authenticate whenever a Bearer token is present OR when REQUIRE_AUTH is on.
-    if authorization.startswith("Bearer ") or os.getenv("REQUIRE_AUTH", "false").lower() == "true":
+    # Production always requires auth, even if REQUIRE_AUTH was left unset, so a
+    # mis-configured deployment can never silently expose trading endpoints.
+    require_auth = os.getenv("REQUIRE_AUTH", "false").lower() == "true" or os.getenv("ENVIRONMENT", "development").lower() == "production"
+    if authorization.startswith("Bearer ") or require_auth:
         if not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Bearer authentication is required")
         try:
@@ -325,6 +365,22 @@ def principal_from_request(request: Request):
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
+
+def require_admin(request: Request):
+    """Authenticate and enforce the 'admin' role (or an allow-listed account)."""
+    principal = principal_from_request(request)
+    allowed = {a.strip() for a in os.getenv("ADMIN_ACCOUNT_IDS", "").split(",") if a.strip()}
+    if "admin" in principal.roles or principal.account_id in allowed:
+        return principal
+    log_security_event(
+        "admin_access_denied",
+        account_id=principal.account_id,
+        user_id=principal.user_id,
+        correlation_id=getattr(request.state, "correlation_id", None),
+        client_ip=request.client.host if request.client else None,
+    )
+    raise HTTPException(status_code=403, detail="Admin role is required")
+
 @app.get("/dashboard")
 async def get_user_dashboard():
     return render_template("dashboard.html")
@@ -350,6 +406,7 @@ async def update_profile(payload: ProfileModel, request: Request):
     return repository.update_profile(principal.user_id, data)
 
 @app.get("/api/dashboard/data")
+@limiter.limit("60/minute")
 async def dashboard_data(request: Request, days: int = 30):
     principal = principal_from_request(request)
     days = max(1, min(days, 365))
@@ -419,6 +476,7 @@ async def dashboard_data(request: Request, days: int = 30):
     }
 
 @app.get("/api/history/analytics")
+@limiter.limit("60/minute")
 async def get_history_analytics(request: Request, period: str = "all"):
     if period not in ["day", "week", "month", "all"]:
         period = "all"
@@ -605,6 +663,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 "is_running": stream_bot.is_running,
                 "simulation_mode": stream_bot.simulation_mode,
                 "system_locked": stream_bot.system_locked,
+                "lock_state": stream_bot.lock_state,
+                "lock_reason": stream_bot.lock_reason,
                 "is_pending_order": stream_bot.is_pending_order,
                 "symbol": stream_bot.symbol,
                 "risk_percent": stream_bot.risk_percent,
@@ -639,7 +699,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "watchlist": stream_bot.watchlist_data
             }
             await websocket.send_json(state)
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.5)
     except WebSocketDisconnect:
         active_connections.remove(websocket)
     except Exception as e:
@@ -648,9 +708,12 @@ async def websocket_endpoint(websocket: WebSocket):
 
 # Start Bot API
 @app.post("/api/start")
+@limiter.limit("10/minute")
 async def start_bot(request: Request):
     global bot_task
     current_bot = scoped_bot(request)
+    if current_bot.lock_state == LOCK_HARD:
+        raise HTTPException(status_code=423, detail="Trading system is hard-locked; unlock before starting")
     if current_bot.is_running:
         return {"status": "already_running", "simulation_mode": current_bot.simulation_mode}
     
@@ -666,6 +729,7 @@ async def start_bot(request: Request):
 
 # Stop Bot API
 @app.post("/api/stop")
+@limiter.limit("10/minute")
 async def stop_bot(request: Request):
     current_bot = scoped_bot(request)
     if not current_bot.is_running:
@@ -678,6 +742,7 @@ class SimulationToggleModel(BaseModel):
     enabled: Optional[bool] = None
 
 @app.post("/api/simulation/toggle")
+@limiter.limit("10/minute")
 async def toggle_simulation(request: Request, payload: Optional[SimulationToggleModel] = None):
     current_bot = scoped_bot(request)
     if current_bot.is_running:
@@ -696,6 +761,8 @@ async def get_state(request: Request):
         "is_running": current_bot.is_running,
         "simulation_mode": current_bot.simulation_mode,
         "system_locked": current_bot.system_locked,
+        "lock_state": current_bot.lock_state,
+        "lock_reason": current_bot.lock_reason,
         "is_pending_order": current_bot.is_pending_order,
         "symbol": current_bot.symbol,
         "settings": {
@@ -725,7 +792,7 @@ async def get_state(request: Request):
         "fib_levels": current_bot.fib_levels,
         "confluence_zones": current_bot.confluence_zones,
         "active_signals": current_bot.active_signals,
-        "trade_history": current_bot.history,
+        "trade_history": current_bot.history[-100:] if current_bot.history else [],
         "statistics": current_bot.get_statistics(),
         "indicators": current_bot.indicators,
         "watchlist": current_bot.watchlist_data
@@ -733,6 +800,7 @@ async def get_state(request: Request):
 
 # Update Settings API
 @app.post("/api/settings")
+@limiter.limit("30/minute")
 async def update_settings(settings: SettingsModel, request: Request):
     bot = scoped_bot(request)
     settings.symbol = settings.symbol.upper().strip()
@@ -773,6 +841,7 @@ async def update_settings(settings: SettingsModel, request: Request):
 
 # Symbol Toggle Auto-Trading Endpoint
 @app.post("/api/symbol-toggle")
+@limiter.limit("30/minute")
 async def symbol_toggle_endpoint(data: SymbolToggleModel, request: Request):
     current_bot = scoped_bot(request)
     if data.preset == "XAUUSD_ONLY":
@@ -794,10 +863,11 @@ async def symbol_toggle_endpoint(data: SymbolToggleModel, request: Request):
 
 # Trigger Manual Trade
 @app.post("/api/trade")
+@limiter.limit("20/minute")
 async def manual_trade(trade: ManualTradeModel, request: Request):
     bot = scoped_bot(request)
-    if bot.system_locked:
-        raise HTTPException(status_code=423, detail="Trading system is emergency-locked")
+    if bot.trades_blocked:
+        raise HTTPException(status_code=423, detail=f"Trading system is locked ({bot.lock_state})")
     if trade.lot_size <= 0:
         raise HTTPException(status_code=422, detail="Lot size must be positive")
     
@@ -875,6 +945,7 @@ async def manual_trade(trade: ManualTradeModel, request: Request):
 
 # Cancel Pending Order
 @app.post("/api/pending/cancel/{ticket}")
+@limiter.limit("30/minute")
 async def cancel_pending_order_endpoint(ticket: int, request: Request):
     current_bot = scoped_bot(request)
     success = await current_bot.cancel_pending_order(ticket)
@@ -886,11 +957,8 @@ async def cancel_pending_order_endpoint(ticket: int, request: Request):
 
 # Force Close Position
 @app.post("/api/close/{ticket}")
+@limiter.limit("30/minute")
 async def close_position_endpoint(ticket: int, request: Request):
-    _auth = request.headers.get("authorization", "")
-    _csrf_hdr = request.headers.get("x-csrf-token", "MISSING")
-    _csrf_cookie = request.cookies.get("_csrf", "MISSING")
-    print(f"[LOG] POST /api/close/{ticket} RECEIVED | auth_header={'Bearer...' if _auth.startswith('Bearer') else 'MISSING/NONE'} | csrf_header={'YES' if _csrf_hdr not in ('', 'MISSING') else 'NO'} | csrf_cookie={'YES' if _csrf_cookie not in ('', 'MISSING') else 'NO'} | origin={request.headers.get('origin', 'NONE')}", flush=True)
     current_bot = scoped_bot(request)
     await current_bot.close_position(ticket)
     if bot != current_bot:
@@ -900,16 +968,12 @@ async def close_position_endpoint(ticket: int, request: Request):
         for session in list(account_service._sessions.values()):
             if session.bot != current_bot and session.bot != bot:
                 await session.bot.close_position(ticket)
-    print(f"[LOG] POST /api/close/{ticket} DONE -> return 200 ok", flush=True)
     return {"status": "close_submitted", "ticket": ticket}
 
 # Force Close All Positions
 @app.post("/api/close-all")
+@limiter.limit("10/minute")
 async def close_all_positions_endpoint(request: Request):
-    _auth = request.headers.get("authorization", "")
-    _csrf_hdr = request.headers.get("x-csrf-token", "MISSING")
-    _csrf_cookie = request.cookies.get("_csrf", "MISSING")
-    print(f"[LOG] POST /api/close-all RECEIVED | auth_header={'Bearer...' if _auth.startswith('Bearer') else 'MISSING/NONE'} | csrf_header={'YES' if _csrf_hdr not in ('', 'MISSING') else 'NO'} | csrf_cookie={'YES' if _csrf_cookie not in ('', 'MISSING') else 'NO'} | origin={request.headers.get('origin', 'NONE')}", flush=True)
     current_bot = scoped_bot(request)
     await current_bot.close_all_positions()
     if bot != current_bot:
@@ -918,11 +982,11 @@ async def close_all_positions_endpoint(request: Request):
         for session in list(account_service._sessions.values()):
             if session.bot != current_bot and session.bot != bot:
                 await session.bot.close_all_positions()
-    print("[LOG] POST /api/close-all DONE -> return 200 ok", flush=True)
     return {"status": "close_all_submitted"}
 
 # Modify SL/TP of an open position
 @app.post("/api/modify-sltp/{ticket}")
+@limiter.limit("30/minute")
 async def modify_sltp_endpoint(ticket: int, data: ModifySLTPModel, request: Request):
     current_bot = scoped_bot(request)
     success = await current_bot.modify_position_sltp(ticket, data.sl, data.tp)
@@ -930,32 +994,51 @@ async def modify_sltp_endpoint(ticket: int, data: ModifySLTPModel, request: Requ
         raise HTTPException(status_code=400, detail="Failed to modify SL/TP. Position not found or broker rejected.")
     return {"status": "modified", "ticket": ticket, "sl": data.sl, "tp": data.tp}
 
-# Manual Trigger Circuit Breaker (Lockdown)
+# Manual Trigger Circuit Breaker (Hard Lockdown)
 @app.post("/api/circuit-breaker/trigger")
+@limiter.limit("10/minute")
 async def manual_trigger_circuit_breaker(request: Request):
     current_bot = scoped_bot(request)
-    current_bot.system_locked = True
-    await current_bot.log_event("CIRCUIT_BREAKER", "Manual Daily Drawdown Circuit Breaker Triggered by User. Locking system.")
-    await current_bot.emergency_lockdown()
-    return {"status": "locked"}
+    await current_bot.hard_lock("Manual circuit breaker lockdown")
+    return {"status": "locked", "lock_state": current_bot.lock_state}
 
 # Reset Circuit Breaker (Unlock)
 @app.post("/api/circuit-breaker/reset")
+@limiter.limit("10/minute")
 async def reset_circuit_breaker(request: Request):
     current_bot = scoped_bot(request)
-    current_bot.system_locked = False
-    # Reset daily starting equity
     current_bot.daily_start_equity = current_bot.account_info["balance"]
     current_bot.account_info["daily_start_equity"] = current_bot.daily_start_equity
     current_bot.account_info["daily_drawdown_percent"] = 0.0
-    await current_bot.log_event("CIRCUIT_BREAKER", "Circuit Breaker manually reset by User. System unlocked.")
-    return {"status": "unlocked"}
+    current_bot.unlock("Circuit breaker manual reset")
+    return {"status": "unlocked", "lock_state": current_bot.lock_state}
+
+# Unified persisted lock control (soft_lock | hard_lock | unlock).
+class LockModel(BaseModel):
+    state: Literal["soft_locked", "hard_locked", "unlocked"]
+    reason: Optional[str] = None
+
+@app.post("/api/lock")
+@limiter.limit("10/minute")
+async def set_lock_endpoint(payload: LockModel, request: Request):
+    current_bot = scoped_bot(request)
+    if payload.state == LOCK_HARD:
+        await current_bot.hard_lock(payload.reason)
+    elif payload.state == LOCK_SOFT:
+        current_bot.soft_lock(payload.reason)
+    else:
+        current_bot.unlock(payload.reason)
+    return {"status": "ok", "lock_state": current_bot.lock_state, "lock_reason": current_bot.lock_reason}
 
 # Multi-Agent Iterative SDLC Loop Endpoint
 @app.post("/api/agents/sdlc-loop")
-async def run_sdlc_loop_endpoint(task: AgentTaskModel):
+@limiter.limit("5/minute")
+async def run_sdlc_loop_endpoint(task: AgentTaskModel, request: Request):
     if not agents_enabled():
         raise HTTPException(status_code=404, detail="SDLC agents are disabled")
+    principal = principal_from_request(request)
+    if "admin" not in principal.roles and "trader" not in principal.roles:
+        raise HTTPException(status_code=403, detail="Unauthorized role for SDLC agents")
     if not task.prompt.strip() or not 1 <= (task.max_retries or 0) <= 5:
         raise HTTPException(status_code=422, detail="Invalid agent task")
     from agents.manager import ManagerAgent
@@ -973,29 +1056,298 @@ async def run_sdlc_loop_endpoint(task: AgentTaskModel):
     )
     return {"status": "success", "result": result}
 
-# Background initialization tasks
 
-@app.on_event("startup")
-async def startup_event():
-    # Attempt initial connection
-    await bot.initialize_mt5()
-    await bot.fetch_news_feed()
-    # Auto-heal & sync closed trades in Supabase using local history
-    if hasattr(repository, "sync_closed_trades") and bot.history:
-        try:
-            await asyncio.to_thread(repository.sync_closed_trades, bot.history)
-        except Exception:
-            pass
-    # Start the continuous price feed loop in the background
-    asyncio.create_task(bot.start_price_feed_loop())
+# ============================================================================
+# Admin Dashboard
+# ============================================================================
+class AdminStatusModel(BaseModel):
+    status: Literal["active", "blocked", "suspended", "archived"]
+    reason: Optional[str] = None
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    await account_service.shutdown()
-    # Close MT5 connection
-    if not bot.simulation_mode and MT5_AVAILABLE:
-        import MetaTrader5 as mt5  # type: ignore[import-not-found]
-        mt5.shutdown()
+
+class AdminLockModel(BaseModel):
+    state: Literal["soft_locked", "hard_locked", "unlocked"]
+    reason: Optional[str] = None
+
+
+class AdminRolesModel(BaseModel):
+    roles: list[str]
+
+
+@app.get("/admin")
+async def get_admin_page():
+    return render_template("admin_dashboard.html")
+
+
+def _admin_aggregates(accounts, trades):
+    """Compute dashboard KPIs + chart series from raw account/trade rows."""
+    total_accounts = len(accounts)
+    active = sum(1 for a in accounts if a.get("status") == "active")
+    blocked = sum(1 for a in accounts if a.get("status") == "blocked")
+    suspended = sum(1 for a in accounts if a.get("status") == "suspended")
+    locked = sum(1 for a in accounts if a.get("lock_state") != "unlocked")
+    users = {str(a.get("owner_user_id")) for a in accounts if a.get("owner_user_id")}
+
+    closed = [t for t in trades if t.get("status") == "closed"]
+    wins = [t for t in closed if (t.get("profit") or 0) > 0]
+    losses = [t for t in closed if (t.get("profit") or 0) < 0]
+    total_profit = sum(t.get("profit") or 0 for t in closed)
+    total_volume = sum(t.get("quantity") or 0 for t in closed)
+    total_trades = len(closed)
+    win_rate = (len(wins) / total_trades * 100) if total_trades else 0.0
+
+    symbol_stats: dict[str, dict] = {}
+    for t in closed:
+        s = t.get("symbol", "?")
+        bucket = symbol_stats.setdefault(s, {"trades": 0, "volume": 0.0, "profit": 0.0, "wins": 0})
+        bucket["trades"] += 1
+        bucket["volume"] += t.get("quantity") or 0
+        bucket["profit"] += t.get("profit") or 0
+        if (t.get("profit") or 0) > 0:
+            bucket["wins"] += 1
+    symbols = [{"symbol": k, **v} for k, v in sorted(symbol_stats.items(), key=lambda kv: kv[1]["profit"], reverse=True)]
+
+    per_account: dict[str, dict] = {}
+    for a in accounts:
+        per_account[a["id"]] = {"id": a["id"], "display_name": a.get("display_name"), "profit": 0.0, "trades": 0}
+    for t in closed:
+        acc = per_account.setdefault(t.get("account_id"), {"id": t.get("account_id"), "display_name": None, "profit": 0.0, "trades": 0})
+        acc["profit"] += t.get("profit") or 0
+        acc["trades"] += 1
+    top_accounts = sorted(per_account.values(), key=lambda x: x["profit"], reverse=True)[:10]
+
+    daily: dict[str, float] = {}
+    for t in sorted(closed, key=lambda x: str(x.get("closed_at") or "")):
+        day = str(t.get("closed_at") or "")[:10]
+        if day:
+            daily[day] = daily.get(day, 0.0) + (t.get("profit") or 0)
+
+    status_dist = [
+        {"label": "Active", "value": active},
+        {"label": "Blocked", "value": blocked},
+        {"label": "Suspended", "value": suspended},
+    ]
+    return {
+        "summary": {
+            "total_accounts": total_accounts,
+            "total_users": len(users),
+            "active": active,
+            "blocked": blocked,
+            "suspended": suspended,
+            "locked": locked,
+            "total_trades": total_trades,
+            "winning_trades": len(wins),
+            "losing_trades": len(losses),
+            "win_rate": round(win_rate, 2),
+            "total_profit": round(total_profit, 2),
+            "total_volume": round(total_volume, 2),
+            "today_profit": round(sum(t.get("profit") or 0 for t in closed if str(t.get("closed_at") or "")[:10] == datetime.now(timezone.utc).strftime("%Y-%m-%d")), 2),
+        },
+        "daily_profit": [{"date": d, "profit": round(v, 2)} for d, v in sorted(daily.items())],
+        "top_accounts": [{**a, "profit": round(a["profit"], 2)} for a in top_accounts],
+        "symbol_stats": [{**s, "profit": round(s["profit"], 2), "volume": round(s["volume"], 2)} for s in symbols],
+        "status_distribution": status_dist,
+    }
+
+
+@app.get("/api/admin/overview")
+@limiter.limit("120/minute")
+async def admin_overview(request: Request, q: str = "", status: str = "", lock_state: str = "", page: int = 1, per_page: int = 50):
+    """Combined admin payload: KPIs/charts + filtered accounts table in ONE request."""
+    require_admin(request)
+    accounts_fut = asyncio.to_thread(repository.list_accounts) if hasattr(repository, "list_accounts") else None
+    trades_fut = asyncio.to_thread(repository.get_all_trades) if hasattr(repository, "get_all_trades") else None
+    
+    if accounts_fut and trades_fut:
+        accounts, trades = await asyncio.gather(accounts_fut, trades_fut)
+    elif accounts_fut:
+        accounts = await accounts_fut
+        trades = []
+    elif trades_fut:
+        accounts = []
+        trades = await trades_fut
+    else:
+        accounts, trades = [], []
+    data = _admin_aggregates(accounts, trades)
+
+    filtered = accounts
+    if q:
+        q_lower = q.lower()
+        filtered = [a for a in filtered if q_lower in str(a.get("id", "")).lower() or q_lower in str(a.get("display_name", "")).lower()]
+    if status:
+        filtered = [a for a in filtered if a.get("status") == status]
+    if lock_state:
+        filtered = [a for a in filtered if a.get("lock_state") == lock_state]
+    filtered = sorted(filtered, key=lambda a: str(a.get("created_at") or ""), reverse=True)
+    filtered = _enrich_account_stats(filtered, trades)
+    total = len(filtered)
+    page = max(1, page)
+    per_page = max(1, min(per_page, 200))
+    start = (page - 1) * per_page
+    data["accounts_section"] = {"total": total, "page": page, "per_page": per_page, "accounts": filtered[start:start + per_page]}
+    return data
+
+
+def _enrich_account_stats(accounts, trades):
+    """Attach per-account trade counts / win rate / PnL / volume to a list."""
+    closed = [t for t in trades if t.get("status") == "closed"]
+    agg: dict[str, dict] = {}
+    for t in closed:
+        acc = t.get("account_id")
+        if not acc:
+            continue
+        a = agg.setdefault(acc, {"total": 0, "wins": 0, "profit": 0.0, "volume": 0.0})
+        a["total"] += 1
+        a["volume"] += t.get("quantity") or 0
+        p = t.get("profit") or 0
+        a["profit"] += p
+        if p > 0:
+            a["wins"] += 1
+    for a in accounts:
+        s = agg.get(a["id"], {})
+        a["total_trades"] = s.get("total", 0)
+        a["total_profit"] = round(s.get("profit", 0.0), 2)
+        a["total_volume"] = round(s.get("volume", 0.0), 2)
+        a["win_rate"] = round(s.get("wins", 0) / s["total"] * 100, 2) if s.get("total") else 0.0
+    return accounts
+
+
+@app.get("/api/admin/accounts")
+@limiter.limit("60/minute")
+async def admin_list_accounts(request: Request, q: str = "", status: str = "", lock_state: str = "", page: int = 1, per_page: int = 50):
+    require_admin(request)
+    accounts = await asyncio.to_thread(repository.list_accounts) if hasattr(repository, "list_accounts") else []
+    if q:
+        q = q.lower()
+        accounts = [a for a in accounts if q in str(a.get("id", "")).lower() or q in str(a.get("display_name", "")).lower()]
+    if status:
+        accounts = [a for a in accounts if a.get("status") == status]
+    if lock_state:
+        accounts = [a for a in accounts if a.get("lock_state") == lock_state]
+    accounts = sorted(accounts, key=lambda a: str(a.get("created_at") or ""), reverse=True)
+    if hasattr(repository, "get_all_trades"):
+        trades = await asyncio.to_thread(repository.get_all_trades)
+        accounts = _enrich_account_stats(accounts, trades)
+    total = len(accounts)
+    page = max(1, page)
+    per_page = max(1, min(per_page, 200))
+    start = (page - 1) * per_page
+    return {"total": total, "page": page, "per_page": per_page, "accounts": accounts[start:start + per_page]}
+
+
+@app.get("/api/admin/accounts/{account_id}")
+@limiter.limit("60/minute")
+async def admin_account_detail(account_id: str, request: Request):
+    require_admin(request)
+    if not hasattr(repository, "get_account_detail"):
+        raise HTTPException(status_code=404, detail="Account detail unavailable")
+    detail = repository.get_account_detail(account_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Trading account does not exist")
+    return detail
+
+
+@app.post("/api/admin/accounts/{account_id}/status")
+@limiter.limit("20/minute")
+async def admin_set_status(account_id: str, payload: AdminStatusModel, request: Request):
+    require_admin(request)
+    if not hasattr(repository, "set_account_status"):
+        raise HTTPException(status_code=501, detail="Unsupported repository")
+    repository.set_account_status(account_id, payload.status, payload.reason)
+    if payload.status == "blocked" and hasattr(repository, "revoke_account_sessions"):
+        repository.revoke_account_sessions(account_id)
+    return {"status": "ok", "account_id": account_id, "account_status": payload.status}
+
+
+@app.post("/api/admin/accounts/{account_id}/lock")
+@limiter.limit("20/minute")
+async def admin_set_lock(account_id: str, payload: AdminLockModel, request: Request):
+    require_admin(request)
+    current_bot = account_service.get_bot(account_id)
+    if payload.state == LOCK_HARD:
+        await current_bot.hard_lock(payload.reason)
+    elif payload.state == LOCK_SOFT:
+        current_bot.soft_lock(payload.reason)
+    else:
+        current_bot.unlock(payload.reason)
+    if hasattr(repository, "set_lock_state"):
+        repository.set_lock_state(account_id, payload.state, payload.reason)
+    logger.info(f"[ADMIN_LOCK] Account {account_id} lock state successfully set to: {payload.state} (reason: {payload.reason})")
+    return {"status": "ok", "account_id": account_id, "lock_state": current_bot.lock_state}
+
+
+@app.put("/api/admin/users/{user_id}/roles")
+@limiter.limit("30/minute")
+async def admin_set_roles(user_id: str, payload: AdminRolesModel, request: Request):
+    require_admin(request)
+    roles = sorted(set(payload.roles) & {"trader", "admin"}) or ["trader"]
+    result = {"user_id": user_id, "roles": roles}
+    if hasattr(repository, "update_user_roles"):
+        result = repository.update_user_roles(user_id, roles)
+    if hasattr(session_service, "set_user_roles"):
+        session_service.set_user_roles(user_id, result["roles"])
+    return result
+
+
+@app.post("/api/admin/accounts/{account_id}/revoke-sessions")
+@limiter.limit("20/minute")
+async def admin_revoke(account_id: str, request: Request):
+    require_admin(request)
+    n = repository.revoke_account_sessions(account_id) if hasattr(repository, "revoke_account_sessions") else 0
+    return {"status": "ok", "account_id": account_id, "revoked": n}
+
+
+@app.post("/api/admin/accounts/{account_id}/deploy")
+@limiter.limit("10/minute")
+async def admin_deploy_bot(account_id: str, request: Request):
+    """Nạp (khởi động) bot vào một tài khoản MT5 người dùng."""
+    require_admin(request)
+    current_bot = account_service.get_bot(account_id)
+    if current_bot.lock_state == LOCK_HARD:
+        raise HTTPException(status_code=423, detail="Account is hard-locked; unlock before deploying bot")
+    if current_bot.is_running:
+        return {"status": "already_running", "account_id": account_id, "simulation_mode": current_bot.simulation_mode}
+    await current_bot.initialize_mt5()
+    await current_bot.fetch_news_feed()
+    asyncio.create_task(current_bot.start_price_feed_loop())
+    asyncio.create_task(current_bot.start())
+    return {"status": "started", "account_id": account_id, "simulation_mode": current_bot.simulation_mode}
+
+
+@app.post("/api/admin/accounts/{account_id}/halt")
+@limiter.limit("10/minute")
+async def admin_halt_bot(account_id: str, request: Request):
+    """Dừng bot đang chạy trên một tài khoản."""
+    require_admin(request)
+    current_bot = account_service.get_bot(account_id)
+    if not current_bot.is_running:
+        return {"status": "already_stopped", "account_id": account_id}
+    await current_bot.stop()
+    return {"status": "stopped", "account_id": account_id}
+
+
+@app.get("/api/admin/trades")
+@limiter.limit("60/minute")
+async def admin_trades(request: Request, limit: int = 300):
+    """Toàn bộ hoạt động đi lệnh của bot trên mọi tài khoản."""
+    require_admin(request)
+    limit = max(1, min(limit, 2000))
+    trades = await asyncio.to_thread(repository.get_all_trades, limit) if hasattr(repository, "get_all_trades") else []
+    closed = [t for t in trades if t.get("status") == "closed"]
+    open_trades = [t for t in trades if t.get("status") in ("filled", "partially_filled", "pending", "submitted")]
+    status_dist: dict[str, int] = {}
+    for t in trades:
+        s = t.get("status") or "unknown"
+        status_dist[s] = status_dist.get(s, 0) + 1
+    return {
+        "total": len(trades),
+        "open_count": len(open_trades),
+        "closed_count": len(closed),
+        "total_profit": round(sum(t.get("profit") or 0 for t in closed), 2),
+        "status_distribution": [{"label": k, "value": v} for k, v in sorted(status_dist.items(), key=lambda kv: kv[1], reverse=True)],
+        "trades": trades[:limit],
+    }
+
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)

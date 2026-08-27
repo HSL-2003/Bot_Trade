@@ -10,6 +10,7 @@ from typing import Dict, List, Any, Optional, Callable
 import httpx
 from dotenv import load_dotenv
 from core.risk import InstrumentSpec, RiskCalculationError, calculate_volume
+from repositories.persistence import LOCK_HARD, LOCK_SOFT, LOCK_STATES, LOCK_UNLOCKED
 
 # Load environment variables
 load_dotenv(override=True)
@@ -65,11 +66,14 @@ class MT5TradingBot:
         self.user_id: Optional[str] = None
         self.on_trade_open: Optional[Callable] = None
         self.on_trade_close: Optional[Callable] = None
+        # Optional persistence hook for lock-state changes (wired by account service).
+        self.on_lock_change: Optional[Callable] = None
 
         # Bot Runtime States
         self.is_running = False
         self.simulation_mode = not MT5_AVAILABLE
-        self.system_locked = False
+        self._lock_state = "unlocked"  # unlocked | soft_locked | hard_locked
+        self.lock_reason: Optional[str] = None
         self.is_pending_order = False
         self.pending_orders = []
         self.account_info = {
@@ -499,9 +503,9 @@ class MT5TradingBot:
 
     async def add_pending_order(self, order_type: str, lot_size: float, trigger_price: float, sl_points: float = 0.0, tp_points: float = 0.0, sl_price: float = 0.0, tp_price: float = 0.0, symbol: str = None) -> dict:
         """Add a limit/stop pending order to the queue"""
-        if self.system_locked:
-            await self.log_event("EXECUTION_BLOCKED", "Pending order rejected: trading system is emergency-locked.")
-            raise RiskCalculationError("Trading system is emergency-locked")
+        if self.trades_blocked:
+            await self.log_event("EXECUTION_BLOCKED", f"Pending order rejected: trading system is locked ({self.lock_state}).")
+            raise RiskCalculationError("Trading system is locked")
         sym = symbol or self.symbol
         ticket = random.randint(1000000, 9999999)
         dec = 2 if ("XAU" in sym or "USO" in sym or "OIL" in sym) else 5
@@ -822,8 +826,8 @@ class MT5TradingBot:
         """Execution & Self-Healing Layer: Thread-safe order placement with exponential retry backoff.
         snapshot_price: Optional dict {"bid": ..., "ask": ...} captured at signal detection time to prevent slippage.
         """
-        if self.system_locked:
-            await self.log_event("EXECUTION_BLOCKED", "Market order rejected: trading system is emergency-locked.")
+        if self.trades_blocked:
+            await self.log_event("EXECUTION_BLOCKED", f"Market order rejected: trading system is locked ({self.lock_state}).")
             return
 
         if symbol is None:
@@ -1019,7 +1023,7 @@ class MT5TradingBot:
 
     async def close_position(self, ticket: int):
         """Close an active position"""
-        print(f"[LOG][bot.close_position] BẮT ĐẦU đóng ticket={ticket} | simulation_mode={self.simulation_mode} | vị thế đang giữ={len(self.positions)}", flush=True)
+        logger.info(f"Closing position ticket={ticket} (simulation_mode={self.simulation_mode}, active_positions={len(self.positions)})")
         if self.simulation_mode:
             pos_to_close = None
             for p in list(self.positions):
@@ -1070,9 +1074,9 @@ class MT5TradingBot:
                 self.save_history()
                 self._trigger_trade_close(ticket, close_record)
                 await self.log_event("TRADE_CLOSE", f"Simulated position closed: Ticket {ticket} ({sym}) at price {close_price} with profit {profit}")
-                print(f"[LOG][bot.close_position] SIMULATION: đã đóng ticket={ticket} {sym} giá={close_price} profit={profit}", flush=True)
+                logger.info(f"Simulated position closed: ticket={ticket} {sym} close_price={close_price} profit={profit}")
             else:
-                print(f"[LOG][bot.close_position] SIMULATION: KHÔNG TÌM THẤY ticket={ticket} trong {[p.get('ticket') for p in self.positions]}", flush=True)
+                logger.warning(f"Simulated close failed: ticket={ticket} not found in {[p.get('ticket') for p in self.positions]}")
             return
 
         # MT5 mode close
@@ -1152,7 +1156,7 @@ class MT5TradingBot:
             return False, 0.0, 0.0, None
 
         res_success, close_price, profit_val, pos_obj = await asyncio.to_thread(_close)
-        print(f"[LOG][bot.close_position] MT5 result: success={res_success} | close_price={close_price} | profit={profit_val}", flush=True)
+        logger.info(f"MT5 close result: ticket={ticket} success={res_success} close_price={close_price} profit={profit_val}")
         if res_success:
             for p in list(self.positions):
                 if int(p.get("ticket", 0)) == int(ticket):
@@ -1431,14 +1435,88 @@ class MT5TradingBot:
         
         return True
 
-    async def emergency_lockdown(self):
-        """Emergency shutdown: Close all trades, lock system"""
-        self.system_locked = True
+    async def emergency_lockdown(self, reason: Optional[str] = None):
+        """Emergency shutdown: Close all trades, lock system hard."""
+        self._lock_state = LOCK_HARD
+        self._persist_lock(reason)
         await self.log_event("EMERGENCY", "LOCKDOWN ACTIVATED! Closing all open positions...")
         tickets = [pos["ticket"] for pos in self.positions]
         for ticket in tickets:
             await self.close_position(ticket)
         await self.log_event("EMERGENCY", "All positions closed. Trading system locked.")
+
+    # ------------------------------------------------------------------
+    # Lock-state control (soft / hard). Source of truth is the persisted
+    # Supabase `lock_state`; the in-memory value is kept in sync via the
+    # `on_lock_change` hook wired by the account service.
+    # ------------------------------------------------------------------
+    @property
+    def lock_state(self) -> str:
+        return self._lock_state
+
+    @lock_state.setter
+    def lock_state(self, value: str):
+        if value in LOCK_STATES:
+            self._lock_state = value
+
+    # Legacy boolean view: True == hard lock (emergency lockdown). Keeping it
+    # so existing tests / callers that flip `system_locked` keep working.
+    @property
+    def system_locked(self) -> bool:
+        return self._lock_state == LOCK_HARD
+
+    @system_locked.setter
+    def system_locked(self, value: bool):
+        self._lock_state = LOCK_HARD if value else LOCK_UNLOCKED
+
+    @property
+    def trades_blocked(self) -> bool:
+        """Soft + hard lock both block opening NEW trades / pending orders."""
+        return self._lock_state != LOCK_UNLOCKED
+
+    def _persist_lock(self, reason: Optional[str] = None) -> None:
+        self.lock_reason = reason
+        cb = self.on_lock_change
+        if cb and self.account_id:
+            try:
+                cb(self.account_id, self._lock_state, reason)
+            except Exception:
+                pass
+
+    def soft_lock(self, reason: Optional[str] = None) -> None:
+        """Soft lock: block new entries, keep open positions & risk controls active."""
+        if self._lock_state != LOCK_SOFT:
+            self._lock_state = LOCK_SOFT
+            self._persist_lock(reason)
+            self.log_event_now("LOCK", f"SOFT LOCK engaged: no new entries allowed. Reason: {reason or 'unspecified'}")
+
+    async def hard_lock(self, reason: Optional[str] = None) -> None:
+        """Hard lock: full emergency lockdown (close all positions + block entries)."""
+        self._lock_state = LOCK_HARD
+        self._persist_lock(reason)
+        await self.emergency_lockdown(reason=reason)
+
+    def unlock(self, reason: Optional[str] = None) -> None:
+        """Release any lock (soft or hard) back to the unlocked state."""
+        if self._lock_state != LOCK_UNLOCKED:
+            self._lock_state = LOCK_UNLOCKED
+            self._persist_lock(reason)
+            self.log_event_now("UNLOCK", f"Lock released. Reason: {reason or 'unspecified'}")
+
+    def log_event_now(self, event: str, message: str) -> None:
+        """Synchronous log helper for non-async lock transitions."""
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop and loop.is_running():
+                asyncio.ensure_future(self.log_event(event, message))
+                return
+        except RuntimeError:
+            pass
+        if hasattr(self, "recent_logs"):
+            self.recent_logs.append({"time": datetime.now().isoformat(), "event": event, "message": message})
+            if len(self.recent_logs) > 200:
+                self.recent_logs = self.recent_logs[-200:]
 
     def calculate_lot_size(self, sl_points: float, risk_percent: float = None, stars_count: int = 1) -> float:
         """Calculate volume from configured money risk; fail closed on bad SL."""
@@ -2152,6 +2230,13 @@ class MT5TradingBot:
             # ponytail: nhồi lệnh allowed — no distance guard, stacking enabled
             
             if cooldown_passed and not self.is_pending_order:
+                # Lock gate: soft or hard lock blocks NEW auto entries, but the
+                # signal loop keeps running so risk controls (trailing, breakeven)
+                # and positions management remain active.
+                if self.trades_blocked:
+                    await self.log_event("EXECUTION_BLOCKED", f"Signal {sig_type} ({stars_str}) ignored: trading system is locked ({self.lock_state}).")
+                    continue
+
                 # 1. Max Open Trades Guard
                 if len(self.positions) >= self.max_open_trades:
                     await self.log_event("EXECUTION_BLOCKED", f"Signal {sig_type} blocked: Max open trades limit reached ({len(self.positions)}/{self.max_open_trades})")

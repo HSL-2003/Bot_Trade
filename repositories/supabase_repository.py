@@ -6,6 +6,7 @@ Supabase. The service-role key must only be used server-side.
 
 from datetime import datetime, timezone
 from typing import Any, Optional
+import time
 import httpx
 from repositories.persistence import AccountScopeError, AccountState
 
@@ -17,6 +18,9 @@ class SupabaseAccountRepository:
         self.base_url = url.rstrip("/") + "/rest/v1"
         self.headers = {"apikey": service_role_key, "Authorization": f"Bearer {service_role_key}"}
         self.timeout = timeout
+        # Short-TTL cache for admin aggregations: prevents the overview + accounts
+        # endpoints from re-fetching the same rows from Supabase on every refresh.
+        self._cache: dict[str, tuple[float, Any]] = {}
 
     def get(self, account_id: str) -> AccountState:
         if not account_id or not account_id.strip():
@@ -142,7 +146,8 @@ class SupabaseAccountRepository:
         profit_v = float(close_info.get("profit") or 0.0)
         close_t = str(close_info.get("close_time") or close_info.get("closed_at") or now_iso)
         ticket_val = int(ticket) if str(ticket).isdigit() else ticket
-        
+        self._cache_clear("admin_trades")
+
         patch_payload = {
             "close_price": close_p,
             "profit": profit_v,
@@ -208,8 +213,55 @@ class SupabaseAccountRepository:
         except Exception:
             return patch_payload
 
+    def get_lock_state(self, account_id: str) -> dict[str, Any]:
+        if not account_id or not account_id.strip():
+            raise AccountScopeError("Account scope is required")
+        try:
+            response = httpx.get(
+                f"{self.base_url}/trading_accounts",
+                params={"id": f"eq.{account_id.strip()}", "select": "lock_state,lock_reason,locked_at,unlocked_at"},
+                headers=self.headers,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            rows = response.json()
+            if rows:
+                return {
+                    "lock_state": rows[0].get("lock_state") or "unlocked",
+                    "lock_reason": rows[0].get("lock_reason"),
+                    "locked_at": rows[0].get("locked_at"),
+                    "unlocked_at": rows[0].get("unlocked_at"),
+                }
+        except Exception:
+            pass
+        return {"lock_state": "unlocked", "lock_reason": None, "locked_at": None, "unlocked_at": None}
+
+    def set_lock_state(self, account_id: str, lock_state: str, reason: Optional[str] = None) -> None:
+        if not account_id or not account_id.strip():
+            raise AccountScopeError("Account scope is required")
+        now_iso = datetime.now(timezone.utc).isoformat()
+        payload: dict[str, Any] = {"lock_state": lock_state, "lock_reason": reason}
+        if lock_state == "unlocked":
+            payload["unlocked_at"] = now_iso
+        else:
+            payload["locked_at"] = now_iso
+        try:
+            response = httpx.patch(
+                f"{self.base_url}/trading_accounts",
+                params={"id": f"eq.{account_id.strip()}"},
+                json=payload,
+                headers={**self.headers, "Content-Type": "application/json", "Prefer": "return=minimal"},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+        except Exception:
+            # Never let a persistence hiccup crash the lock change in-memory.
+            pass
+        self._cache_clear("admin_accounts")
+
     def sync_closed_trades(self, closed_trades: list[dict[str, Any]]) -> int:
         """Auto-heal & synchronize any unclosed trade rows in Supabase"""
+        self._cache_clear("admin_trades")
         synced_count = 0
         now_iso = datetime.now(timezone.utc).isoformat()
         for t in closed_trades:
@@ -258,3 +310,219 @@ class SupabaseAccountRepository:
             return rows
         except Exception:
             return []
+
+    # ------------------------------------------------------------------
+    # Admin / dashboard helpers (soft-delete, roles, aggregation)
+    # ------------------------------------------------------------------
+    def _cache_get(self, key: str, ttl: float):
+        """Return cached value if fresh within `ttl` seconds, else None."""
+        hit = self._cache.get(key)
+        if hit and (time.monotonic() - hit[0]) < ttl:
+            return hit[1]
+        return None
+
+    def _cache_set(self, key: str, value: Any, ttl: float) -> None:
+        import time as _time
+        self._cache[key] = (_time.monotonic(), value)
+
+    def _cache_clear(self, key: str | None = None) -> None:
+        if key:
+            self._cache.pop(key, None)
+        else:
+            self._cache.clear()
+
+    def _batch_locks(self, ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch lock_state for many accounts in ONE PostgREST request."""
+        if not ids:
+            return {}
+        try:
+            response = httpx.get(
+                f"{self.base_url}/trading_accounts",
+                params={"id": f"in.({','.join(ids)})", "select": "id,lock_state,lock_reason,locked_at,unlocked_at"},
+                headers=self.headers,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            default = {"lock_state": "unlocked", "lock_reason": None, "locked_at": None, "unlocked_at": None}
+            return {
+                row["id"]: {
+                    "lock_state": row.get("lock_state") or "unlocked",
+                    "lock_reason": row.get("lock_reason"),
+                    "locked_at": row.get("locked_at"),
+                    "unlocked_at": row.get("unlocked_at"),
+                }
+                for row in response.json()
+            } or {i: default for i in ids}
+        except Exception:
+            return {i: {"lock_state": "unlocked", "lock_reason": None, "locked_at": None, "unlocked_at": None} for i in ids}
+
+    def _batch_profiles(self, ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch N profiles in ONE Supabase request instead of one HTTP call per profile."""
+        if not ids:
+            return {}
+        try:
+            response = httpx.get(
+                f"{self.base_url}/user_profiles",
+                params={"user_id": f"in.({','.join(ids)})", "select": "user_id,display_name,roles"},
+                headers=self.headers,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            return {row["user_id"]: row for row in response.json()}
+        except Exception:
+            return {}
+
+    def list_accounts(self, *, ttl: float = 20.0) -> list[dict[str, Any]]:
+        cached = self._cache_get("admin_accounts", ttl)
+        if cached is not None:
+            return cached
+        try:
+            response = httpx.get(
+                f"{self.base_url}/trading_accounts",
+                params={"select": "*", "order": "created_at.asc", "limit": "1000"},
+                headers=self.headers,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            rows = response.json()
+        except Exception:
+            return []
+
+        owner_ids = [str(r.get("owner_user_id")) for r in rows if r.get("owner_user_id")]
+        profiles = self._batch_profiles(owner_ids)
+
+        out = []
+        for row in rows:
+            owner_id = row.get("owner_user_id")
+            profile = profiles.get(str(owner_id)) if owner_id else None
+            display_name = (profile or {}).get("display_name")
+            roles = list((profile or {}).get("roles") or ["trader"])
+            out.append({
+                "id": row.get("id"),
+                "owner_user_id": owner_id,
+                "display_name": display_name or owner_id or row.get("id"),
+                "roles": roles,
+                "status": row.get("status", "active"),
+                "is_active": row.get("is_active", True),
+                "lock_state": row.get("lock_state") or "unlocked",
+                "lock_reason": row.get("lock_reason"),
+                "created_at": row.get("created_at"),
+                "updated_at": row.get("updated_at"),
+                "blocked_at": row.get("blocked_at"),
+                "blocked_reason": row.get("blocked_reason"),
+            })
+        self._cache_set("admin_accounts", out, ttl)
+        return out
+
+    def get_all_trades(self, limit: int = 5000, *, ttl: float = 5.0) -> list[dict[str, Any]]:
+        cached = self._cache_get("admin_trades", ttl)
+        if cached is not None:
+            return cached
+        try:
+            response = httpx.get(
+                f"{self.base_url}/trade_orders",
+                params={"select": "*", "order": "submitted_at.desc", "limit": str(limit)},
+                headers=self.headers,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            rows = response.json()
+            self._cache_set("admin_trades", rows, ttl)
+            return rows
+        except Exception:
+            return []
+
+    def get_account_detail(self, account_id: str) -> dict[str, Any]:
+        if not account_id or not account_id.strip():
+            raise AccountScopeError("Account scope is required")
+        try:
+            response = httpx.get(
+                f"{self.base_url}/trading_accounts",
+                params={"id": f"eq.{account_id.strip()}", "select": "*", "limit": "1"},
+                headers=self.headers,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            rows = response.json()
+            if not rows:
+                raise AccountScopeError("Trading account does not exist")
+            acc = rows[0]
+        except Exception as exc:
+            if isinstance(exc, AccountScopeError):
+                raise
+            return {}
+        lock = self.get_lock_state(account_id)
+        owner_id = acc.get("owner_user_id")
+        owner = self.profile(owner_id) if owner_id else {}
+        trades = self.get_user_trades(account_id, limit=1000)
+        closed = [t for t in trades if t.get("status") == "closed"]
+        wins = [t for t in closed if (t.get("profit") or 0) > 0]
+        losses = [t for t in closed if (t.get("profit") or 0) < 0]
+        return {
+            **acc,
+            "display_name": owner.get("display_name") or owner_id or account_id,
+            "roles": list(owner.get("roles") or ["trader"]),
+            "lock_state": lock["lock_state"],
+            "lock_reason": lock["lock_reason"],
+            "total_trades": len(closed),
+            "winning_trades": len(wins),
+            "losing_trades": len(losses),
+            "total_profit": round(sum(t.get("profit") or 0 for t in closed), 2),
+            "total_volume": round(sum(t.get("quantity") or 0 for t in closed), 2),
+            "recent_trades": trades[:20],
+        }
+
+    def set_account_status(self, account_id: str, status: str, reason: Optional[str] = None) -> None:
+        if not account_id or not account_id.strip():
+            raise AccountScopeError("Account scope is required")
+        if status not in ("active", "blocked", "suspended", "archived"):
+            raise ValueError(f"Invalid account status: {status!r}")
+        now_iso = datetime.now(timezone.utc).isoformat()
+        payload: dict[str, Any] = {"status": status, "is_active": status == "active"}
+        if status == "blocked":
+            payload["blocked_at"] = now_iso
+            payload["blocked_reason"] = reason
+            payload["unblocked_at"] = None
+        elif status == "active":
+            payload["blocked_reason"] = None
+            payload["unblocked_at"] = now_iso
+        self._admin_patch(f"{self.base_url}/trading_accounts", {"id": f"eq.{account_id.strip()}"}, payload)
+        self._cache_clear("admin_accounts")
+
+    def update_user_roles(self, user_id: str, roles: list[str]) -> dict[str, Any]:
+        clean = sorted({r.strip() for r in roles if r.strip()} or ["trader"])
+        if not user_id or not user_id.strip():
+            raise AccountScopeError("User scope is required")
+        self._admin_patch(f"{self.base_url}/user_profiles", {"user_id": f"eq.{user_id.strip()}"}, {"roles": clean})
+        self._cache_clear("admin_accounts")
+        return {"user_id": user_id.strip(), "roles": clean}
+
+    def revoke_account_sessions(self, account_id: str) -> int:
+        if not account_id or not account_id.strip():
+            raise AccountScopeError("Account scope is required")
+        payload = {"is_active": False, "status": "revoked", "revoked_at": datetime.now(timezone.utc).isoformat()}
+        try:
+            response = httpx.patch(
+                f"{self.base_url}/user_sessions",
+                params={"account_id": f"eq.{account_id.strip()}"},
+                json=payload,
+                headers={**self.headers, "Content-Type": "application/json", "Prefer": "return=representation"},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            return len(response.json()) if response.text else 0
+        except Exception:
+            return 0
+
+    def _admin_patch(self, resource: str, params: dict[str, str], payload: dict[str, Any]) -> None:
+        try:
+            response = httpx.patch(
+                resource,
+                params=params,
+                json=payload,
+                headers={**self.headers, "Content-Type": "application/json", "Prefer": "return=minimal"},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+        except Exception:
+            pass

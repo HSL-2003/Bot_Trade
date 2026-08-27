@@ -101,6 +101,22 @@ class ConfigurationTests(unittest.TestCase):
             if old_agents is not None:
                 os.environ["ENABLE_SDLC_AGENTS"] = old_agents
 
+    def test_cors_wildcard_is_rejected_with_credentials(self):
+        # A "*" origin must never pair with allow_credentials=True; fail closed.
+        old_origins = os.environ.get("ALLOWED_ORIGINS", None)
+        try:
+            os.environ["ALLOWED_ORIGINS"] = "*"
+            with self.assertRaises(RuntimeError):
+                allowed_origins()
+            # Wildcard mixed with an explicit list is filtered down to the list.
+            os.environ["ALLOWED_ORIGINS"] = "*,http://example.com"
+            self.assertEqual(allowed_origins(), ["http://example.com"])
+        finally:
+            if old_origins is not None:
+                os.environ["ALLOWED_ORIGINS"] = old_origins
+            else:
+                os.environ.pop("ALLOWED_ORIGINS", None)
+
 
 class AccountIsolationTests(unittest.TestCase):
     def test_account_states_are_isolated(self):

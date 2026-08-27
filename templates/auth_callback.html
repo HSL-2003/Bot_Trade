@@ -346,20 +346,27 @@
                     localStorage.setItem('access_token', data.access_token);
                     if (data.account_id) localStorage.setItem('account_id', data.account_id);
                     
-                    document.querySelector('#status-heading').textContent = 'Identity Verified';
-                    document.querySelector('#status-desc').textContent = 'Initiating Warp Drive…';
+                    const returnTo = localStorage.getItem('oauth_return_to') || '/app?view=terminal';
+                    try { localStorage.removeItem('oauth_return_to'); } catch (e) {}
 
-                    // Trigger full 3D interactive warp tunnel
-                    if (typeof window.triggerLoginTunnelTransition === 'function') {
-                        window.triggerLoginTunnelTransition('/app?view=terminal');
+                    document.querySelector('#status-heading').textContent = 'Identity Verified';
+                    document.querySelector('#status-desc').textContent = returnTo.includes('/admin') ? 'Redirecting to Admin…' : 'Initiating Warp Drive…';
+
+                    // Trigger full 3D interactive warp tunnel or direct redirect
+                    if (returnTo.includes('/admin')) {
+                        setTimeout(() => { location.href = returnTo; }, 200);
+                    } else if (typeof window.triggerLoginTunnelTransition === 'function') {
+                        window.triggerLoginTunnelTransition(returnTo);
                     } else {
-                        setTimeout(() => { location.href = '/app?view=terminal'; }, 150);
+                        setTimeout(() => { location.href = returnTo; }, 150);
                     }
                 })
                 .catch(err => {
+                    const errReturn = localStorage.getItem('oauth_return_to') || '/login';
+                    try { localStorage.removeItem('oauth_return_to'); } catch (e) {}
                     document.querySelector('#status-heading').textContent = 'Sign-in Error';
                     document.querySelector('#error-msg').textContent = err.message;
-                    setTimeout(() => { location.href = '/login'; }, 2500);
+                    setTimeout(() => { location.href = errReturn; }, 2500);
                 });
         })();
     </script>

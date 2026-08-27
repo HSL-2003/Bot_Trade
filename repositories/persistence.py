@@ -15,6 +15,15 @@ class AccountState:
     settings: dict[str, Any] = field(default_factory=dict)
     pending_orders: dict[int, dict[str, Any]] = field(default_factory=dict)
     positions: dict[int, dict[str, Any]] = field(default_factory=dict)
+    lock_state: str = "unlocked"          # unlocked | soft_locked | hard_locked
+    lock_reason: Optional[str] = None
+
+
+# Lock states (persisted, source of truth for trading-lock semantics).
+LOCK_UNLOCKED = "unlocked"
+LOCK_SOFT = "soft_locked"
+LOCK_HARD = "hard_locked"
+LOCK_STATES = frozenset({LOCK_UNLOCKED, LOCK_SOFT, LOCK_HARD})
 
 
 class AccountRepository(Protocol):
@@ -23,6 +32,14 @@ class AccountRepository(Protocol):
     def record_trade_open(self, account_id: str, user_id: Optional[str], trade: dict[str, Any]) -> dict[str, Any]: ...
     def record_trade_close(self, account_id: str, user_id: Optional[str], ticket: int, close_info: dict[str, Any]) -> Optional[dict[str, Any]]: ...
     def get_user_trades(self, account_id: str, user_id: Optional[str] = None, limit: int = 100, period: str = "all") -> list[dict[str, Any]]: ...
+    def get_lock_state(self, account_id: str) -> dict[str, Any]: ...
+    def set_lock_state(self, account_id: str, lock_state: str, reason: Optional[str] = None) -> None: ...
+    def list_accounts(self) -> list[dict[str, Any]]: ...
+    def get_all_trades(self, limit: int = 5000) -> list[dict[str, Any]]: ...
+    def get_account_detail(self, account_id: str) -> dict[str, Any]: ...
+    def set_account_status(self, account_id: str, status: str, reason: Optional[str] = None) -> None: ...
+    def update_user_roles(self, user_id: str, roles: list[str]) -> dict[str, Any]: ...
+    def revoke_account_sessions(self, account_id: str) -> int: ...
 
 
 class InMemoryAccountRepository:
@@ -30,6 +47,8 @@ class InMemoryAccountRepository:
         self._states: dict[str, AccountState] = {}
         self._profiles: dict[str, dict[str, Any]] = {}
         self._trades: list[dict[str, Any]] = []
+        self._accounts: dict[str, dict[str, Any]] = {}
+        self._sessions: dict[str, dict[str, Any]] = {}  # account_id -> list-ish by token key
 
     @staticmethod
     def _check(account_id: str) -> str:
@@ -40,6 +59,17 @@ class InMemoryAccountRepository:
 
     def get(self, account_id: str) -> AccountState:
         account_id = self._check(account_id)
+        self._accounts.setdefault(account_id, {
+            "id": account_id,
+            "owner_user_id": None,
+            "name": "Primary account",
+            "broker": None,
+            "account_number": None,
+            "status": "active",
+            "is_active": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
         return self._states.setdefault(account_id, AccountState(account_id))
 
     def save(self, state: AccountState) -> None:
@@ -49,10 +79,13 @@ class InMemoryAccountRepository:
         self._states[account_id] = state
 
     def profile(self, user_id: str) -> dict[str, Any]:
-        return dict(self._profiles.get(user_id, {"user_id": user_id}))
+        p = self._profiles.get(user_id, {"user_id": user_id})
+        p.setdefault("roles", ["trader"])
+        return dict(p)
 
     def update_profile(self, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-        profile = self._profiles.setdefault(user_id, {"user_id": user_id})
+        profile = self._profiles.setdefault(user_id, {"user_id": user_id, "roles": ["trader"]})
+        profile.setdefault("roles", ["trader"])
         profile.update(payload)
         return dict(profile)
 
@@ -119,3 +152,105 @@ class InMemoryAccountRepository:
             if t.get("account_id") == account_id and (user_id is None or t.get("user_id") == user_id or t.get("user_id") is None)
         ]
         return sorted(matches, key=lambda x: x.get("submitted_at", ""), reverse=True)[:limit]
+
+    def get_lock_state(self, account_id: str) -> dict[str, Any]:
+        account_id = self._check(account_id)
+        state = self.get(account_id)
+        return {
+            "lock_state": state.lock_state or LOCK_UNLOCKED,
+            "lock_reason": state.lock_reason,
+            "locked_at": None,
+            "unlocked_at": None,
+        }
+
+    def set_lock_state(self, account_id: str, lock_state: str, reason: Optional[str] = None) -> None:
+        account_id = self._check(account_id)
+        if lock_state not in LOCK_STATES:
+            raise ValueError(f"Invalid lock_state: {lock_state!r}")
+        state = self.get(account_id)
+        state.lock_state = lock_state
+        state.lock_reason = reason
+
+    # ------------------------------------------------------------------
+    # Admin / dashboard helpers (soft-delete, roles, aggregation)
+    # ------------------------------------------------------------------
+    def list_accounts(self) -> list[dict[str, Any]]:
+        accounts = []
+        for account_id, acc in self._accounts.items():
+            lock = self.get_lock_state(account_id)
+            owner_id = acc.get("owner_user_id")
+            prof = self.profile(owner_id) if owner_id else {}
+            accounts.append({
+                "id": account_id,
+                "owner_user_id": owner_id,
+                "display_name": prof.get("display_name") or (owner_id or ""),
+                "roles": list(prof.get("roles") or ["trader"]),
+                "status": acc.get("status", "active"),
+                "is_active": acc.get("is_active", True),
+                "lock_state": lock["lock_state"],
+                "lock_reason": lock["lock_reason"],
+                "created_at": acc.get("created_at"),
+                "updated_at": acc.get("updated_at"),
+                "blocked_at": acc.get("blocked_at"),
+            })
+        return accounts
+
+    def get_all_trades(self, limit: int = 5000) -> list[dict[str, Any]]:
+        return list(self._trades)[:limit]
+
+    def get_account_detail(self, account_id: str) -> dict[str, Any]:
+        account_id = self._check(account_id)
+        acc = self._accounts.get(account_id)
+        if acc is None:
+            raise AccountScopeError("Trading account does not exist")
+        lock = self.get_lock_state(account_id)
+        owner_id = acc.get("owner_user_id")
+        owner = self.profile(owner_id) if owner_id else {}
+        trades = [t for t in self._trades if t.get("account_id") == account_id]
+        closed = [t for t in trades if t.get("status") == "closed"]
+        wins = [t for t in closed if t.get("profit", 0) > 0]
+        losses = [t for t in closed if t.get("profit", 0) < 0]
+        return {
+            **acc,
+            "display_name": owner.get("display_name") or owner_id or account_id,
+            "roles": list(owner.get("roles") or ["trader"]),
+            "lock_state": lock["lock_state"],
+            "lock_reason": lock["lock_reason"],
+            "total_trades": len(closed),
+            "winning_trades": len(wins),
+            "losing_trades": len(losses),
+            "total_profit": round(sum(t.get("profit", 0) for t in closed), 2),
+            "total_volume": round(sum(t.get("quantity", 0) for t in closed), 2),
+            "recent_trades": sorted(trades, key=lambda x: x.get("submitted_at", ""), reverse=True)[:20],
+        }
+
+    def set_account_status(self, account_id: str, status: str, reason: Optional[str] = None) -> None:
+        account_id = self._check(account_id)
+        if status not in ("active", "blocked", "suspended", "archived"):
+            raise ValueError(f"Invalid account status: {status!r}")
+        acc = self._accounts.setdefault(account_id, {"id": account_id, "status": "active", "is_active": True})
+        acc["status"] = status
+        acc["is_active"] = status == "active"
+        acc["updated_at"] = datetime.now(timezone.utc).isoformat()
+        if status == "blocked":
+            acc["blocked_at"] = datetime.now(timezone.utc).isoformat()
+            acc["blocked_reason"] = reason
+            acc["unblocked_at"] = None
+        elif status == "active":
+            acc["blocked_reason"] = None
+            acc["unblocked_at"] = datetime.now(timezone.utc).isoformat()
+
+    def update_user_roles(self, user_id: str, roles: list[str]) -> dict[str, Any]:
+        clean = sorted({r.strip() for r in roles if r.strip()} or ["trader"])
+        profile = self._profiles.setdefault(user_id, {"user_id": user_id, "roles": ["trader"]})
+        profile["roles"] = clean
+        return {"user_id": user_id, "roles": clean}
+
+    def revoke_account_sessions(self, account_id: str) -> int:
+        account_id = self._check(account_id)
+        removed = 0
+        for token, sess in list(self._sessions.items()):
+            if sess.get("account_id") == account_id:
+                self._sessions.pop(token, None)
+                removed += 1
+        return removed
