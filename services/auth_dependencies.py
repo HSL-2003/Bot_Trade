@@ -90,7 +90,7 @@ async def get_bearer_token(
 ) -> str:
     token = credentials.credentials if credentials else request.cookies.get(SESSION_COOKIE_NAME)
     if not token:
-        raise HTTPException(status_code=401, detail="Bearer token is required")
+        raise HTTPException(status_code=401, detail="Bearer authentication is required")
     return token
 
 
@@ -113,8 +113,10 @@ async def get_current_principal_optional(
         return None
     try:
         return session_service.authenticate(token)
-    except AuthenticationError:
-        return None
+    except AuthenticationError as exc:
+        # A supplied token that fails validation must surface as 401, not as an
+        # anonymous request (legacy behavior: only "no token" means anonymous).
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
 async def require_admin(
@@ -141,7 +143,7 @@ async def get_account_id(
     if principal is not None:
         return _scoped_account_id(requested, principal)
     if auth_enforced():
-        raise HTTPException(status_code=401, detail="Bearer token is required")
+        raise HTTPException(status_code=401, detail="Bearer authentication is required")
     return requested or _default_account_id()
 
 

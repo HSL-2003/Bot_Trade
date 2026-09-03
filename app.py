@@ -21,9 +21,9 @@ from config import SUPPORTED_SYMBOLS, agents_enabled, allowed_origins
 from services.account_service import TradingAccountService
 from services.auth_service import AuthenticationError, InMemorySessionService, SupabaseSessionService, normalize_email, Principal, SessionService
 from services.auth_dependencies import (
-    get_bearer_token, get_current_principal, get_current_principal_optional,
-    require_admin, get_account_id, get_session_service, set_session_cookie,
-    authenticate_websocket,
+    SESSION_COOKIE_NAME, auth_enforced, get_bearer_token, get_current_principal,
+    get_current_principal_optional, require_admin, get_account_id,
+    get_session_service, set_session_cookie, authenticate_websocket,
 )
 from repositories.persistence import InMemoryAccountRepository, LOCK_HARD, LOCK_SOFT
 from repositories.supabase_repository import SupabaseAccountRepository
@@ -295,7 +295,7 @@ async def logout(request: Request, token: str = Depends(get_bearer_token), servi
         )
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     response = Response(status_code=204)
-    response.delete_cookie("session_token", path="/")
+    response.delete_cookie(SESSION_COOKIE_NAME, path="/")
     return response
 
 def get_scoped_bot(
@@ -548,9 +548,9 @@ async def get_auth_callback():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     requested_account_id = websocket.query_params.get("account_id")
-    token = websocket.query_params.get("token", "") or websocket.cookies.get("session_token", "")
+    token = websocket.query_params.get("token", "") or websocket.cookies.get(SESSION_COOKIE_NAME, "")
     account_id = requested_account_id
-    require_auth = os.getenv("REQUIRE_AUTH", "false").lower() == "true" or os.getenv("ENVIRONMENT", "development").lower() == "production"
+    require_auth = auth_enforced()
     if require_auth or token:
         if not token:
             security_logger.warning("Unauthenticated WebSocket connection attempt blocked.")
