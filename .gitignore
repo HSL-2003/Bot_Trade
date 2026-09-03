@@ -75,3 +75,7 @@ static/models/**/*.jpeg
 static/models/**/*.webp
 static/models/**/textures/
 
+
+# Runtime artifacts
+news_cache.json
+trade_history.json
