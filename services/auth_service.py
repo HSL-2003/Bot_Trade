@@ -224,7 +224,7 @@ class SupabaseSessionService:
         validate_password_strength(password)
         sanitized_name = sanitize_display_name(display_name) or email
         response = self._request("POST", f"{self.auth_url}/admin/users", json={
-            "email": email, "password": password, "email_confirm": False,
+            "email": email, "password": password, "email_confirm": True,
         })
         user = response.json()
         user_id = user["id"]

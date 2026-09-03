@@ -79,3 +79,6 @@ static/models/**/textures/
 # Runtime artifacts
 news_cache.json
 trade_history.json
+
+oauth_test.log
+
