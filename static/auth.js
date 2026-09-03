@@ -4,9 +4,7 @@
     var form = document.querySelector('#auth-form');
     var msg = document.querySelector('#message');
     var path = window.location.pathname;
-    var page = path === '/register' ? 'register'
-        : (path === '/forgot-password' || path.indexOf('/forgot-password') === 0) ? 'forgot'
-            : 'login';
+    var page = path === '/register' ? 'register' : 'login';
 
     function say(t, error) {
         if (!msg) return;
@@ -14,25 +12,7 @@
         msg.className = 'message ' + (error ? 'error' : '');
     }
 
-    // Forgot-password flow is email-only: the template hides the password group
-    // pre-paint (html.no-password); remove it here so browser validation never
-    // blocks the submit on a hidden, required input.
-    if (page === 'forgot') {
-        var pwGroup = document.querySelector('#password-group');
-        if (pwGroup) pwGroup.remove();
-    }
-
-    // Login page: surface the password-recovery entry point next to the switch link.
-    if (page === 'login') {
-        var sw = document.querySelector('.switch');
-        if (sw && !sw.querySelector('a[href="/forgot-password"]')) {
-            var link = document.createElement('a');
-            link.href = '/forgot-password';
-            link.textContent = 'Forgot password?';
-            sw.appendChild(document.createTextNode(' · '));
-            sw.appendChild(link);
-        }
-    }
+    // Forgot-password recovery entry point removed (route now 404s).
 
     // Backend detail can be a string (HTTPException) or an array of validation
     // errors (FastAPI 422) — normalise both into a readable single message.
@@ -88,19 +68,7 @@
             if (submitBtn) submitBtn.disabled = true;
 
             try {
-                if (page === 'forgot') {
-                    if (!email) return say('Enter your email address first.', true);
-                    // No dedicated reset endpoint exists yet; the passwordless
-                    // magic link doubles as the recovery flow.
-                    var reset = await postJSON('/api/auth/magic-link', { email: email });
-                    if (!reset.ok) {
-                        return say(extractDetail(reset.payload, 'Unable to send a reset link.'), true);
-                    }
-                    return say((reset.payload && reset.payload.message)
-                        || 'Check your email for a secure sign-in link.');
-                }
 
-                var endpoint = page === 'register' ? '/api/auth/register' : '/api/auth/login';
                 say(page === 'register' ? 'Creating your workspace…' : 'Verifying credentials…');
                 var result = await postJSON(endpoint, {
                     email: email,
@@ -131,31 +99,7 @@
         });
     }
 
-    // Magic link (passwordless sign-in) — wired to the template button.
-    async function continueWithEmail() {
-        var btn = document.querySelector('#magic-link-btn');
-        var emailInput = document.querySelector('#email');
-        var email = emailInput ? emailInput.value.trim().toLowerCase() : '';
-        if (!email) return say('Enter your email address first.', true);
-        if (btn) btn.disabled = true;
-        try {
-            var result = await postJSON('/api/auth/magic-link', { email: email });
-            if (!result.ok) {
-                return say(extractDetail(result.payload, 'Unable to send a sign-in link.'), true);
-            }
-            say((result.payload && result.payload.message)
-                || 'Check your email for a secure sign-in link.');
-        } catch (error) {
-            say('Unable to reach the authentication service.', true);
-        } finally {
-            if (btn) btn.disabled = false;
-        }
-    }
-    window.continueWithEmail = continueWithEmail;
-    var magicBtn = document.querySelector('#magic-link-btn');
-    if (magicBtn) magicBtn.addEventListener('click', continueWithEmail);
 
-    // Handle Social Logins (Google & GitHub)
     (function initSocialAuth() {
         var googleBtn = document.querySelector('#google-auth-btn');
         var githubBtn = document.querySelector('#github-auth-btn');

@@ -534,11 +534,6 @@ async def get_register():
     return render_auth("Create account", "Build your workspace", "Create account", 'Already registered? <a href="/login">Log in</a>')
 
 
-@app.get("/forgot-password")
-async def get_forgot_password():
-    return render_auth("Reset password", "Recover access", "Send reset link", 'Remembered it? <a href="/login">Log in</a>', False)
-
-
 @app.get("/auth/callback")
 async def get_auth_callback():
     """Landing page for GitHub OAuth / magic-link redirects (token in URL hash)."""
