@@ -720,27 +720,27 @@ async def get_state(request: Request, current_bot: MT5TradingBot = Depends(get_s
 # Update Settings API
 @app.post("/api/settings")
 @limiter.limit("30/minute")
-async def update_settings(settings: SettingsModel, request: Request, bot: MT5TradingBot = Depends(get_scoped_bot)):
+async def update_settings(settings: SettingsModel, request: Request, current_bot: MT5TradingBot = Depends(get_scoped_bot)):
     settings.symbol = settings.symbol.upper().strip()
     if settings.symbol not in SUPPORTED_SYMBOLS:
         raise HTTPException(status_code=422, detail="Unsupported symbol")
     if not 0 < settings.risk_percent <= 100:
         raise HTTPException(status_code=422, detail="Risk percentage must be between 0 and 100")
-    bot.symbol = settings.symbol
-    bot.risk_percent = settings.risk_percent
-    bot.max_spread = settings.max_spread
-    bot.max_daily_loss_percent = settings.max_daily_loss_percent
-    bot.trailing_stop_points = settings.trailing_stop_points
-    bot.trailing_step_points = settings.trailing_step_points
-    bot.trailing_stop_offset_points = settings.trailing_stop_offset_points
-    bot.breakeven_trigger_points = settings.breakeven_trigger_points
-    bot.breakeven_buffer_points = settings.breakeven_buffer_points
-    bot.news_restriction_minutes = settings.news_restriction_minutes
-    bot.auto_trading = settings.auto_trading
-    bot.max_open_trades = settings.max_open_trades
-    bot.cooldown_duration = settings.cooldown_duration
-    bot.roi_enabled = settings.roi_enabled
-    
+    current_bot.symbol = settings.symbol
+    current_bot.risk_percent = settings.risk_percent
+    current_bot.max_spread = settings.max_spread
+    current_bot.max_daily_loss_percent = settings.max_daily_loss_percent
+    current_bot.trailing_stop_points = settings.trailing_stop_points
+    current_bot.trailing_step_points = settings.trailing_step_points
+    current_bot.trailing_stop_offset_points = settings.trailing_stop_offset_points
+    current_bot.breakeven_trigger_points = settings.breakeven_trigger_points
+    current_bot.breakeven_buffer_points = settings.breakeven_buffer_points
+    current_bot.news_restriction_minutes = settings.news_restriction_minutes
+    current_bot.auto_trading = settings.auto_trading
+    current_bot.max_open_trades = settings.max_open_trades
+    current_bot.cooldown_duration = settings.cooldown_duration
+    current_bot.roi_enabled = settings.roi_enabled
+
     # Parse roi_table string to dict
     try:
         new_roi = {}
@@ -750,11 +750,11 @@ async def update_settings(settings: SettingsModel, request: Request, bot: MT5Tra
             k, v = item.split(":")
             new_roi[int(k)] = float(v)
         if new_roi:
-            bot.roi_table = new_roi
+            current_bot.roi_table = new_roi
     except Exception as e:
-        await bot.log_event("WARNING", f"Invalid ROI table string '{settings.roi_table}' provided. Error: {e}")
+        await current_bot.log_event("WARNING", f"Invalid ROI table string '{settings.roi_table}' provided. Error: {e}")
 
-    await bot.log_event("SETTINGS", f"Settings updated by User. Symbol: {bot.symbol}, Risk: {bot.risk_percent}%, Max Spread: {bot.max_spread}, Max Loss: {bot.max_daily_loss_percent}%, Trailing Stop: {bot.trailing_stop_points}, Trailing Step: {bot.trailing_step_points}, Trailing Offset: {bot.trailing_stop_offset_points}, Breakeven Trigger: {bot.breakeven_trigger_points}, Breakeven Buffer: {bot.breakeven_buffer_points}, News Restriction: {bot.news_restriction_minutes}m, Auto Trading: {bot.auto_trading}, Max Open Trades: {bot.max_open_trades}, Cooldown: {bot.cooldown_duration}s, ROI Enabled: {bot.roi_enabled}, ROI Table: {bot.roi_table}")
+    await current_bot.log_event("SETTINGS", f"Settings updated by User. Symbol: {current_bot.symbol}, Risk: {current_bot.risk_percent}%, Max Spread: {current_bot.max_spread}, Max Loss: {current_bot.max_daily_loss_percent}%, Trailing Stop: {current_bot.trailing_stop_points}, Trailing Step: {current_bot.trailing_step_points}, Trailing Offset: {current_bot.trailing_stop_offset_points}, Breakeven Trigger: {current_bot.breakeven_trigger_points}, Breakeven Buffer: {current_bot.breakeven_buffer_points}, News Restriction: {current_bot.news_restriction_minutes}m, Auto Trading: {current_bot.auto_trading}, Max Open Trades: {current_bot.max_open_trades}, Cooldown: {current_bot.cooldown_duration}s, ROI Enabled: {current_bot.roi_enabled}, ROI Table: {current_bot.roi_table}")
     return {"status": "success", "settings": settings}
 
 # Symbol Toggle Auto-Trading Endpoint

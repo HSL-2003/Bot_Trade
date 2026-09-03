@@ -88,7 +88,7 @@ async def get_bearer_token(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> str:
-    token = credentials.credentials if credentials else request.cookies.get(SESSION_COOKIE_NAME)
+    token = credentials.credentials if credentials else _extract_token(request)
     if not token:
         raise HTTPException(status_code=401, detail="Bearer authentication is required")
     return token
