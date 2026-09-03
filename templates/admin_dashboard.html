@@ -644,8 +644,45 @@ function switchSec(name, btn) {
     stats: ['Thống kê', '// Số liệu & biểu đồ tổng hợp theo thời gian thực']
   };
   if (titles[name]) { $('secTitle').textContent = titles[name][0]; $('secDesc').textContent = titles[name][1]; }
-  if (name === 'trades' || name === 'stats') loadTrades();
+  if (name === 'trades') loadTrades();
+  if (name === 'stats') loadAnalytics();
   if (name === 'bots') renderBots();
+}
+
+async function loadAnalytics() {
+  try {
+    const data = await api('/api/admin/analytics');
+    const s = data.summary || {};
+    $('statKpis').innerHTML = kpiCards([
+      ['Margin Level', `${Number(s.avg_margin_level || 0).toFixed(2)}%`, 'positive'],
+      ['Max Drawdown', `${Number(s.avg_max_drawdown || 0).toFixed(2)}%`, 'negative'],
+      ['Sharpe', `${Number(s.avg_sharpe_ratio || 0).toFixed(2)}`, 'amber'],
+      ['Profit Factor', `${Number(s.avg_profit_factor || 0).toFixed(2)}`, (Number(s.avg_profit_factor || 0) >= 1 ? 'positive' : 'negative')]
+    ]);
+
+    const labels = (data.daily_profit || []).map(p => p.date || '');
+    const profits = (data.daily_profit || []).map(p => Number(p.profit || 0));
+    let cumulative = 0;
+    const cumulativeSeries = profits.map(value => {
+      cumulative += value;
+      return Number(cumulative.toFixed(2));
+    });
+    multiLine('chartRevenue', [
+      { points: profits, color: '#3b82f6', fill: true },
+      { points: cumulativeSeries, color: '#f59e0b' }
+    ], labels);
+    barChart('chartSymbol', (data.symbol_stats || []).slice(0, 8), 'volume', 'symbol');
+  } catch (e) {
+    $('statKpis').innerHTML = kpiCards([
+      ['Margin Level', '0.00%', 'positive'],
+      ['Max Drawdown', '0.00%', 'negative'],
+      ['Sharpe', '0.00', 'amber'],
+      ['Profit Factor', '0.00', 'negative']
+    ]);
+    barChart('chartSymbol', [], 'volume', 'symbol');
+    multiLine('chartRevenue', [], []);
+    console.warn('Analytics failed:', e.message);
+  }
 }
 
 async function loadDashboard() {
@@ -671,7 +708,8 @@ async function loadDashboard() {
     ], 'chartWinLoss', ['#22c55e', '#ef4444']);
     renderAccounts(ov.accounts_section || { total: 0, accounts: [] });
     renderBots();
-    if (activeSec === 'trades' || activeSec === 'stats') loadTrades();
+    if (activeSec === 'trades') loadTrades();
+    if (activeSec === 'stats') loadAnalytics();
     pollDelay = 15000;
   } catch (e) {
     console.warn('Poll lỗi, backoff:', e.message);
@@ -797,6 +835,9 @@ function coloredBars(el, items, valKey, nameKey) {
   svg.innerHTML = grid + bars;
 }
 async function loadTrades() {
+  if (activeSec === 'stats') {
+    return;
+  }
   try {
     const d = await api('/api/admin/trades?limit=300');
     const cards = [
