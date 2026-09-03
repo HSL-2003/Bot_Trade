@@ -13,6 +13,7 @@ import time
 import httpx
 import re
 import bcrypt
+from typing import Protocol, runtime_checkable
 
 
 
@@ -61,6 +62,18 @@ class Session:
     token: str
     principal: Principal
     expires_at: datetime
+
+
+@runtime_checkable
+class SessionService(Protocol):
+    def register(self, email: str, password: str, display_name: str | None = None) -> dict: ...
+    def login(self, email: str, password: str) -> dict: ...
+    def magic_link(self, email: str) -> None: ...
+    def login_with_supabase_token(self, supabase_token: str) -> dict: ...
+    def create(self, principal: Principal) -> Session: ...
+    def authenticate(self, token: str) -> Principal: ...
+    def revoke(self, token: str) -> None: ...
+    def set_user_roles(self, user_id: str, roles: list[str]) -> list[str]: ...
 
 
 class InMemorySessionService:
