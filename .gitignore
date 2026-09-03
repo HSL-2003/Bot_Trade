@@ -75,6 +75,13 @@ static/models/**/*.jpeg
 static/models/**/*.webp
 static/models/**/textures/
 
+# EXCEPTION: the two hero GLTF models powering the auth pages
+# (register: Halo Infinite Master Chief rigged-walk / login: Halo Mk V),
+# tracked intentionally so a fresh clone / deployment renders them
+# instead of silently falling back to DamagedHelmet.all
+!static/models/halo_b_model/**
+!static/models/halo_mk_v_model/**
+
 
 # Runtime artifacts
 news_cache.json
