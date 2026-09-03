@@ -5,7 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 from urllib.parse import quote
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request, Depends
-from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,9 +23,9 @@ from services.auth_service import AuthenticationError, InMemorySessionService, S
 from services.auth_dependencies import (
     get_bearer_token, get_current_principal, get_current_principal_optional,
     require_admin, get_account_id, get_session_service, set_session_cookie,
-    authenticate_websocket, auth_enforced,
+    authenticate_websocket,
 )
-from repositories.persistence import InMemoryAccountRepository, LOCK_HARD, LOCK_SOFT, LOCK_UNLOCKED
+from repositories.persistence import InMemoryAccountRepository, LOCK_HARD, LOCK_SOFT
 from repositories.supabase_repository import SupabaseAccountRepository
 from security import (
     CSRFProtectionMiddleware,
