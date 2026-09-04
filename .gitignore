@@ -75,3 +75,14 @@ static/models/**/*.jpeg
 static/models/**/*.webp
 static/models/**/textures/
 
+# Ignore Halo 3D models (too large for git, served via CDN/release)
+static/models/halo_b_model/**
+static/models/halo_mk_v_model/**
+
+
+# Runtime artifacts
+news_cache.json
+trade_history.json
+
+oauth_test.log
+

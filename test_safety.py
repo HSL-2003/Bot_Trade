@@ -12,7 +12,11 @@ if str(ROOT) not in sys.path:
 from bot import MT5TradingBot
 from config import SUPPORTED_SYMBOLS
 from core.risk import InstrumentSpec, RiskCalculationError, calculate_volume
-from services.auth_service import AuthenticationError, InMemorySessionService, Principal
+from services.auth_service import AuthenticationError, InMemorySessionService, Principal, SessionService
+from services.auth_dependencies import (
+    get_bearer_token, get_current_principal, get_current_principal_optional,
+    get_account_id, require_admin, authenticate_websocket, set_session_cookie,
+)
 from connectors.connector_protocol import ConnectorMessage, ProtocolError
 from connectors.pending_reconciliation import reconcile_pending_orders
 from repositories.persistence import InMemoryAccountRepository
@@ -191,17 +195,102 @@ class AuthSocialLoginTests(unittest.TestCase):
             service.login_with_supabase_token("dummy-supabase-token")
 
 
+class AuthDependencyTests(unittest.TestCase):
+    def setUp(self):
+        from fastapi import FastAPI
+        self.service = InMemorySessionService()
+        self.app = FastAPI()
+        self.app.state.session_service = self.service
+        self.request = type("Request", (), {
+            "app": self.app, "cookies": {}, "headers": {},
+            "query_params": {}, "state": type("State", (), {})(),
+            "client": None,
+        })()
+
+    def test_session_service_protocol(self):
+        self.assertIsInstance(self.service, SessionService)
+
+    def test_bearer_token_header_and_cookie(self):
+        from fastapi.security import HTTPAuthorizationCredentials
+        self.request.headers = {"Authorization": "Bearer abc"}
+        token = asyncio.run(get_bearer_token(self.request, HTTPAuthorizationCredentials(scheme="Bearer", credentials="abc")))
+        self.assertEqual(token, "abc")
+        self.request.headers = {}
+        self.request.cookies = {"session_token": "cookie-token"}
+        self.assertEqual(asyncio.run(get_bearer_token(self.request, None)), "cookie-token")
+
+    def test_bearer_token_requires_authentication(self):
+        from fastapi import HTTPException
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(get_bearer_token(self.request, None))
+        self.assertEqual(ctx.exception.status_code, 401)
+
+    def test_principal_dependencies_and_account_scope(self):
+        session = self.service.create(Principal("acc-2", "user-2"))
+        principal = asyncio.run(get_current_principal(session.token, self.service))
+        self.assertEqual(principal.account_id, "acc-2")
+        self.request.headers = {"Authorization": f"Bearer {session.token}"}
+        self.request.query_params = {}
+        self.assertEqual(asyncio.run(get_current_principal_optional(self.request, self.service)).user_id, "user-2")
+        self.assertEqual(asyncio.run(get_account_id(self.request, principal)), "acc-2")
+        self.request.headers = {"Authorization": f"Bearer {session.token}", "X-Account-Id": "other"}
+        from fastapi import HTTPException
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(get_account_id(self.request, principal))
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_admin_dependency_and_websocket_auth(self):
+        session = self.service.create(Principal("admin-acc", "admin-user", frozenset({"admin"})))
+        self.request.client = None
+        principal = asyncio.run(get_current_principal(session.token, self.service))
+        self.assertEqual(asyncio.run(require_admin(self.request, principal)), principal)
+        self.assertEqual(authenticate_websocket(session.token, self.service), principal)
+
+
 class AuthOAuthEndpointTests(unittest.TestCase):
     def test_google_endpoint_redirects_to_supabase(self):
         from fastapi.testclient import TestClient
         import app as module
         client = TestClient(module.app)
-        resp = client.get("/api/auth/google", follow_redirects=False)
+        old_url = os.environ.get("SUPABASE_URL")
+        os.environ["SUPABASE_URL"] = "https://example.supabase.co"
+        try:
+            resp = client.get("/api/auth/google", follow_redirects=False)
+        finally:
+            if old_url is None:
+                os.environ.pop("SUPABASE_URL", None)
+            else:
+                os.environ["SUPABASE_URL"] = old_url
         self.assertEqual(resp.status_code, 307)
         location = resp.headers.get("location", "")
         self.assertIn("provider=google", location)
         self.assertIn("/auth/v1/authorize", location)
         self.assertIn("redirect_to=", location)
+
+    def test_auth_endpoint_contracts(self):
+        from fastapi.testclient import TestClient
+        import uuid
+        import app as module
+        client = TestClient(module.app)
+        email = f"auth_{uuid.uuid4().hex[:10]}@example.com"
+        registered = client.post("/api/auth/register", json={"email": email, "password": "StrongPassword123!"})
+        self.assertEqual(registered.status_code, 201)
+        token = registered.json()["access_token"]
+        self.assertEqual(client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).status_code, 200)
+        logged_in = client.post("/api/auth/login", json={"email": email, "password": "StrongPassword123!"})
+        self.assertEqual(logged_in.status_code, 200)
+        logged_token = logged_in.json()["access_token"]
+        self.assertEqual(client.post("/api/auth/logout", headers={"Authorization": f"Bearer {logged_token}"}).status_code, 204)
+        self.assertEqual(client.get("/api/auth/me", headers={"Authorization": f"Bearer {logged_token}"}).status_code, 401)
+
+    def test_magic_link_and_social_callback_contracts(self):
+        from fastapi.testclient import TestClient
+        import app as module
+        client = TestClient(module.app)
+        magic = client.post("/api/auth/magic-link", json={"email": "auth@example.com"})
+        social = client.post("/api/auth/social/callback", json={"token": "invalid"})
+        self.assertEqual(magic.status_code, 400)
+        self.assertEqual(social.status_code, 401)
 
 
 class UserTradePersistenceTests(unittest.TestCase):
@@ -389,6 +478,74 @@ class UserTradePersistenceTests(unittest.TestCase):
         )
         # Position not found on non-mocked scoped bot or unauthenticated request returns 400/401
         self.assertIn(resp.status_code, [200, 400, 401])
+
+
+class AuthDependencyCoverageTests(unittest.TestCase):
+    """Branch coverage for services/auth_dependencies.py (Plan-2 clean-up)."""
+
+    def setUp(self):
+        from fastapi import FastAPI
+        self.service = InMemorySessionService()
+        self.app = FastAPI()
+        self.app.state.session_service = self.service
+        self.request = type("Request", (), {
+            "app": self.app,
+            "cookies": {},
+            "headers": {},
+            "query_params": {},
+            "state": type("State", (), {})(),
+            "client": None,
+            "url": type("URL", (), {"scheme": "http"})(),
+        })()
+
+    def tearDown(self):
+        os.environ.pop("REQUIRE_AUTH", None)
+        os.environ.pop("ENVIRONMENT", None)
+        os.environ.pop("ADMIN_ACCOUNT_IDS", None)
+
+    def test_account_id_defaults_without_token_in_development(self):
+        default_account = os.getenv("DEFAULT_ACCOUNT_ID", "demo-account")
+        self.assertEqual(asyncio.run(get_account_id(self.request, None)), default_account)
+
+    def test_account_id_honors_scope_hint_without_token(self):
+        self.request.query_params = {"account_id": "acc-9"}
+        self.assertEqual(asyncio.run(get_account_id(self.request, None)), "acc-9")
+
+    def test_account_id_requires_token_when_auth_enforced(self):
+        from fastapi import HTTPException
+        os.environ["REQUIRE_AUTH"] = "true"
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(get_account_id(self.request, None))
+        self.assertEqual(ctx.exception.status_code, 401)
+
+    def test_admin_dependency_blocks_plain_trader(self):
+        from fastapi import HTTPException
+        principal = Principal("acc-1", "user-1", frozenset({"trader"}))
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(require_admin(self.request, principal))
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_admin_dependency_allows_allowlisted_account(self):
+        os.environ["ADMIN_ACCOUNT_IDS"] = "acc-x, acc-y"
+        principal = Principal("acc-y", "user-1", frozenset({"trader"}))
+        self.assertIs(asyncio.run(require_admin(self.request, principal)), principal)
+
+    def test_session_cookie_is_httponly_and_strict(self):
+        from fastapi import Response
+        response = Response()
+        set_session_cookie(response, {"access_token": "tok-1"}, self.request)
+        cookie_header = response.headers.get("set-cookie", "")
+        self.assertIn("session_token=tok-1", cookie_header)
+        self.assertIn("HttpOnly", cookie_header)
+        self.assertIn("samesite=strict", cookie_header.lower())
+        self.assertIn("Path=/", cookie_header)
+
+    def test_websocket_auth_rejects_unknown_token(self):
+        with self.assertRaises(AuthenticationError):
+            authenticate_websocket("not-a-real-token", self.service)
+
+    def test_optional_principal_returns_none_without_token(self):
+        self.assertIsNone(asyncio.run(get_current_principal_optional(self.request, self.service)))
 
 
 if __name__ == "__main__":

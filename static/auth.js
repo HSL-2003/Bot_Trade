@@ -1,91 +1,134 @@
-const form = document.querySelector('#auth-form');
-const msg = document.querySelector('#message');
+(function () {
+    'use strict';
 
-function say(t, error = false) {
-    msg.textContent = t;
-    msg.className = 'message ' + (error ? 'error' : '');
-}
+    var form = document.querySelector('#auth-form');
+    var msg = document.querySelector('#message');
+    var path = window.location.pathname;
+    var page = path === '/register' ? 'register' : 'login';
 
-form?.addEventListener('submit', async e => {
-    e.preventDefault();
-    try {
-        const email = document.querySelector('#email').value.trim().toLowerCase();
-        const password = document.querySelector('#password')?.value;
-        const endpoint = location.pathname === '/register' ? '/api/auth/register' : '/api/auth/login';
-        const response = await fetch(endpoint, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-        const result = await response.json();
-        if (!response.ok) return say(result.detail || 'Authentication failed.', true);
-        if (result.access_token) {
-            localStorage.setItem('access_token', result.access_token);
-            if (result.account_id) localStorage.setItem('account_id', result.account_id);
-            say('Authentication verified — warping to terminal…');
-            if (typeof window.triggerLoginTunnelTransition === 'function') {
-                window.triggerLoginTunnelTransition('/app?view=terminal');
-            } else {
-                setTimeout(() => {
-                    location.href = '/app?view=terminal';
-                }, 150);
-            }
-            return;
+    function say(t, error) {
+        if (!msg) return;
+        msg.textContent = t;
+        msg.className = 'message ' + (error ? 'error' : '');
+    }
+
+    // Forgot-password recovery entry point removed (route now 404s).
+
+    // Backend detail can be a string (HTTPException) or an array of validation
+    // errors (FastAPI 422) — normalise both into a readable single message.
+    function extractDetail(payload, fallback) {
+        var detail = payload && payload.detail;
+        if (typeof detail === 'string' && detail.trim()) return detail;
+        if (Array.isArray(detail)) {
+            var parts = detail.map(function (item) {
+                var field = Array.isArray(item.loc)
+                    ? item.loc.filter(function (p) { return p !== 'body'; }).join('.')
+                    : '';
+                return field ? (field + ': ' + (item.msg || '')).trim() : (item.msg || '');
+            }).filter(Boolean);
+            if (parts.length) return parts.join('; ');
         }
-        say(location.pathname.includes('register') ? 'Check your email to confirm your account.' : 'Signed in.');
-    } catch (error) {
-        say('Unable to connect to the authentication service.', true);
+        if (payload && typeof payload.message === 'string' && payload.message.trim()) {
+            return payload.message;
+        }
+        return fallback;
     }
-});
 
-async function continueWithEmail() {
-    const btn = document.querySelector('#magic-link-btn');
-    const email = document.querySelector('#email')?.value.trim().toLowerCase();
-    if (!email) return say('Enter your email address first.', true);
-    if (btn) btn.disabled = true;
-    try {
-        const response = await fetch('/api/auth/magic-link', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+    function postJSON(endpoint, body) {
+        return fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        }).then(function (response) {
+            // Some proxies return non-JSON error pages — never assume JSON.
+            return response.json().catch(function () { return null; }).then(function (payload) {
+                return { ok: response.ok, status: response.status, payload: payload };
+            });
         });
-        const result = await response.json();
-        if (!response.ok) return say(result.detail || 'Unable to send a sign-in link.', true);
-        say('Check your email for a secure sign-in link.');
-    } catch (error) {
-        say('Unable to reach the authentication service.', true);
-    } finally {
-        if (btn) btn.disabled = false;
     }
-}
 
-// Handle Social Logins (Google & GitHub)
-(function initSocialAuth() {
-    const googleBtn = document.querySelector('#google-auth-btn');
-    const githubBtn = document.querySelector('#github-auth-btn');
+    function completeSignIn() {
+        say('Authentication verified — warping to terminal…');
+        if (typeof window.triggerLoginTunnelTransition === 'function') {
+            window.triggerLoginTunnelTransition('/app?view=terminal');
+        } else {
+            setTimeout(function () {
+                window.location.href = '/app?view=terminal';
+            }, 150);
+        }
+    }
 
-    async function handleOAuth(provider, e) {
-        if (window.__SUPABASE_CONFIG__ && window.__SUPABASE_CONFIG__.url && window.__SUPABASE_CONFIG__.anonKey && window.supabase) {
+    if (form) {
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            var emailInput = document.querySelector('#email');
+            var passwordInput = document.querySelector('#password');
+            var email = emailInput ? emailInput.value.trim().toLowerCase() : '';
+            var submitBtn = form.querySelector('.submit-btn');
+            if (submitBtn) submitBtn.disabled = true;
+
             try {
-                e.preventDefault();
-                say(`Connecting to ${provider === 'google' ? 'Google' : 'GitHub'}…`);
-                const sb = window.supabase.createClient(window.__SUPABASE_CONFIG__.url, window.__SUPABASE_CONFIG__.anonKey);
-                const { error } = await sb.auth.signInWithOAuth({
-                    provider: provider,
-                    options: {
-                        redirectTo: `${window.location.origin}/auth/callback`
-                    }
+
+                say(page === 'register' ? 'Creating your workspace…' : 'Verifying credentials…');
+                var result = await postJSON(endpoint, {
+                    email: email,
+                    password: passwordInput ? passwordInput.value : undefined
                 });
-                if (error) {
-                    say(error.message || `Unable to start ${provider} login.`, true);
-                    setTimeout(() => {
-                        window.location.href = `/api/auth/${provider}`;
-                    }, 500);
+
+                if (!result.ok) {
+                    var fallback = result.status === 429
+                        ? 'Too many attempts — please wait a minute and try again.'
+                        : 'Authentication failed.';
+                    return say(extractDetail(result.payload, fallback), true);
                 }
-            } catch (err) {
-                window.location.href = `/api/auth/${provider}`;
+
+                if (result.payload && result.payload.access_token) {
+                    localStorage.setItem('access_token', result.payload.access_token);
+                    if (result.payload.account_id) {
+                        localStorage.setItem('account_id', result.payload.account_id);
+                    }
+                    completeSignIn();
+                    return;
+                }
+                say(page === 'register' ? 'Check your email to confirm your account.' : 'Signed in.');
+            } catch (error) {
+                say('Unable to connect to the authentication service.', true);
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
             }
-        }
+        });
     }
 
-    if (googleBtn) googleBtn.addEventListener('click', (e) => handleOAuth('google', e));
-    if (githubBtn) githubBtn.addEventListener('click', (e) => handleOAuth('github', e));
+
+    (function initSocialAuth() {
+        var googleBtn = document.querySelector('#google-auth-btn');
+        var githubBtn = document.querySelector('#github-auth-btn');
+
+        async function handleOAuth(provider, e) {
+            if (window.__SUPABASE_CONFIG__ && window.__SUPABASE_CONFIG__.url && window.__SUPABASE_CONFIG__.anonKey && window.supabase) {
+                try {
+                    e.preventDefault();
+                    say('Connecting to ' + (provider === 'google' ? 'Google' : 'GitHub') + '…');
+                    var sb = window.supabase.createClient(window.__SUPABASE_CONFIG__.url, window.__SUPABASE_CONFIG__.anonKey);
+                    var result = await sb.auth.signInWithOAuth({
+                        provider: provider,
+                        options: {
+                            redirectTo: window.location.origin + '/auth/callback'
+                        }
+                    });
+                    if (result && result.error) {
+                        say(result.error.message || ('Unable to start ' + provider + ' login.'), true);
+                        setTimeout(function () {
+                            window.location.href = '/api/auth/' + provider;
+                        }, 500);
+                    }
+                } catch (err) {
+                    window.location.href = '/api/auth/' + provider;
+                }
+            }
+        }
+
+        if (googleBtn) googleBtn.addEventListener('click', function (e) { handleOAuth('google', e); });
+        if (githubBtn) githubBtn.addEventListener('click', function (e) { handleOAuth('github', e); });
+    })();
 })();

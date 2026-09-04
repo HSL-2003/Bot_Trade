@@ -49,10 +49,10 @@
         .auth-card {
             width: min(440px, 100%) !important;
             margin: 0 auto !important;
-            padding: 32px 28px 26px !important;
+            padding: 36px 32px 32px !important;
             background: linear-gradient(180deg, rgba(8, 16, 32, 0.95) 0%, rgba(4, 9, 20, 0.98) 100%) !important;
             border: 1px solid rgba(56, 189, 248, 0.22) !important;
-            border-radius: 20px !important;
+            border-radius: 18px !important;
             box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(56, 189, 248, 0.08), 0 0 40px rgba(56, 189, 248, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
             position: relative !important;
             backdrop-filter: blur(24px) !important;
@@ -125,7 +125,7 @@
 
         /* Form Inputs */
         .input-group {
-            margin-bottom: 15px !important;
+            margin-bottom: 18px !important;
         }
         .input-group label {
             display: block !important;
@@ -204,7 +204,7 @@
             align-items: center !important;
             justify-content: center !important;
             gap: 8px !important;
-            margin-top: 6px !important;
+            margin-top: 12px !important;
             padding: 12px 20px !important;
             background: linear-gradient(135deg, #0284c7 0%, #38bdf8 55%, #00e5ff 100%) !important;
             color: #020814 !important;
@@ -217,6 +217,13 @@
             cursor: pointer !important;
             box-shadow: 0 4px 18px rgba(56, 189, 248, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
             transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            will-change: transform;
+        }
+        .submit-btn .submit-arrow {
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .submit-btn:hover .submit-arrow {
+            transform: translateX(4px);
         }
         .submit-btn:hover {
             transform: translateY(-2px) !important;
@@ -232,7 +239,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            margin: 18px 0 14px;
+            margin: 24px 0 18px;
             color: #64748b;
             font-size: 10.5px;
             letter-spacing: 1.5px;
@@ -250,8 +257,8 @@
         .social-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 16px;
+            gap: 12px;
+            margin-bottom: 18px;
         }
         .social-btn {
             display: flex;
@@ -299,7 +306,7 @@
         /* Switch link */
         .switch {
             margin: 0 !important;
-            padding-top: 14px !important;
+            padding-top: 18px !important;
             border-top: 1px solid rgba(56, 189, 248, 0.1) !important;
             text-align: center !important;
             color: #94a3b8 !important;
@@ -414,7 +421,7 @@
                     </div>
 
                     {% if password %}
-                    <div class="input-group">
+                    <div class="input-group" id="password-group">
                         <label for="password">Password</label>
                         <div class="input-wrapper">
                             <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -445,6 +452,7 @@
                         </svg>
                     </button>
                 </form>
+
 
                 <div class="auth-divider">
                     <span>OR CONTINUE WITH</span>
