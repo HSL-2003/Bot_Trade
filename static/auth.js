@@ -70,9 +70,11 @@
             try {
 
                 say(page === 'register' ? 'Creating your workspace…' : 'Verifying credentials…');
+                var endpoint = page === 'register' ? '/api/auth/register' : '/api/auth/login';
                 var result = await postJSON(endpoint, {
                     email: email,
-                    password: passwordInput ? passwordInput.value : undefined
+                    password: passwordInput ? passwordInput.value : undefined,
+                    portal: page === 'register' ? undefined : 'trader'
                 });
 
                 if (!result.ok) {

@@ -1,0 +1,1623 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Dashboard | Confluence Algo Bot</title>
+<style>
+:root{color-scheme:dark;--bg:#0a0a0a;--panel:#111111;--panel2:#0d0d0d;--line:#2a2a2a;--muted:#6b6b6b;--text:#eaeaea;--accent:#4AF626;--green:#eaeaea;--red:#FF2A2A;--amber:#8a8a8a}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font:14px "JetBrains Mono","IBM Plex Mono",Consolas,"Courier New",monospace;position:relative}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:100;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px)}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:101;opacity:.05;background-image:radial-gradient(rgba(255,255,255,.7) .5px,transparent .5px);background-size:3px 3px}
+main{display:flex;align-items:flex-start;width:100%;margin:0;padding:0}
+.content{flex:1;min-width:0;padding:16px 26px 48px}
+.sidebar{width:216px;flex:none;position:sticky;top:0;height:100vh;border-right:1px solid var(--line);background:var(--panel2);display:flex;flex-direction:column;padding:14px 0;transition:width .15s;overflow:hidden}
+.sidebar .sb-head{display:flex;align-items:center;gap:10px;padding:0 14px 14px;border-bottom:1px solid var(--line)}
+.sidebar .sb-brand{font-size:12px;font-weight:800;letter-spacing:.08em;white-space:nowrap}
+.sidebar .sb-brand .blocks{color:var(--red)}
+.sb-item{display:flex;align-items:center;gap:12px;padding:11px 16px;color:var(--muted);font:600 13px/1 var(--font-sans);letter-spacing:.02em;cursor:pointer;border:none;background:none;border-left:3px solid transparent;text-align:left;width:100%}
+.sb-item .ic{font-size:15px;width:20px;text-align:center;flex:none}
+.sb-item:hover{color:var(--text);background:#151515}
+.sb-item.active{color:var(--text);background:#161616;border-left-color:var(--red)}
+.sb-group{padding:14px 16px 6px;font-size:10px;letter-spacing:.18em;color:#4a4a4a;text-transform:uppercase;white-space:nowrap}
+.sidebar.collapsed{width:56px}
+.sidebar.collapsed .sb-brand,.sidebar.collapsed .sb-item span.lbl,.sidebar.collapsed .sb-group{display:none}
+.sidebar.collapsed .sb-item{justify-content:center;padding:11px 0}
+section.sec{display:none}
+section.sec.on{display:block}
+:root{--c-blue:#3b82f6;--c-red:#ef4444;--c-amber:#f59e0b;--c-green:#22c55e;--c-purple:#a855f7;--font-sans:"Segoe UI",-apple-system,"Helvetica Neue",Arial,sans-serif;--font-mono:"JetBrains Mono",Consolas,"Courier New",monospace}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font:14px/1.5 var(--font-sans);position:relative}
+.value,.eyebrow,.label,th,.brand-logo,.brand-sub,.num{font-family:var(--font-mono)}
+a{color:var(--text)}
+h1,h2,h3,p{margin:0}
+.eyebrow,.label{color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.top{display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap;border-bottom:2px solid var(--text);padding-bottom:14px}
+.top h1{font-size:clamp(1.4rem,3vw,2.2rem);letter-spacing:-.02em;font-weight:800;text-transform:uppercase}
+.top h1::before{content:"> ";color:var(--accent)}
+.nav{display:flex;gap:8px;flex-wrap:wrap}
+.button{color:var(--text);background:transparent;border:1px solid var(--line);padding:9px 14px;border-radius:0;text-decoration:none;font:inherit;cursor:pointer;letter-spacing:.05em}
+.button:hover{background:var(--text);color:var(--bg);border-color:var(--text)}
+.button.danger{color:var(--red);border-color:var(--red)}
+.button.danger:hover{background:var(--red);color:var(--bg)}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0;align-items:center}
+.toolbar input,.toolbar select{background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:9px 11px;border-radius:0;font:inherit;letter-spacing:.03em}
+.toolbar input:focus,.toolbar select:focus{outline:1px solid var(--accent);outline-offset:-1px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin:18px 0}
+.card{background:var(--panel);padding:14px 16px}
+.value{font-size:24px;font-weight:800;margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.positive{color:var(--text);text-shadow:0 0 6px rgba(234,234,234,.35)}
+.negative{color:var(--red);text-shadow:0 0 6px rgba(255,42,42,.3)}
+.amber{color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:0;padding:14px 16px;margin-top:16px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.panel-head h2{font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.panel-head h2::before{content:"[ ";color:var(--muted)}
+.panel-head h2::after{content:" ]";color:var(--muted)}
+.grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+.grid-2 .panel{margin-top:0}
+svg{width:100%;height:auto;display:block}
+.chart-svg{width:100%;height:160px;max-height:160px;display:block}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap;font-size:13px}
+th{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.15em}
+tbody tr:hover{background:#181818}
+.table-wrap{overflow:auto;max-height:520px}
+.pill{display:inline-block;padding:1px 7px;border-radius:0;font-size:11px;font-weight:700;border:1px solid var(--line);letter-spacing:.05em}
+.pill.active{color:var(--text);border-color:var(--text)}
+.pill.blocked{color:var(--red);border-color:var(--red)}
+.pill.suspended{color:var(--muted);border-color:var(--muted)}
+.pill.soft{color:var(--muted);border-color:var(--muted);border-style:dashed}
+.pill.hard{color:var(--red);border-color:var(--red)}
+.pill.unlocked{color:var(--muted);border-color:var(--line)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal.open{display:flex}
+.modal-box{position:relative;background:var(--panel2);border:1px solid var(--text);border-radius:0;padding:22px 24px;width:min(880px,96vw);max-height:92vh;overflow:auto;box-shadow:0 24px 48px -12px rgba(0,0,0,.9)}
+.modal-box h3{margin:0;font-size:13px;letter-spacing:.1em;text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.action-loading-overlay{position:absolute;inset:0;background:rgba(6,6,6,.88);backdrop-filter:blur(4px);z-index:60;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;border:1px solid var(--line)}
+.action-loading-overlay.active{display:flex}
+.cyber-spinner{width:38px;height:38px;border:3px solid rgba(255,255,255,.08);border-top-color:var(--c-accent);border-right-color:#38bdf8;border-radius:50%;animation:cyber-spin .65s linear infinite}
+@keyframes cyber-spin{to{transform:rotate(360deg)}}
+.loading-text{font-family:var(--font-mono);font-size:11px;letter-spacing:.15em;color:var(--c-accent);text-transform:uppercase;font-weight:700;animation:pulse-txt 1.2s ease-in-out infinite}
+@keyframes pulse-txt{0%,100%{opacity:1}50%{opacity:.45}}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.row .button{padding:6px 9px;font-size:12px}
+
+/* Detail Modal Custom Styles */
+.detail-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin:14px 0}
+.detail-kpi-card{background:var(--panel);padding:12px 14px}
+.detail-kpi-sub{font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:.08em;font-family:var(--font-mono)}
+.detail-specs-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin:14px 0}
+.spec-col{background:var(--panel);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.spec-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;gap:12px}
+.spec-lbl{color:var(--muted);font-size:10px;letter-spacing:.1em;font-weight:700}
+.spec-val{color:var(--text);word-break:break-all;font-size:12px}
+.detail-actions-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:12px 14px;background:#131313;border:1px solid var(--line);margin:14px 0}
+.detail-trades-table{width:100%;font-size:12px}
+.detail-trades-table th{background:#161616}
+.empty-trades-notice{padding:20px;text-align:center;color:var(--muted);font-size:11px;font-family:var(--font-mono);background:#101010;border:1px dashed var(--line);margin-top:8px}
+.detail-raw-toggle{margin-top:14px;font-size:11px;color:var(--muted);cursor:pointer}
+.detail-raw-toggle summary{padding:6px 0;outline:none;user-select:none}
+.raw-pre{background:#080808;padding:12px;border:1px solid var(--line);margin-top:8px;max-height:180px;overflow:auto;font:11px var(--font-mono);color:#999}
+
+/* Split-Screen Login (Cline / Minimalist Aesthetic) */
+.login-p{position:fixed;inset:0;display:flex;z-index:60;background:#050505;overflow:hidden;width:100vw;height:100vh}
+.login-stage{width:50%;height:100%;position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:40px 48px;border-right:1px solid #1c1c1c;background:#060606;overflow:hidden;user-select:none}
+#particleCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:all}
+.stage-brand{position:relative;z-index:10;display:flex;align-items:center;gap:10px}
+.stage-logo-icon{color:var(--red);font-size:22px;letter-spacing:-2px}
+.stage-logo-text{font-size:16px;font-weight:800;letter-spacing:.12em;color:#fff;font-family:var(--font-mono)}
+.stage-footer-note{position:relative;z-index:10;font-size:11px;letter-spacing:.18em;color:#444;font-family:var(--font-mono)}
+
+.login-auth-pane{width:50%;height:100%;display:flex;align-items:center;justify-content:center;padding:40px 24px;background:#080808;position:relative}
+.auth-wrap{width:min(400px,100%);display:flex;flex-direction:column;align-items:stretch}
+.auth-header-top{text-align:center;margin-bottom:24px}
+.auth-avatar{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;background:#141414;border:1px solid #222;border-radius:12px;margin-bottom:14px;font-size:18px}
+.auth-title{font-size:22px;font-weight:700;letter-spacing:-.02em;color:#fff;margin:0;font-family:var(--font-sans)}
+
+.auth-card{background:#141414;border:1px solid #242424;border-radius:16px;padding:30px 26px;box-shadow:0 24px 48px -12px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.03);display:flex;flex-direction:column;align-items:stretch}
+.auth-form{display:flex;flex-direction:column;gap:16px}
+.auth-field{display:flex;flex-direction:column;gap:6px}
+.auth-label{font-size:12px;font-weight:600;color:#ddd;letter-spacing:.02em}
+.auth-input{background:#0a0a0a;border:1px solid #262626;color:#fff;padding:11px 14px;border-radius:8px;font:13.5px var(--font-sans);outline:none;transition:border-color .15s,box-shadow .15s;width:100%}
+.auth-input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.18)}
+.auth-input:-webkit-autofill{-webkit-text-fill-color:#fff;-webkit-box-shadow:0 0 0 1000px #0a0a0a inset;transition:background-color 99999s ease-in-out 0s}
+.auth-submit-btn{margin-top:4px;width:100%;height:42px;background:#fff;color:#000;border:none;border-radius:8px;font:700 13.5px/1 var(--font-sans);cursor:pointer;transition:all .15s;display:flex;justify-content:center;align-items:center;letter-spacing:.02em}
+.auth-submit-btn:hover{background:#eaeaea;transform:translateY(-1px);box-shadow:0 6px 20px rgba(255,255,255,.12)}
+.auth-submit-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+
+.auth-divider{display:flex;align-items:center;margin:18px 0;text-align:center;color:#444}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;border-bottom:1px solid #222}
+.auth-divider span{padding:0 10px;font-size:10.5px;letter-spacing:.1em;color:#555;font-family:var(--font-mono)}
+
+.auth-google-btn{width:100%;height:42px;background:#181818;color:#eee;border:1px solid #282828;border-radius:8px;font:600 13px/1 var(--font-sans);cursor:pointer;transition:all .15s;display:flex;justify-content:center;align-items:center;gap:10px}
+.auth-google-btn:hover{background:#202020;border-color:#383838;color:#fff}
+.auth-google-btn:active{transform:scale(.99)}
+.auth-google-btn svg,.auth-google-btn .google-icon,svg.google-icon{width:18px !important;height:18px !important;min-width:18px !important;max-width:18px !important;min-height:18px !important;max-height:18px !important;display:inline-block !important;vertical-align:middle;flex-shrink:0}
+
+.auth-footer-legal{margin-top:22px;text-align:center;font-size:11px;color:#555;letter-spacing:.04em}
+
+.err{color:var(--red);font-size:12px;min-height:0;letter-spacing:.03em;margin-top:4px;font-weight:600}
+.err:empty{display:none}
+.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-5px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
+
+.top.sticky{position:sticky;top:0;z-index:20;background:var(--bg);margin:0 0 4px;padding:16px 0 14px}
+.live-dot{display:inline-block;width:7px;height:7px;background:var(--red);border-radius:50%;margin-right:6px;animation:pulse 3s infinite;vertical-align:1px}
+.sparkbar{display:inline-block;vertical-align:middle;width:56px;height:4px;background:#1d1d1d;margin-left:8px;position:relative;overflow:hidden}
+.sparkbar i{position:absolute;left:0;top:0;bottom:0;background:var(--text)}
+.sparkbar.neg i{background:var(--red)}
+tr.row-blocked td{background:repeating-linear-gradient(45deg,transparent,transparent 7px,rgba(255,59,48,.05) 7px,rgba(255,59,48,.05) 14px)}
+.menu-wrap{position:relative;display:inline-block}
+.menu-list{display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--panel);border:1px solid var(--text);min-width:150px;z-index:30}
+.menu-wrap.open .menu-list{display:block}
+.menu-list button{display:block;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line);color:var(--text);font:inherit;font-size:12px;padding:8px 12px;cursor:pointer;letter-spacing:.05em}
+.menu-list button:hover{background:var(--text);color:var(--bg)}
+.menu-list button.danger{color:var(--red)}
+.menu-list button.danger:hover{background:var(--red);color:var(--bg)}
+.muted{color:var(--muted)}
+#utcClock{font-size:11px;letter-spacing:.1em;color:var(--muted)}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,1fr)}.detail-kpis{grid-template-columns:repeat(2,1fr)}.detail-specs-grid{grid-template-columns:1fr}.login-p{flex-direction:column}.login-stage{width:100%;height:32%;border-right:none;border-bottom:1px solid #1c1c1c;padding:24px}.login-auth-pane{width:100%;height:68%;padding:24px}}
+</style>
+<main id="app" style="display:none">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-head">
+      <button class="sb-item" style="width:auto;padding:6px 8px;border-left:none" onclick="document.getElementById('sidebar').classList.toggle('collapsed')" title="Thu gọn"><span class="ic">≡</span><span class="lbl sb-brand"><span class="blocks">▮▮</span> BOT_TRADE</span></button>
+    </div>
+    <div class="sb-group">Quản lý</div>
+    <button class="sb-item active" data-sec="dashboard" onclick="switchSec('dashboard',this)"><span class="ic">⌂</span><span class="lbl">Tổng quan</span></button>
+    <button class="sb-item" data-sec="accounts" onclick="switchSec('accounts',this)"><span class="ic">👥</span><span class="lbl">Tài khoản</span></button>
+    <button class="sb-item" data-sec="bot-types" onclick="switchSec('bot-types',this)"><span class="ic">⚙</span><span class="lbl">Bot Types</span></button>
+    <button class="sb-item" data-sec="bots" onclick="switchSec('bots',this)"><span class="ic">🤖</span><span class="lbl">Bot MT5</span></button>
+    <div class="sb-group">Hoạt động</div>
+    <button class="sb-item" data-sec="trades" onclick="switchSec('trades',this)"><span class="ic">📋</span><span class="lbl">Lệnh giao dịch</span></button>
+    <button class="sb-item" data-sec="stats" onclick="switchSec('stats',this)"><span class="ic">📊</span><span class="lbl">Thống kê</span></button>
+    <div class="sb-group">Khác</div>
+    <a class="sb-item" href="/dashboard"><span class="ic">👤</span><span class="lbl">User Dashboard</span></a>
+    <a class="sb-item" href="/profile"><span class="ic">⚙</span><span class="lbl">Profile</span></a>
+  </aside>
+  <div class="content">
+  <header class="top sticky">
+    <div>
+      <div class="eyebrow">ADMIN@BOT_TRADE:~$ ./console</div>
+      <h1 id="secTitle">Tổng quan</h1>
+      <p class="muted" id="secDesc">// Tổng hợp &amp; quản lý các tài khoản đã đăng ký dùng bot</p>
+    </div>
+    <nav class="nav">
+      <span class="muted" style="font-size:11px;letter-spacing:.15em"><span class="live-dot"></span>LIVE · POLL 3s</span>
+      <span id="utcClock"></span>
+      <button class="button" onclick="refreshAll()">[ REFRESH ]</button>
+      <button class="button danger" id="logout">[ LOG_OUT ]</button>
+    </nav>
+  </header>
+
+  <section class="sec on" id="sec-dashboard">
+  <section class="cards" id="kpis"></section>
+
+  <section class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><h2>Lợi nhuận theo ngày</h2><span class="muted">Toàn hệ thống</span></div>
+      <svg id="chartDaily" class="chart-svg" viewBox="0 0 600 160" role="img"></svg>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Top tài khoản theo PnL</h2><span class="muted">Top 10</span></div>
+      <svg id="chartTop" class="chart-svg" viewBox="0 0 600 160" role="img"></svg>
+    </div>
+  </section>
+  </section>
+
+  <section class="sec" id="sec-accounts">
+  <div class="toolbar">
+    <input id="search" placeholder="Tìm account / user…" oninput="loadAccounts()">
+    <select id="fStatus" onchange="loadAccounts()">
+      <option value="">Tất cả trạng thái</option>
+      <option value="active">Active</option>
+      <option value="blocked">Blocked</option>
+      <option value="suspended">Suspended</option>
+    </select>
+    <select id="fLock" onchange="loadAccounts()">
+      <option value="">Tất cả lock</option>
+      <option value="unlocked">Unlocked</option>
+      <option value="soft_locked">Soft lock</option>
+      <option value="hard_locked">Hard lock</option>
+    </select>
+  </div>
+  <section class="panel">
+    <div class="panel-head"><h2>Tài khoản đã đăng ký</h2><span class="muted" id="listInfo"></span></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Account</th><th>User</th><th>Roles</th><th>Status</th><th>Lock</th>
+            <th>Trades</th><th>Win rate</th><th>PnL</th><th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="accRows"></tbody>
+      </table>
+    </div>
+  </section>
+  </section>
+
+  <section class="sec" id="sec-bot-types">
+  <div class="toolbar">
+    <button class="button" onclick="showCreateBotTypeModal()">[ + Tạo Bot Type ]</button>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+      <input type="checkbox" id="showInactive" onchange="loadBotTypes()" style="width:14px;height:14px">
+      <span>Hiện cả bot types đã vô hiệu hóa</span>
+    </label>
+  </div>
+  <section class="panel">
+    <div class="panel-head"><h2>Bot Types / Loại Bot</h2><span class="muted" id="botTypeInfo">Quản lý template cấu hình bot</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Risk Level</th><th>Risk %</th><th>Max Spread</th>
+            <th>Max Daily Loss</th><th>Max Trades</th><th>Accounts</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="botTypeRows"></tbody>
+      </table>
+    </div>
+  </section>
+  </section>
+
+  <section class="sec" id="sec-bots">
+    <section class="panel">
+      <div class="panel-head"><h2>Nạp bot vào tài khoản MT5</h2><span class="muted" id="botInfo">Deploy / dừng bot cho từng tài khoản</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Account</th><th>User</th><th>Status</th><th>Lock</th><th>Lệnh đóng</th><th>PnL</th><th>Bot</th></tr></thead>
+          <tbody id="botRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+
+  <section class="sec" id="sec-trades">
+    <section class="cards" id="tradeKpis"></section>
+    <section class="panel">
+      <div class="panel-head"><h2>Lịch sử đi lệnh của bot</h2><span class="muted" id="tradeInfo"></span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Time</th><th>Account</th><th>Symbol</th><th>Side</th><th>Volume</th><th>Entry</th><th>Close</th><th>Profit</th><th>Status</th></tr></thead>
+          <tbody id="tradeRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+
+  <section class="sec" id="sec-stats">
+    <section class="cards" id="statKpis"></section>
+    <section class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><h2>Biến động PnL &amp; lũy kế</h2><span class="muted"><span style="color:var(--c-blue)">■</span> PnL/ngày&nbsp;&nbsp;<span style="color:var(--c-amber)">■</span> Lũy kế</span></div>
+        <svg id="chartRevenue" class="chart-svg" viewBox="0 0 600 160" role="img"></svg>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Trạng thái lệnh</h2><span class="muted">Theo số lượng</span></div>
+        <svg id="chartOrders" class="chart-svg" viewBox="0 0 600 160" role="img"></svg>
+      </div>
+    </section>
+    <section class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><h2>Thắng / Thua</h2><span class="muted">Lệnh đã đóng</span></div>
+        <svg id="chartWinLoss" class="chart-svg" viewBox="0 0 600 160" role="img"></svg>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Phân bổ theo symbol</h2><span class="muted">Volume &amp; PnL</span></div>
+        <svg id="chartSymbol" class="chart-svg" viewBox="0 0 600 160" role="img"></svg>
+      </div>
+    </section>
+  </section>
+  </div>
+</main>
+
+<!-- Split-Screen Login (Left: Particle Visual Stage, Right: Minimalist Auth Card) -->
+<div class="login-p" id="gate">
+  <!-- Left Half: Visual Stage & Brand -->
+  <div class="login-stage" id="loginStage">
+    <canvas id="particleCanvas"></canvas>
+    <div class="stage-brand">
+      <span class="stage-logo-icon">▮▮</span>
+      <span class="stage-logo-text">BOT_TRADE</span>
+    </div>
+    <div class="stage-footer-note">CONFLUENCE ALGO ENGINE // V2.6</div>
+  </div>
+
+  <!-- Right Half: Minimalist Clean Auth Form -->
+  <div class="login-auth-pane">
+    <div class="auth-wrap">
+      <div class="auth-header-top">
+        <div class="auth-avatar"><span class="blocks" style="color:var(--red)">▮▮</span></div>
+        <h2 class="auth-title">Chào mừng đến với Bot Trade</h2>
+      </div>
+
+      <div class="auth-card">
+        <form id="loginForm" class="auth-form">
+          <div class="auth-field">
+            <label class="auth-label" for="email">Email</label>
+            <input type="email" id="email" class="auth-input" placeholder="Địa chỉ email của bạn" autocomplete="username" required>
+          </div>
+
+          <div class="auth-field">
+            <label class="auth-label" for="password">Mật khẩu</label>
+            <input type="password" id="password" class="auth-input" placeholder="••••••••••••" autocomplete="current-password" required>
+          </div>
+
+          <div class="err" id="gateMsg"></div>
+
+          <button class="button auth-submit-btn" id="loginBtn" type="submit">Đăng nhập</button>
+          <p class="muted" id="gateStatus" style="margin-top:8px;font-size:11px;text-align:center"></p>
+        </form>
+
+        <div class="auth-divider"><span>HOẶC</span></div>
+
+        <button type="button" class="auth-google-btn" id="googleBtn" onclick="loginWithGoogle()">
+          <svg class="google-icon" viewBox="0 0 24 24" width="18" height="18">
+            <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
+            <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"/>
+            <path fill="#FBBC05" d="M5.6 14.8c-.3-.8-.4-1.8-.4-2.8s.2-2 .4-2.8L1.9 6.3C.7 8.7 0 11.3 0 14s.7 5.3 1.9 7.7l3.7-2.9z"/>
+            <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.2L1.9 16c1.8 3.7 5.6 7 10.1 7z"/>
+          </svg>
+          <span>Tiếp tục với Google</span>
+        </button>
+      </div>
+
+      <div class="auth-footer-legal">
+        <span>Bảo mật hệ thống · Phân quyền Quản trị viên</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail modal -->
+<div class="modal" id="detailModal">
+  <div class="modal-box">
+    <div class="action-loading-overlay" id="detailLoading">
+      <div class="cyber-spinner"></div>
+      <div class="loading-text" id="detailLoadingText">[ ⟳ ĐANG ÁP DỤNG TRẠNG THÁI... VUI LÒNG CHỜ ]</div>
+    </div>
+    <div class="panel-head" style="margin-bottom:0">
+      <h3 id="detailTitle">[ CHI TIẾT TÀI KHOẢN ]</h3>
+      <button class="button danger" onclick="closeModal()">CLOSE [ESC]</button>
+    </div>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- Roles modal -->
+<div class="modal" id="rolesModal">
+  <div class="modal-box">
+    <div class="panel-head"><h3>Chỉnh sửa vai trò</h3>
+      <button class="button danger" onclick="closeModal('rolesModal')">CLOSE</button></div>
+    <p class="muted" id="rolesUser"></p>
+    <div class="row" style="margin:14px 0" id="rolesCheck"></div>
+    <div class="err" id="rolesMsg"></div>
+    <div class="row"><button class="button" onclick="saveRoles()">Lưu vai trò</button></div>
+  </div>
+</div>
+<footer style="padding:24px 0;color:var(--muted);font-size:11px;text-align:center;letter-spacing:.12em;text-transform:uppercase">ADMIN CONSOLE — MT5 CONFLUENCE ALGO BOT // REV 2.6 // POLL 3s</footer>
+<script>
+const money = n => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esc = v => { const d = document.createElement('div'); d.textContent = v ?? ''; return d.innerHTML; };
+const $ = id => document.getElementById(id);
+let token = localStorage.getItem('access_token');
+// Nếu đã có token: ẩn gate NGAY để không flash trang login khi reload
+if (token) { const g = $('gate'); if (g) g.style.display = 'none'; }
+const auth = () => ({ 'Authorization': `Bearer ${token}` });
+function showGate(s) { $('app').style.display = 'none'; $('gate').style.display = 'flex'; $('gateStatus').textContent = s || ''; }
+
+async function checkAdmin() {
+  if (!token) { showGate(''); return; }
+  try {
+    const r = await fetch('/api/auth/me', { headers: auth() });
+    if (!r.ok) throw 0;
+    const me = await r.json();
+    if (!Array.isArray(me.roles) || me.roles.indexOf('admin') === -1) {
+      localStorage.removeItem('access_token');
+      token = null;
+      showGate('Tài khoản này không có quyền Admin.');
+      return;
+    }
+    $('gate').style.display = 'none';
+    $('app').style.display = 'flex';
+    refreshAll();
+  } catch (e) {
+    localStorage.removeItem('access_token');
+    token = null;
+    showGate('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+  }
+}
+
+function loginWithGoogle() {
+  localStorage.setItem('oauth_return_to', '/admin');
+  window.location.href = '/api/auth/google';
+}
+
+$('loginForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  $('gateMsg').textContent = '';
+  const btn = $('loginBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Đang xác thực...'; }
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: $('email').value, password: $('password').value })
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      $('gateMsg').textContent = '>> ' + (errData.detail || 'Email hoặc mật khẩu không chính xác');
+      const f = $('loginForm'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake');
+      if (btn) { btn.disabled = false; btn.textContent = 'Đăng nhập'; }
+      return;
+    }
+    const d = await res.json();
+    const roles = Array.isArray(d.roles) ? d.roles : [];
+    
+    // Strict admin role verification: non-admin accounts are blocked immediately
+    if (roles.indexOf('admin') === -1) {
+      $('gateMsg').textContent = '>> Tài khoản không có quyền Quản trị viên';
+      const f = $('loginForm'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake');
+      if (btn) { btn.disabled = false; btn.textContent = 'Đăng nhập'; }
+      return;
+    }
+    
+    // Admin authorized: transition UI immediately
+    localStorage.setItem('access_token', d.access_token);
+    token = d.access_token;
+    $('gate').style.display = 'none';
+    $('app').style.display = 'flex';
+    if (btn) { btn.disabled = false; btn.textContent = 'Đăng nhập'; }
+    refreshAll();
+  } catch (e) {
+    $('gateMsg').textContent = '>> Lỗi kết nối: ' + (e.message || 'Thất bại');
+    if (btn) { btn.disabled = false; btn.textContent = 'Đăng nhập'; }
+  }
+});
+$('logout').onclick = () => { localStorage.removeItem('access_token'); location.href = '/admin'; };
+
+async function api(path, opts = {}) {
+  const isPoll = path.includes('/api/admin/overview');
+  if (!isPoll) console.log(`[ADMIN API] >> ${opts.method || 'GET'} ${path}`, opts.body ? JSON.parse(opts.body) : '');
+  const h = { ...auth(), ...(opts.headers || {}) };
+  if (opts.body) h['Content-Type'] = 'application/json';
+  const res = await fetch(path, { ...opts, headers: h });
+  if (!isPoll) console.log(`[ADMIN API] << Status: ${res.status} for ${path}`);
+  if (res.status === 401 || res.status === 403) {
+    console.warn('[ADMIN API] Session expired or unauthorized');
+    localStorage.removeItem('access_token');
+    location.href = '/admin';
+  }
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    const msg = errBody.detail || res.statusText;
+    console.error(`[ADMIN API ERROR] ${path}:`, msg);
+    throw new Error(msg);
+  }
+  const json = await res.json();
+  if (!isPoll) console.log(`[ADMIN API DATA] ${path}:`, json);
+  return json;
+}
+
+function renderKPIs(s) {
+  const cards = [
+    ['Tài khoản', s.total_accounts], ['User', s.total_users], ['Active', s.active, 'positive'],
+    ['Blocked', s.blocked, 'negative'], ['Suspended', s.suspended, 'amber'], ['Đang lock', s.locked, 'amber'],
+    ['Lệnh đóng', s.total_trades], ['Win rate', s.win_rate + '%'], ['Tổng PnL', money(s.total_profit), s.total_profit < 0 ? 'negative' : 'positive'],
+    ['PnL hôm nay', money(s.today_profit), s.today_profit < 0 ? 'negative' : 'positive'], ['Volume', money(s.total_volume)]
+  ];
+  $('kpis').innerHTML = cards.map(c => `<div class="card"><div class="label">${c[0]}</div><div class="value ${c[2] || ''}">${c[1]}</div></div>`).join('');
+}
+
+function lineChart(el, points) {
+  const svg = $(el); if (!svg) return;
+  if (!points || !points.length) {
+    svg.innerHTML = '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#555" font-size="11" font-family="monospace">NO DATA // 0 ROWS</text>';
+    return;
+  }
+  const W = 600, H = 160, padL = 52, padR = 16, padT = 16, padB = 24;
+  const vals = points.map(p => p.profit || 0);
+  let max = Math.max(...vals, 0), min = Math.min(...vals, 0);
+  if (max === min) { max += 1; min -= 1; }
+  const span = max - min;
+  const x = i => padL + (i * (W - padL - padR) / Math.max(points.length - 1, 1));
+  const y = v => padT + (H - padT - padB) - ((v - min) * (H - padT - padB) / span);
+  
+  let grid = '';
+  for (let g = 0; g <= 3; g++) {
+    const v = min + (span * g / 3);
+    const yPos = y(v);
+    grid += `<line x1="${padL}" y1="${yPos.toFixed(1)}" x2="${W - padR}" y2="${yPos.toFixed(1)}" stroke="#1e1e1e" stroke-dasharray="2,2"/>
+      <text x="${padL - 6}" y="${(yPos + 3).toFixed(1)}" fill="#666" font-size="9" text-anchor="end" font-family="monospace">${money(v)}</text>`;
+  }
+  if (min <= 0 && max >= 0) {
+    const y0 = y(0);
+    grid += `<line x1="${padL}" y1="${y0.toFixed(1)}" x2="${W - padR}" y2="${y0.toFixed(1)}" stroke="#333" stroke-width="1"/>`;
+  }
+  
+  const path = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.profit || 0).toFixed(1)}`).join(' ');
+  const area = path + ` L${x(points.length - 1).toFixed(1)},${H - padB} L${x(0).toFixed(1)},${H - padB} Z`;
+  
+  const step = Math.max(Math.ceil(points.length / 6), 1);
+  const labels = points.filter((_, i) => i % step === 0 || i === points.length - 1).map(p => {
+    const idx = points.indexOf(p);
+    return `<text x="${x(idx).toFixed(1)}" y="${H - 6}" fill="#666" font-size="9" font-family="monospace" text-anchor="middle">${esc(p.date || '')}</text>`;
+  }).join('');
+  
+  let dots = '';
+  if (points.length <= 25) {
+    dots = points.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.profit || 0).toFixed(1)}" r="2.5" fill="#4AF626" stroke="#111" stroke-width="1"/>`).join('');
+  }
+  
+  svg.innerHTML = `<defs>
+    <linearGradient id="gradDaily" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4AF626" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#4AF626" stop-opacity="0.0"/>
+    </linearGradient>
+  </defs>
+  ${grid}
+  <path d="${area}" fill="url(#gradDaily)"/>
+  <path d="${path}" fill="none" stroke="#4AF626" stroke-width="1.8" stroke-linejoin="round"/>
+  ${dots}
+  ${labels}`;
+}
+
+function barChart(el, items, labelKey, nameKey) {
+  const svg = $(el); if (!svg) return;
+  if (!items || !items.length) {
+    svg.innerHTML = '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#555" font-size="11" font-family="monospace">NO DATA // 0 ROWS</text>';
+    return;
+  }
+  const W = 600, H = 160, padL = 52, padR = 16, padT = 20, padB = 24;
+  const vals = items.map(i => Math.abs(i[labelKey] || 0));
+  const max = Math.max(...vals, 0.001);
+  const totalW = W - padL - padR;
+  const step = totalW / items.length;
+  const bw = Math.min(32, Math.max(8, step * 0.45));
+  
+  let grid = '';
+  for (let g = 0; g <= 2; g++) {
+    const v = max * (1 - g / 2);
+    const yPos = padT + (H - padT - padB) * (g / 2);
+    grid += `<line x1="${padL}" y1="${yPos.toFixed(1)}" x2="${W - padR}" y2="${yPos.toFixed(1)}" stroke="#1e1e1e" stroke-dasharray="2,2"/>
+      <text x="${padL - 6}" y="${(yPos + 3).toFixed(1)}" fill="#666" font-size="9" text-anchor="end" font-family="monospace">${money(v)}</text>`;
+  }
+  
+  const bars = items.map((it, i) => {
+    const val = it[labelKey] || 0;
+    const h = Math.max(3, (Math.abs(val) / max) * (H - padT - padB));
+    const x = padL + i * step + (step - bw) / 2;
+    const yy = H - padB - h;
+    const col = val >= 0 ? '#4AF626' : '#FF2A2A';
+    return `<rect x="${x.toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${col}" rx="2"/>
+      <text x="${(x + bw / 2).toFixed(1)}" y="${(yy - 4).toFixed(1)}" font-size="9" fill="#eaeaea" font-family="monospace" text-anchor="middle">${val >= 1000 ? (val/1000).toFixed(1)+'k' : (typeof val === 'number' ? val.toFixed(1) : val)}</text>
+      <text x="${(x + bw / 2).toFixed(1)}" y="${H - 7}" font-size="9" fill="#888" font-family="monospace" text-anchor="middle">${esc(String(it[nameKey] || '').slice(0, 8))}</text>`;
+  }).join('');
+  
+  svg.innerHTML = grid + bars;
+}
+
+function donut(dist, el = 'chartWinLoss', colors = ['#22c55e', '#ef4444', '#6b6b6b', '#3b82f6']) {
+  const svg = $(el); if (!svg) return;
+  const total = dist.reduce((a, b) => a + (b.value || 0), 0);
+  if (!total) {
+    svg.innerHTML = '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#555" font-size="11" font-family="monospace">NO DATA // 0 ROWS</text>';
+    return;
+  }
+  const W = 600, H = 160, cx = 130, cy = 80, outerR = 52, innerR = 34;
+  let acc = 0;
+  const winItem = dist.find(d => String(d.label).toLowerCase().includes('thắng') || String(d.label).toLowerCase().includes('win'));
+  const winRate = winItem ? Math.round((winItem.value / total) * 100) : Math.round(((dist[0]?.value || 0) / total) * 100);
+  
+  let segs = '';
+  dist.forEach((d, i) => {
+    const val = d.value || 0;
+    if (!val) return;
+    const slice = val / total;
+    if (slice >= 0.999) {
+      segs += `<circle cx="${cx}" cy="${cy}" r="${outerR}" fill="none" stroke="${colors[i % colors.length]}" stroke-width="${outerR - innerR}"/>`;
+      return;
+    }
+    const start = acc * 2 * Math.PI - Math.PI / 2;
+    acc += slice;
+    const end = acc * 2 * Math.PI - Math.PI / 2;
+    const large = (end - start) > Math.PI ? 1 : 0;
+    
+    const x1O = cx + outerR * Math.cos(start), y1O = cy + outerR * Math.sin(start);
+    const x2O = cx + outerR * Math.cos(end), y2O = cy + outerR * Math.sin(end);
+    const x1I = cx + innerR * Math.cos(end), y1I = cy + innerR * Math.sin(end);
+    const x2I = cx + innerR * Math.cos(start), y2I = cy + innerR * Math.sin(start);
+    
+    const dPath = `M${x1O.toFixed(1)},${y1O.toFixed(1)} A${outerR},${outerR} 0 ${large} 1 ${x2O.toFixed(1)},${y2O.toFixed(1)} L${x1I.toFixed(1)},${y1I.toFixed(1)} A${innerR},${innerR} 0 ${large} 0 ${x2I.toFixed(1)},${y2I.toFixed(1)} Z`;
+    segs += `<path d="${dPath}" fill="${colors[i % colors.length]}" stroke="#111" stroke-width="1"/>`;
+  });
+  
+  const centerInfo = `<text x="${cx}" y="${cy - 2}" font-size="14" font-weight="800" fill="#eaeaea" font-family="monospace" text-anchor="middle">${winRate}%</text>
+    <text x="${cx}" y="${cy + 12}" font-size="8" fill="#888" font-family="monospace" text-anchor="middle">WIN RATE</text>`;
+    
+  const legX = 240;
+  const legend = dist.map((d, i) => {
+    const yPos = 46 + i * 36;
+    const pct = total ? Math.round(((d.value || 0) / total) * 100) : 0;
+    const col = colors[i % colors.length];
+    return `<g transform="translate(${legX}, ${yPos})">
+      <rect x="0" y="0" width="8" height="8" fill="${col}" rx="1"/>
+      <text x="16" y="8" font-size="11" fill="#eaeaea" font-family="monospace" font-weight="600">${esc(d.label)}: ${d.value || 0}</text>
+      <text x="160" y="8" font-size="10" fill="#888" font-family="monospace">${pct}%</text>
+      <rect x="16" y="14" width="160" height="3" fill="#222" rx="1.5"/>
+      <rect x="16" y="14" width="${(pct * 1.6).toFixed(1)}" height="3" fill="${col}" rx="1.5"/>
+    </g>`;
+  }).join('');
+  
+  svg.innerHTML = segs + centerInfo + legend;
+}
+let pollDelay = 15000, pollBusy = false, pollTimer = null;
+
+let lastOverview = null, activeSec = 'dashboard';
+
+function switchSec(name, btn) {
+  activeSec = name;
+  document.querySelectorAll('.sb-item[data-sec]').forEach(b => b.classList.toggle('active', b.dataset.sec === name));
+  document.querySelectorAll('section.sec').forEach(s => s.classList.toggle('on', s.id === 'sec-' + name));
+  const titles = {
+    dashboard: ['Tổng quan', '// Tổng hợp & quản lý các tài khoản đã đăng ký dùng bot'],
+    accounts: ['Tài khoản', '// Quản lý, block/unlock, phân quyền người dùng'],
+    'bot-types': ['Bot Types', '// Quản lý template cấu hình bot (risk, spread, trailing stop, etc.)'],
+    bots: ['Bot MT5', '// Nạp (deploy) hoặc dừng bot trên tài khoản MT5 của người dùng'],
+    trades: ['Lệnh giao dịch', '// Toàn bộ hoạt động đi lệnh của bot trên mọi tài khoản'],
+    stats: ['Thống kê', '// Số liệu & biểu đồ tổng hợp theo thời gian thực']
+  };
+  if (titles[name]) { $('secTitle').textContent = titles[name][0]; $('secDesc').textContent = titles[name][1]; }
+  if (name === 'bot-types') loadBotTypes();
+  if (name === 'trades') loadTrades();
+  if (name === 'stats') loadAnalytics();
+  if (name === 'bots') renderBots();
+}
+
+async function loadAnalytics() {
+  try {
+    const data = await api('/api/admin/analytics');
+    const s = data.summary || {};
+    $('statKpis').innerHTML = kpiCards([
+      ['Margin Level', `${Number(s.avg_margin_level || 0).toFixed(2)}%`, 'positive'],
+      ['Max Drawdown', `${Number(s.avg_max_drawdown || 0).toFixed(2)}%`, 'negative'],
+      ['Sharpe', `${Number(s.avg_sharpe_ratio || 0).toFixed(2)}`, 'amber'],
+      ['Profit Factor', `${Number(s.avg_profit_factor || 0).toFixed(2)}`, (Number(s.avg_profit_factor || 0) >= 1 ? 'positive' : 'negative')]
+    ]);
+
+    const labels = (data.daily_profit || []).map(p => p.date || '');
+    const profits = (data.daily_profit || []).map(p => Number(p.profit || 0));
+    let cumulative = 0;
+    const cumulativeSeries = profits.map(value => {
+      cumulative += value;
+      return Number(cumulative.toFixed(2));
+    });
+    multiLine('chartRevenue', [
+      { points: profits, color: '#3b82f6', fill: true },
+      { points: cumulativeSeries, color: '#f59e0b' }
+    ], labels);
+    barChart('chartSymbol', (data.symbol_stats || []).slice(0, 8), 'volume', 'symbol');
+  } catch (e) {
+    $('statKpis').innerHTML = kpiCards([
+      ['Margin Level', '0.00%', 'positive'],
+      ['Max Drawdown', '0.00%', 'negative'],
+      ['Sharpe', '0.00', 'amber'],
+      ['Profit Factor', '0.00', 'negative']
+    ]);
+    barChart('chartSymbol', [], 'volume', 'symbol');
+    multiLine('chartRevenue', [], []);
+    console.warn('Analytics failed:', e.message);
+  }
+}
+
+async function loadDashboard() {
+  if (pollBusy) return;
+  // Smart polling pause: if tab is hidden or modal is open, do not waste bandwidth
+  if (document.hidden || ($('detailModal') && $('detailModal').classList.contains('open')) || ($('rolesModal') && $('rolesModal').classList.contains('open'))) {
+    return;
+  }
+  pollBusy = true;
+  try {
+    const q = $('search').value, st = $('fStatus').value, lk = $('fLock').value;
+    const url = `/api/admin/overview?q=${encodeURIComponent(q)}&status=${encodeURIComponent(st)}&lock_state=${encodeURIComponent(lk)}`;
+    const ov = await api(url);
+    lastOverview = ov;
+    renderKPIs(ov.summary);
+    lineChart('chartDaily', ov.daily_profit);
+    barChart('chartTop', ov.top_accounts, 'profit', 'display_name');
+    barChart('chartSymbol', ov.symbol_stats, 'volume', 'symbol');
+    const s = ov.summary;
+    donut([
+      { label: 'Thắng', value: s.winning_trades || 0 },
+      { label: 'Thua', value: s.losing_trades || 0 }
+    ], 'chartWinLoss', ['#22c55e', '#ef4444']);
+    renderAccounts(ov.accounts_section || { total: 0, accounts: [] });
+    renderBots();
+    if (activeSec === 'trades') loadTrades();
+    if (activeSec === 'stats') loadAnalytics();
+    pollDelay = 15000;
+  } catch (e) {
+    console.warn('Poll lỗi, backoff:', e.message);
+    pollDelay = Math.min(pollDelay * 2, 30000);
+  } finally {
+    pollBusy = false;
+  }
+}
+
+// ---- Bot MT5: deploy / halt ----
+function renderBots() {
+  const d = lastOverview && (lastOverview.accounts_section || null);
+  if (!d) return;
+  $('botRows').innerHTML = (d.accounts || []).map(a => {
+    const cls = esc(a.id);
+    const hard = a.lock_state === 'hard_locked';
+    return `<tr class="${a.status === 'blocked' ? 'row-blocked' : ''}">
+      <td>${cls}</td><td>${esc(a.display_name)}</td>
+      <td><span class="pill ${a.status}">${esc(a.status)}</span></td>
+      <td><span class="pill ${a.lock_state === 'unlocked' ? 'unlocked' : a.lock_state === 'soft_locked' ? 'soft' : 'hard'}">${esc(a.lock_state)}</span></td>
+      <td class="num">${a.total_trades ?? 0}</td>
+      <td class="num ${(a.total_profit || 0) < 0 ? 'negative' : 'positive'}">${money(a.total_profit || 0)}</td>
+      <td>${hard
+        ? `<span class="muted" style="font-size:12px">HARD LOCKED</span>`
+        : `<button class="button" onclick="deployBot('${cls}')">[ NẠP BOT ]</button>
+           <button class="button danger" onclick="haltBot('${cls}')">[ DỪNG ]</button>`}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">NO DATA // 0 ROWS</td></tr>';
+}
+async function deployBot(id) {
+  try { const r = await api(`/api/admin/accounts/${id}/deploy`, { method: 'POST' }); $('botInfo').textContent = `${id}: bot ${r.status}`; }
+  catch (e) { $('botInfo').textContent = `${id}: LỖI — ${e.message}`; }
+}
+async function haltBot(id) {
+  try { const r = await api(`/api/admin/accounts/${id}/halt`, { method: 'POST' }); $('botInfo').textContent = `${id}: bot ${r.status}`; }
+  catch (e) { $('botInfo').textContent = `${id}: LỖI — ${e.message}`; }
+}
+
+// ---- Trades & Stats ----
+function kpiCards(items) {
+  return items.map(c => `<div class="card"><div class="label">${c[0]}</div><div class="value ${c[2] || ''}">${c[1]}</div></div>`).join('');
+}
+function str(v) { return v == null ? '' : String(v); }
+function multiLine(el, seriesList, labels) {
+  const svg = $(el); if (!svg) return;
+  const n = Math.max(...seriesList.map(s => (s.points || []).length), 0);
+  if (!n) {
+    svg.innerHTML = '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#555" font-size="11" font-family="monospace">NO DATA // 0 ROWS</text>';
+    return;
+  }
+  const W = 600, H = 160, padL = 54, padR = 16, padT = 16, padB = 24;
+  const all = seriesList.flatMap(s => s.points || []);
+  let max = Math.max(...all, 0), min = Math.min(...all, 0);
+  if (max === min) { max += 1; min -= 1; }
+  const span = max - min;
+  const x = i => padL + (i * (W - padL - padR) / Math.max(n - 1, 1));
+  const y = v => padT + (H - padT - padB) - ((v - min) * (H - padT - padB) / span);
+  
+  let grid = '';
+  for (let g = 0; g <= 3; g++) {
+    const v = min + (span * g / 3);
+    const yPos = y(v);
+    grid += `<line x1="${padL}" y1="${yPos.toFixed(1)}" x2="${W - padR}" y2="${yPos.toFixed(1)}" stroke="#1e1e1e" stroke-dasharray="2,2"/>
+      <text x="${padL - 6}" y="${(yPos + 3).toFixed(1)}" fill="#666" font-size="9" text-anchor="end" font-family="monospace">${money(v)}</text>`;
+  }
+  if (min <= 0 && max >= 0) {
+    const y0 = y(0);
+    grid += `<line x1="${padL}" y1="${y0.toFixed(1)}" x2="${W - padR}" y2="${y0.toFixed(1)}" stroke="#333" stroke-width="1"/>`;
+  }
+  
+  let paths = '';
+  seriesList.forEach((s, sIdx) => {
+    if (!s.points || !s.points.length) return;
+    const path = s.points.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+    if (s.fill) {
+      paths += `<path d="${path} L${x(s.points.length - 1).toFixed(1)},${H - padB} L${x(0).toFixed(1)},${H - padB} Z" fill="${s.color}18"/>`;
+    }
+    paths += `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="1.8" stroke-linejoin="round"/>`;
+    if (s.points.length <= 25) {
+      paths += s.points.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.5" fill="${s.color}" stroke="#111" stroke-width="1"/>`).join('');
+    }
+  });
+  
+  const step = Math.max(Math.ceil((labels || []).length / 6), 1);
+  const txt = (labels || []).filter((_, i) => i % step === 0 || i === labels.length - 1).map(l => {
+    const idx = labels.indexOf(l);
+    return `<text x="${x(idx).toFixed(1)}" y="${H - 6}" font-size="9" fill="#666" font-family="monospace" text-anchor="middle">${esc(l)}</text>`;
+  }).join('');
+  
+  svg.innerHTML = grid + paths + txt;
+}
+
+function coloredBars(el, items, valKey, nameKey) {
+  const svg = $(el); if (!svg) return;
+  if (!items || !items.length) {
+    svg.innerHTML = '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#555" font-size="11" font-family="monospace">NO DATA // 0 ROWS</text>';
+    return;
+  }
+  const palette = ['#3b82f6', '#ef4444', '#f59e0b', '#22c55e', '#a855f7', '#eaeaea'];
+  const W = 600, H = 160, padL = 40, padR = 20, padT = 22, padB = 24;
+  const max = Math.max(...items.map(i => i[valKey] || 0), 1);
+  const totalW = W - padL - padR;
+  const step = totalW / items.length;
+  const bw = Math.min(42, Math.max(14, step * 0.35));
+  
+  let grid = '';
+  for (let g = 0; g <= 2; g++) {
+    const yPos = padT + (H - padT - padB) * (g / 2);
+    grid += `<line x1="${padL}" y1="${yPos.toFixed(1)}" x2="${W - padR}" y2="${yPos.toFixed(1)}" stroke="#1e1e1e" stroke-dasharray="2,2"/>`;
+  }
+  
+  const bars = items.map((it, i) => {
+    const val = it[valKey] || 0;
+    const h = Math.max(3, (val / max) * (H - padT - padB));
+    const x = padL + i * step + (step - bw) / 2;
+    const yy = H - padB - h;
+    const col = palette[i % palette.length];
+    return `<rect x="${x.toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${col}" rx="3"/>
+      <text x="${(x + bw / 2).toFixed(1)}" y="${(yy - 5).toFixed(1)}" font-size="10" fill="#eaeaea" text-anchor="middle" font-family="monospace" font-weight="700">${val}</text>
+      <text x="${(x + bw / 2).toFixed(1)}" y="${H - 7}" font-size="9" fill="#888" font-family="monospace" text-anchor="middle">${esc(it[nameKey] || '')}</text>`;
+  }).join('');
+  
+  svg.innerHTML = grid + bars;
+}
+async function loadTrades() {
+  if (activeSec === 'stats') {
+    return;
+  }
+  try {
+    const d = await api('/api/admin/trades?limit=300');
+    const cards = [
+      ['Tổng lệnh', d.total], ['Đang mở', d.open_count, d.open_count ? 'amber' : ''], ['Đã đóng', d.closed_count],
+      ['Tổng PnL', money(d.total_profit), d.total_profit < 0 ? 'negative' : 'positive']
+    ];
+    $('tradeKpis').innerHTML = kpiCards(cards);
+    $('statKpis').innerHTML = kpiCards(cards);
+    $('tradeInfo').textContent = `Tổng ${d.total} lệnh · hiển thị ${d.trades.length}`;
+    $('tradeRows').innerHTML = d.trades.map(t => {
+      const p = t.profit || 0;
+      const st = str(t.status || 'unknown');
+      const stCol = st === 'closed' ? ((t.close_price != null && p >= 0) ? 'var(--c-green)' : 'var(--c-red)') : 'var(--c-amber)';
+      return `<tr>
+        <td class="num">${esc(str(t.submitted_at || t.filled_at || '').slice(0, 19))}</td>
+        <td>${esc(str(t.account_id))}</td>
+        <td>${esc(str(t.symbol))}</td>
+        <td style="color:${str(t.side) === 'BUY' ? 'var(--c-blue)' : 'var(--c-purple)'}">${esc(str(t.side))}</td>
+        <td class="num">${t.quantity ?? '-'}</td>
+        <td class="num">${t.entry_price ?? '-'}</td>
+        <td class="num">${t.close_price ?? '—'}</td>
+        <td class="num" style="color:${p > 0 ? 'var(--c-green)' : p < 0 ? 'var(--c-red)' : 'inherit'}">${t.close_price != null ? money(p) : '—'}</td>
+        <td><span class="pill" style="color:${stCol};border-color:${stCol}">${esc(st)}</span></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">NO DATA // 0 ROWS</td></tr>';
+    const profits = (lastOverview && lastOverview.daily_profit) || [];
+    let cum = 0;
+    const cumPts = profits.map(p => { cum += p.profit || 0; return Math.round(cum * 100) / 100; });
+    multiLine('chartRevenue', [
+      { points: profits.map(p => p.profit || 0), color: '#3b82f6', fill: true },
+      { points: cumPts, color: '#f59e0b' }
+    ], profits.map(p => p.date));
+    coloredBars('chartOrders', d.status_distribution, 'value', 'label');
+    const s = (lastOverview && lastOverview.summary) || {};
+    donut([
+      { label: 'Thắng', value: s.winning_trades || 0 },
+      { label: 'Thua', value: s.losing_trades || 0 }
+    ], 'chartWinLoss', ['#22c55e', '#ef4444']);
+  } catch (e) {
+    const ti = $('tradeInfo'); if (ti) ti.textContent = 'Lỗi tải lệnh: ' + e.message;
+  }
+}
+
+// Alias giữ tương thích với các handler oninput/onchange trong toolbar
+function loadAccounts() { loadDashboard(); }
+
+window.toggleMenu = function(btn, ev) {
+    ev.stopPropagation();
+    document.querySelectorAll('.menu-wrap.open').forEach(w => { if (w !== btn.parentElement) w.classList.remove('open'); });
+    btn.parentElement.classList.toggle('open');
+  };
+  document.addEventListener('click', () => document.querySelectorAll('.menu-wrap.open').forEach(w => w.classList.remove('open')));
+
+  function renderAccounts(d) {
+  $('listInfo').textContent = `Tổng ${d.total} tài khoản`;
+  $('accRows').innerHTML = d.accounts.map(a => {
+    const stl = `pill ${a.status}`, statusLabel = a.status;
+    const lkl = a.lock_state === 'unlocked' ? 'pill unlocked' : `pill ${a.lock_state === 'soft_locked' ? 'soft' : 'hard'}`;
+    const lockLabel = a.lock_state === 'unlocked' ? 'Unlocked' : a.lock_state === 'soft_locked' ? 'Soft lock' : 'Hard lock';
+    const pnl = a.total_profit || 0;
+    const wr = a.win_rate ?? 0;
+    const spark = v => {
+      const w = Math.min(Math.abs(v) / 100 * 100, 100);
+      return `<span class="sparkbar ${v < 0 ? 'neg' : ''}"><i style="width:${Math.max(w, 4)}%"></i></span>`;
+    };
+    const cls = esc(a.id);
+    return `<tr class="${a.status === 'blocked' ? 'row-blocked' : ''}">
+      <td>${cls}</td><td>${esc(a.display_name)}</td>
+      <td>${(a.roles || []).map(r => `<span class="pill" style="border-color:var(--line)">${esc(r)}</span>`).join(' ')}</td>
+      <td><span class="${stl}">${esc(statusLabel)}</span></td>
+      <td><span class="${lkl}">${lockLabel}</span></td>
+      <td>${a.total_trades ?? '-'}</td>
+      <td>${wr}%${spark(wr)}</td>
+      <td class="${pnl < 0 ? 'negative' : pnl > 0 ? 'positive' : ''}">${money(pnl)}${spark(pnl)}</td>
+      <td><div class="menu-wrap">
+        <button class="button" onclick="toggleMenu(this,event)">[ ⋮ ]</button>
+        <div class="menu-list">
+          <button onclick="openDetail('${cls}')">DETAIL</button>
+          <button onclick="act('${cls}','lock',{state:'soft_locked'})">SOFT LOCK</button>
+          <button class="danger" onclick="act('${cls}','lock',{state:'hard_locked'})">HARD LOCK</button>
+          <button onclick="act('${cls}','lock',{state:'unlocked'})">UNLOCK</button>
+          ${a.status === 'blocked'
+            ? `<button onclick="act('${cls}','status',{status:'active'})">UNBLOCK</button>`
+            : `<button class="danger" onclick="act('${cls}','status',{status:'blocked'})">BLOCK</button>`}
+          <button onclick="openRoles('${cls}','${esc(a.owner_user_id || '')}',${JSON.stringify(a.roles || [])})">ROLES</button>
+          <button class="danger" onclick="act('${cls}','revoke')">REVOKE SESSIONS</button>
+        </div>
+      </div></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">NO DATA // 0 ROWS</td></tr>';
+}
+
+let currentDetailData = null;
+
+function setModalLoading(show, text = 'ĐANG ÁP DỤNG TRẠNG THÁI... VUI LÒNG CHỜ') {
+  const el = $('detailLoading');
+  const txt = $('detailLoadingText');
+  if (txt) txt.textContent = `[ ⟳ ${text} ]`;
+  if (el) el.classList.toggle('active', !!show);
+}
+
+async function act(id, kind, payload) {
+  console.log(`%c[ADMIN_ACTION] Triggered '${kind}' for account: ${id}`, 'color:#38bdf8;font-weight:bold', payload);
+  const loadingLabel = kind === 'lock' 
+    ? `ĐANG CHUYỂN TRẠNG THÁI SANG ${String(payload?.state || '').toUpperCase()}...`
+    : kind === 'status' 
+      ? `ĐANG ĐỔI TRẠNG THÁI SANG ${String(payload?.status || '').toUpperCase()}...`
+      : 'ĐANG XỬ LÝ...';
+  setModalLoading(true, loadingLabel);
+
+  const paths = {
+    lock: `/api/admin/accounts/${id}/lock`,
+    status: `/api/admin/accounts/${id}/status`,
+    revoke: `/api/admin/accounts/${id}/revoke-sessions`
+  };
+  try {
+    const res = await api(paths[kind], { method: 'POST', body: payload ? JSON.stringify(payload) : undefined });
+    console.log(`%c[ADMIN_ACTION] Result:`, 'color:#22c55e;font-weight:bold', res);
+    
+    // Fast in-memory state sync - Instant UI update without waiting for heavy network reload!
+    if (currentDetailData && currentDetailData.id === id) {
+      if (kind === 'lock') {
+        currentDetailData.lock_state = payload.state;
+        if (payload.reason) currentDetailData.lock_reason = payload.reason;
+      } else if (kind === 'status') {
+        currentDetailData.status = payload.status;
+      }
+      renderAccountDetail(currentDetailData);
+    }
+    
+    // Background refresh for tables when modal is closed
+    setTimeout(() => {
+      if (!$('detailModal') || !$('detailModal').classList.contains('open')) {
+        loadDashboard();
+      }
+    }, 500);
+  } catch (e) {
+    console.error(`[ADMIN_ACTION_ERROR]`, e);
+    alert('Lỗi thao tác: ' + e.message);
+  } finally {
+    setModalLoading(false);
+  }
+}
+window.act = act;
+window.openDetail = openDetail;
+window.openRoles = openRoles;
+window.saveRoles = saveRoles;
+window.closeModal = closeModal;
+
+function renderAccountDetail(d) {
+  const cls = esc(d.id);
+  const wr = d.total_trades ? Math.round((d.winning_trades / d.total_trades) * 100) : 0;
+  const pnl = d.total_profit || 0;
+  const isBlocked = d.status === 'blocked';
+  const lockClass = d.lock_state === 'unlocked' ? 'unlocked' : d.lock_state === 'soft_locked' ? 'soft' : 'hard';
+  const lockText = d.lock_state === 'unlocked' ? 'UNLOCKED' : d.lock_state === 'soft_locked' ? 'SOFT LOCKED' : 'HARD LOCKED';
+  
+  $('detailTitle').innerHTML = `<span>[ CHI TIẾT: ${cls} ]</span> <span class="pill ${d.status}">${esc(d.status)}</span> <span class="pill ${lockClass}">${lockText}</span>`;
+  
+  const tradesHtml = (d.recent_trades && d.recent_trades.length) ? `
+    <div class="table-wrap" style="max-height:220px;margin-top:8px">
+      <table class="detail-trades-table">
+        <thead>
+          <tr><th>Time</th><th>Symbol</th><th>Side</th><th>Volume</th><th>Entry</th><th>Close</th><th>Profit</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          ${d.recent_trades.map(t => {
+            const tp = t.profit || 0;
+            const sideCol = String(t.side) === 'BUY' ? 'var(--c-blue)' : 'var(--c-purple)';
+            const pCol = tp > 0 ? 'var(--c-green)' : tp < 0 ? 'var(--c-red)' : 'inherit';
+            return `<tr>
+              <td class="num">${esc(String(t.submitted_at || t.filled_at || '').slice(0, 19).replace('T', ' '))}</td>
+              <td><b>${esc(t.symbol)}</b></td>
+              <td style="color:${sideCol}">${esc(t.side)}</td>
+              <td class="num">${t.quantity ?? '-'}</td>
+              <td class="num">${t.entry_price ?? '-'}</td>
+              <td class="num">${t.close_price ?? '—'}</td>
+              <td class="num" style="color:${pCol};font-weight:700">${t.close_price != null ? money(tp) : '—'}</td>
+              <td><span class="pill">${esc(t.status || '')}</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>` : `<div class="empty-trades-notice">// CHƯA CÓ LỆNH GIAO DỊCH NÀO ĐƯỢC GHI NHẬN // 0 TRADES RECORDED</div>`;
+
+  $('detailBody').innerHTML = `
+    <!-- Top 4 Bento Stats -->
+    <div class="detail-kpis">
+      <div class="detail-kpi-card">
+        <div class="label">TỔNG LỆNH ĐÓNG</div>
+        <div class="value">${d.total_trades ?? 0}</div>
+        <div class="detail-kpi-sub"><span style="color:var(--c-green)">${d.winning_trades ?? 0}W</span> · <span style="color:var(--c-red)">${d.losing_trades ?? 0}L</span></div>
+      </div>
+      <div class="detail-kpi-card">
+        <div class="label">TỶ LỆ THẮNG (WIN RATE)</div>
+        <div class="value ${wr >= 50 ? 'positive' : ''}">${wr}%</div>
+        <div class="sparkbar" style="width:100%;margin:6px 0 0"><i style="width:${wr}%"></i></div>
+      </div>
+      <div class="detail-kpi-card">
+        <div class="label">TỔNG LỢI NHUẬN (PNL)</div>
+        <div class="value ${pnl < 0 ? 'negative' : pnl > 0 ? 'positive' : ''}">${money(pnl)}</div>
+        <div class="detail-kpi-sub">${pnl >= 0 ? 'LÃI RÒNG' : 'LỖ TẠM TÍNH'}</div>
+      </div>
+      <div class="detail-kpi-card">
+        <div class="label">VOLUME GIAO DỊCH</div>
+        <div class="value">${money(d.total_volume || 0)}</div>
+        <div class="detail-kpi-sub">LOTS / UNITS</div>
+      </div>
+    </div>
+
+    <!-- Specs Grid -->
+    <div class="detail-specs-grid">
+      <div class="spec-col">
+        <div class="spec-row"><span class="spec-lbl">ACCOUNT ID:</span><span class="spec-val num">${cls}</span></div>
+        <div class="spec-row"><span class="spec-lbl">OWNER USER ID:</span><span class="spec-val num">${esc(d.owner_user_id || '—')}</span></div>
+        <div class="spec-row"><span class="spec-lbl">DISPLAY NAME:</span><span class="spec-val"><b>${esc(d.display_name || '—')}</b></span></div>
+        <div class="spec-row"><span class="spec-lbl">ACCOUNT NAME:</span><span class="spec-val">${esc(d.name || 'Primary account')}</span></div>
+      </div>
+      <div class="spec-col">
+        <div class="spec-row"><span class="spec-lbl">ROLES:</span><span class="spec-val">${(d.roles || ['trader']).map(r => `<span class="pill" style="border-color:var(--line)">${esc(r)}</span>`).join(' ')}</span></div>
+        <div class="spec-row"><span class="spec-lbl">BROKER / MT5:</span><span class="spec-val">${esc(d.broker || 'MT5 DIRECT')} ${d.account_number ? `(${esc(d.account_number)})` : ''}</span></div>
+        <div class="spec-row"><span class="spec-lbl">NGÀY TẠO:</span><span class="spec-val num">${esc(String(d.created_at || '').slice(0, 19).replace('T', ' '))}</span></div>
+        <div class="spec-row"><span class="spec-lbl">LOCK REASON:</span><span class="spec-val">${esc(d.lock_reason || 'None')}</span></div>
+      </div>
+    </div>
+
+    <!-- Actions Command Bar -->
+    <div class="detail-actions-bar">
+      <span class="label" style="margin-right:auto">QUẢN TRỊ VIÊN:</span>
+      <button class="button" onclick="act('${cls}','lock',{state:'soft_locked'})">[ SOFT LOCK ]</button>
+      <button class="button danger" onclick="act('${cls}','lock',{state:'hard_locked'})">[ HARD LOCK ]</button>
+      <button class="button" onclick="act('${cls}','lock',{state:'unlocked'})">[ UNLOCK ]</button>
+      ${isBlocked
+        ? `<button class="button" onclick="act('${cls}','status',{status:'active'})">[ UNBLOCK ]</button>`
+        : `<button class="button danger" onclick="act('${cls}','status',{status:'blocked'})">[ BLOCK ]</button>`}
+      <button class="button" onclick="closeModal('detailModal'); openRoles('${cls}','${esc(d.owner_user_id || '')}',${JSON.stringify(d.roles || [])})">[ ROLES ]</button>
+      <button class="button danger" onclick="act('${cls}','revoke')">[ REVOKE SESSIONS ]</button>
+    </div>
+
+    <!-- Recent Trades Section -->
+    <div class="detail-trades-wrap">
+      <div class="panel-head" style="margin:16px 0 6px"><h2>Lịch sử lệnh gần nhất</h2><span class="muted">${(d.recent_trades || []).length} lệnh</span></div>
+      ${tradesHtml}
+    </div>
+
+    <!-- Expandable Raw JSON -->
+    <details class="detail-raw-toggle">
+      <summary>[ XEM DỮ LIỆU GỐC RAW JSON ]</summary>
+      <pre class="raw-pre">${esc(JSON.stringify(d, null, 2))}</pre>
+    </details>
+  `;
+}
+
+async function openDetail(id) {
+  try {
+    $('detailModal').classList.add('open');
+    setModalLoading(true, 'ĐANG TẢI DỮ LIỆU TÀI KHOẢN...');
+    const d = await api(`/api/admin/accounts/${id}`);
+    currentDetailData = d;
+    renderAccountDetail(d);
+  } catch (e) {
+    alert('Lỗi: ' + e.message);
+    closeModal('detailModal');
+  } finally {
+    setModalLoading(false);
+  }
+}
+
+function closeModal(which = 'detailModal') { $(which).classList.remove('open'); }
+
+function openRoles(accId, userId, roles) {
+  if (typeof roles === 'string') {
+    try { roles = JSON.parse(roles); } catch(e) { roles = [roles]; }
+  }
+  roles = Array.isArray(roles) ? roles : ['trader'];
+  $('rolesUser').textContent = 'Account: ' + accId + (userId ? ' | User: ' + userId : '');
+  $('rolesCheck').innerHTML = ['trader', 'admin'].map(r => `<label style="color:var(--text);display:flex;align-items:center;gap:6px"><input type="checkbox" value="${r}" ${roles.indexOf(r) >= 0 ? 'checked' : ''}> ${r}</label>`).join('');
+  $('rolesModal').dataset.acc = accId; $('rolesModal').dataset.uid = userId;
+  $('rolesMsg').textContent = '';
+  $('rolesModal').classList.add('open');
+}
+
+async function saveRoles() {
+  const uid = $('rolesModal').dataset.uid;
+  const accId = $('rolesModal').dataset.acc;
+  if (!uid) { $('rolesMsg').textContent = 'User ID bị thiếu.'; return; }
+  const roles = Array.from($('rolesCheck').querySelectorAll('input:checked')).map(i => i.value);
+  try {
+    const r = await api(`/api/admin/users/${uid}/roles`, { method: 'PUT', body: JSON.stringify({ roles }) });
+    $('rolesMsg').textContent = 'Đã lưu: ' + (r.roles || []).join(', ');
+    setTimeout(async () => {
+      closeModal('rolesModal');
+      if (accId) {
+        try {
+          const fresh = await api(`/api/admin/accounts/${accId}`);
+          renderAccountDetail(fresh);
+          $('detailModal').classList.add('open');
+        } catch(e) {}
+      }
+      refreshAll();
+    }, 600);
+  } catch (e) { $('rolesMsg').textContent = 'Lỗi: ' + e.message; }
+}
+
+function schedulePoll() {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(async () => { await loadDashboard(); schedulePoll(); }, pollDelay);
+}
+
+// ---- Particle π login background (mouse-interactive on visual stage) ----
+  (function() {
+    const cv = $('particleCanvas');
+    if (!cv) return;
+    const pctx = cv.getContext('2d');
+    let W, H;
+    function resize() {
+      const p = cv.parentElement;
+      W = cv.width = p ? p.clientWidth : window.innerWidth / 2;
+      H = cv.height = p ? p.clientHeight : window.innerHeight;
+    }
+    resize();
+    const P_COUNT = 1800, MOUSE_R = 120, RETURN = 0.045, FRICTION = 0.9;
+    function getPiPixels() {
+      if (W <= 0 || H <= 0) return [];
+      const off = document.createElement('canvas');
+      off.width = W; off.height = H;
+      const octx = off.getContext('2d');
+      const fs = Math.min(W * 0.44, H * 0.52);
+      if (fs <= 0) return [];
+      octx.fillStyle = 'white';
+      octx.font = `bold ${fs}px Arial, sans-serif`;
+      octx.textAlign = 'center'; octx.textBaseline = 'middle';
+      octx.fillText('π', W / 2, H / 2);
+      const img = octx.getImageData(0, 0, W, H);
+      const pts = [];
+      for (let y = 0; y < H; y += 4) for (let x = 0; x < W; x += 4) {
+        if (img.data[(y * W + x) * 4 + 3] > 128) pts.push({ x, y });
+      }
+      return pts;
+    }
+    class P {
+      constructor() { this.x = Math.random() * W; this.y = Math.random() * H; this.vx = 0; this.vy = 0; this.tx = this.x; this.ty = this.y; this.size = Math.random() * 1.5 + 0.6; this.base = this.size; this.a = Math.random() * 0.5 + 0.4; }
+      update(mx, my) {
+        this.vx += (this.tx - this.x) * RETURN;
+        this.vy += (this.ty - this.y) * RETURN;
+        if (mx !== null) {
+          const dx = this.x - mx, dy = this.y - my, d = Math.hypot(dx, dy);
+          if (d < MOUSE_R && d > 0) {
+            const f = (MOUSE_R - d) / MOUSE_R;
+            this.vx += (dx / d) * f * 4; this.vy += (dy / d) * f * 4;
+            this.size = this.base + f * 2;
+          } else this.size += (this.base - this.size) * 0.1;
+        }
+        this.vx *= FRICTION; this.vy *= FRICTION;
+        this.x += this.vx; this.y += this.vy;
+      }
+      draw() {
+        pctx.beginPath();
+        pctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        pctx.fillStyle = `rgba(234,234,234,${this.a})`;
+        pctx.fill();
+        if (this.size > 1.2) {
+          pctx.beginPath();
+          pctx.arc(this.x, this.y, this.size * 2.5, 0, Math.PI * 2);
+          pctx.fillStyle = `rgba(255,42,42,${this.a * 0.08})`;
+          pctx.fill();
+        }
+      }
+    }
+    const parts = [];
+    for (let i = 0; i < P_COUNT; i++) parts.push(new P());
+    function assign() {
+      const pts = getPiPixels();
+      if (!pts.length) return;
+      for (let i = 0; i < parts.length; i++) { const t = pts[i % pts.length]; parts[i].tx = t.x; parts[i].ty = t.y; }
+    }
+    assign();
+    addEventListener('resize', () => { resize(); assign(); });
+    let mx = null, my = null;
+    const stage = $('loginStage') || cv.parentElement || window;
+    stage.addEventListener('mousemove', e => {
+      const rect = cv.getBoundingClientRect();
+      mx = e.clientX - rect.left;
+      my = e.clientY - rect.top;
+    }, { passive: true });
+    stage.addEventListener('mouseleave', () => { mx = null; my = null; });
+    (function loop() {
+      if (W > 0 && H > 0) {
+        pctx.fillStyle = 'rgba(6,6,6,0.18)';
+        pctx.fillRect(0, 0, W, H);
+        for (const p of parts) { p.update(mx, my); p.draw(); }
+      }
+      requestAnimationFrame(loop);
+    })();
+  })();
+
+  // ---- UTC clock ----
+  function tickClock() {
+    const c = $('utcClock');
+    if (c) c.textContent = new Date().toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
+  }
+  tickClock(); setInterval(tickClock, 1000);
+
+  // ---- ESC closes modals ----
+  document.addEventListener('keydown', ev => {
+    if (ev.key === 'Escape') { closeModal('detailModal'); closeModal('rolesModal'); }
+  });
+
+function refreshAll() { loadDashboard(); schedulePoll(); }
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    loadDashboard();
+    schedulePoll();
+  }
+});
+
+// ========== BOT TYPES MANAGEMENT ==========
+
+let botTypesData = [];
+
+async function loadBotTypes() {
+  const includeInactive = $('showInactive')?.checked || false;
+  try {
+    const data = await api(`/api/admin/bot-types?include_inactive=${includeInactive}`);
+    botTypesData = data.bot_types || [];
+    renderBotTypes();
+    $('botTypeInfo').textContent = `${data.total} bot type(s)`;
+  } catch (e) {
+    console.error('Load bot types error:', e);
+    $('botTypeRows').innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--red);padding:20px">❌ ${e.message}</td></tr>`;
+  }
+}
+
+function renderBotTypes() {
+  const tbody = $('botTypeRows');
+  if (!botTypesData.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Chưa có bot type nào</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = botTypesData.map(bt => `
+    <tr class="${!bt.is_active ? 'muted' : ''}">
+      <td><strong>${esc(bt.name)}</strong>${bt.description ? `<br><span class="muted" style="font-size:10px">${esc(bt.description)}</span>` : ''}</td>
+      <td><span class="pill ${bt.risk_level === 'high' ? 'danger' : bt.risk_level === 'low' ? 'active' : ''}">${esc(bt.risk_level).toUpperCase()}</span></td>
+      <td>${bt.risk_percent}%</td>
+      <td>${bt.max_spread}</td>
+      <td>${bt.max_daily_loss_percent}%</td>
+      <td>${bt.max_open_trades}</td>
+      <td><span class="muted" style="cursor:pointer" onclick="showBotTypeDetails('${esc(bt.id)}')" title="Xem accounts">—</span></td>
+      <td><span class="pill ${bt.is_active ? 'active' : 'blocked'}">${bt.is_active ? 'ACTIVE' : 'INACTIVE'}</span></td>
+      <td class="row">
+        <button class="button" onclick="showBotTypeDetails('${esc(bt.id)')}" style="padding:4px 8px;font-size:11px">Chi tiết</button>
+        <button class="button" onclick="showEditBotTypeModal('${esc(bt.id)')}" style="padding:4px 8px;font-size:11px">Sửa</button>
+        <button class="button danger" onclick="deleteBotType('${esc(bt.id)}', ${bt.is_active})" style="padding:4px 8px;font-size:11px">${bt.is_active ? 'Vô hiệu' : 'Xóa'}</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function showCreateBotTypeModal() {
+  const html = `
+    <div class="modal open" id="botTypeModal" onclick="if(event.target===this)closeModal('botTypeModal')">
+      <div class="modal-box">
+        <h3>➕ TẠO BOT TYPE MỚI</h3>
+        <form id="botTypeForm" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px">
+          <div style="grid-column:1/-1">
+            <label class="eyebrow">Name *</label>
+            <input type="text" id="btName" required style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div style="grid-column:1/-1">
+            <label class="eyebrow">Description</label>
+            <textarea id="btDesc" rows="2" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px;font:inherit"></textarea>
+          </div>
+          <div>
+            <label class="eyebrow">Risk Level *</label>
+            <select id="btRisk" required style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div>
+            <label class="eyebrow">Default Symbol</label>
+            <input type="text" id="btSymbol" value="XAUUSD" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Risk Percent (%)</label>
+            <input type="number" id="btRiskPct" value="1.5" step="0.1" min="0.1" max="100" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Max Spread (points)</label>
+            <input type="number" id="btMaxSpread" value="200" min="1" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Max Daily Loss (%)</label>
+            <input type="number" id="btMaxLoss" value="5.0" step="0.1" min="0.1" max="100" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Max Open Trades</label>
+            <input type="number" id="btMaxTrades" value="5" min="1" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Trailing Stop Distance</label>
+            <input type="number" id="btTrailDist" value="100" min="0" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Breakeven Trigger</label>
+            <input type="number" id="btBeTrigger" value="200" min="0" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Cooldown (minutes)</label>
+            <input type="number" id="btCooldown" value="15" min="0" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div style="grid-column:1/-1;display:flex;gap:6px;align-items:center">
+            <input type="checkbox" id="btAutoTrading" checked style="width:16px;height:16px">
+            <label for="btAutoTrading" style="cursor:pointer">Auto Trading</label>
+          </div>
+          <div style="grid-column:1/-1;display:flex;gap:6px;align-items:center">
+            <input type="checkbox" id="btTrailStop" checked style="width:16px;height:16px">
+            <label for="btTrailStop" style="cursor:pointer">Trailing Stop Enabled</label>
+          </div>
+          <div style="grid-column:1/-1;display:flex;gap:6px;align-items:center">
+            <input type="checkbox" id="btBreakeven" checked style="width:16px;height:16px">
+            <label for="btBreakeven" style="cursor:pointer">Breakeven Enabled</label>
+          </div>
+          <div style="grid-column:1/-1;display:flex;gap:10px;margin-top:10px">
+            <button type="submit" class="button" style="flex:1">TẠO BOT TYPE</button>
+            <button type="button" class="button danger" onclick="closeModal('botTypeModal')">HỦY</button>
+          </div>
+        </form>
+        <div id="btError" class="err" style="margin-top:12px"></div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', html);
+  
+  $('botTypeForm').onsubmit = async (e) => {
+    e.preventDefault();
+    $('btError').textContent = '';
+    const payload = {
+      name: $('btName').value,
+      description: $('btDesc').value || null,
+      risk_level: $('btRisk').value,
+      default_symbol: $('btSymbol').value,
+      risk_percent: parseFloat($('btRiskPct').value),
+      max_spread: parseInt($('btMaxSpread').value),
+      max_daily_loss_percent: parseFloat($('btMaxLoss').value),
+      max_open_trades: parseInt($('btMaxTrades').value),
+      trailing_stop_distance: parseInt($('btTrailDist').value),
+      breakeven_trigger: parseInt($('btBeTrigger').value),
+      cooldown_minutes: parseInt($('btCooldown').value),
+      auto_trading: $('btAutoTrading').checked,
+      trailing_stop_enabled: $('btTrailStop').checked,
+      breakeven_enabled: $('btBreakeven').checked
+    };
+    
+    try {
+      await api('/api/admin/bot-types', { method: 'POST', body: JSON.stringify(payload) });
+      closeModal('botTypeModal');
+      loadBotTypes();
+      alert('✅ Bot type đã được tạo thành công!');
+    } catch (e) {
+      $('btError').textContent = '❌ ' + e.message;
+    }
+  };
+}
+
+async function showEditBotTypeModal(id) {
+  const bt = botTypesData.find(b => b.id === id);
+  if (!bt) return;
+  
+  const html = `
+    <div class="modal open" id="editBotTypeModal" onclick="if(event.target===this)closeModal('editBotTypeModal')">
+      <div class="modal-box">
+        <h3>✏️ SỬA BOT TYPE: ${esc(bt.name)}</h3>
+        <form id="editBotTypeForm" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px">
+          <div style="grid-column:1/-1">
+            <label class="eyebrow">Name</label>
+            <input type="text" id="ebtName" value="${esc(bt.name)}" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div style="grid-column:1/-1">
+            <label class="eyebrow">Description</label>
+            <textarea id="ebtDesc" rows="2" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px;font:inherit">${esc(bt.description || '')}</textarea>
+          </div>
+          <div>
+            <label class="eyebrow">Risk Level</label>
+            <select id="ebtRisk" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+              <option value="low" ${bt.risk_level === 'low' ? 'selected' : ''}>Low</option>
+              <option value="medium" ${bt.risk_level === 'medium' ? 'selected' : ''}>Medium</option>
+              <option value="high" ${bt.risk_level === 'high' ? 'selected' : ''}>High</option>
+            </select>
+          </div>
+          <div>
+            <label class="eyebrow">Default Symbol</label>
+            <input type="text" id="ebtSymbol" value="${esc(bt.default_symbol)}" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Risk Percent (%)</label>
+            <input type="number" id="ebtRiskPct" value="${bt.risk_percent}" step="0.1" min="0.1" max="100" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Max Spread</label>
+            <input type="number" id="ebtMaxSpread" value="${bt.max_spread}" min="1" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Max Daily Loss (%)</label>
+            <input type="number" id="ebtMaxLoss" value="${bt.max_daily_loss_percent}" step="0.1" min="0.1" max="100" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Max Open Trades</label>
+            <input type="number" id="ebtMaxTrades" value="${bt.max_open_trades}" min="1" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Trailing Stop Distance</label>
+            <input type="number" id="ebtTrailDist" value="${bt.trailing_stop_distance}" min="0" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Breakeven Trigger</label>
+            <input type="number" id="ebtBeTrigger" value="${bt.breakeven_trigger}" min="0" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div>
+            <label class="eyebrow">Cooldown (minutes)</label>
+            <input type="number" id="ebtCooldown" value="${bt.cooldown_minutes}" min="0" style="width:100%;padding:9px;background:var(--panel);border:1px solid var(--line);color:var(--text);margin-top:4px">
+          </div>
+          <div style="grid-column:1/-1;display:flex;gap:6px;align-items:center">
+            <input type="checkbox" id="ebtAutoTrading" ${bt.auto_trading ? 'checked' : ''} style="width:16px;height:16px">
+            <label for="ebtAutoTrading" style="cursor:pointer">Auto Trading</label>
+          </div>
+          <div style="grid-column:1/-1;display:flex;gap:6px;align-items:center">
+            <input type="checkbox" id="ebtTrailStop" ${bt.trailing_stop_enabled ? 'checked' : ''} style="width:16px;height:16px">
+            <label for="ebtTrailStop" style="cursor:pointer">Trailing Stop Enabled</label>
+          </div>
+          <div style="grid-column:1/-1;display:flex;gap:6px;align-items:center">
+            <input type="checkbox" id="ebtBreakeven" ${bt.breakeven_enabled ? 'checked' : ''} style="width:16px;height:16px">
+            <label for="ebtBreakeven" style="cursor:pointer">Breakeven Enabled</label>
+          </div>
+          <div style="grid-column:1/-1;display:flex;gap:6px;align-items:center">
+            <input type="checkbox" id="ebtActive" ${bt.is_active ? 'checked' : ''} style="width:16px;height:16px">
+            <label for="ebtActive" style="cursor:pointer;font-weight:700">Active</label>
+          </div>
+          <div style="grid-column:1/-1;display:flex;gap:10px;margin-top:10px">
+            <button type="submit" class="button" style="flex:1">CẬP NHẬT</button>
+            <button type="button" class="button danger" onclick="closeModal('editBotTypeModal')">HỦY</button>
+          </div>
+        </form>
+        <div id="ebtError" class="err" style="margin-top:12px"></div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', html);
+  
+  $('editBotTypeForm').onsubmit = async (e) => {
+    e.preventDefault();
+    $('ebtError').textContent = '';
+    const payload = {
+      name: $('ebtName').value,
+      description: $('ebtDesc').value || null,
+      risk_level: $('ebtRisk').value,
+      default_symbol: $('ebtSymbol').value,
+      risk_percent: parseFloat($('ebtRiskPct').value),
+      max_spread: parseInt($('ebtMaxSpread').value),
+      max_daily_loss_percent: parseFloat($('ebtMaxLoss').value),
+      max_open_trades: parseInt($('ebtMaxTrades').value),
+      trailing_stop_distance: parseInt($('ebtTrailDist').value),
+      breakeven_trigger: parseInt($('ebtBeTrigger').value),
+      cooldown_minutes: parseInt($('ebtCooldown').value),
+      auto_trading: $('ebtAutoTrading').checked,
+      trailing_stop_enabled: $('ebtTrailStop').checked,
+      breakeven_enabled: $('ebtBreakeven').checked,
+      is_active: $('ebtActive').checked
+    };
+    
+    try {
+      await api(`/api/admin/bot-types/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+      closeModal('editBotTypeModal');
+      loadBotTypes();
+      alert('✅ Bot type đã được cập nhật!');
+    } catch (e) {
+      $('ebtError').textContent = '❌ ' + e.message;
+    }
+  };
+}
+
+async function showBotTypeDetails(id) {
+  try {
+    const bt = await api(`/api/admin/bot-types/${id}`);
+    const html = `
+      <div class="modal open" id="botTypeDetailModal" onclick="if(event.target===this)closeModal('botTypeDetailModal')">
+        <div class="modal-box">
+          <h3>🔍 CHI TIẾT BOT TYPE: ${esc(bt.name)}</h3>
+          <div style="margin-top:16px;padding:14px;background:var(--panel);border:1px solid var(--line)">
+            <div class="eyebrow">DESCRIPTION</div>
+            <p style="margin-top:6px;color:var(--muted)">${esc(bt.description || 'Không có mô tả')}</p>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin-top:14px">
+            <div style="background:var(--panel);padding:12px"><div class="eyebrow">Risk Level</div><div style="margin-top:6px"><span class="pill ${bt.risk_level === 'high' ? 'danger' : bt.risk_level === 'low' ? 'active' : ''}">${esc(bt.risk_level).toUpperCase()}</span></div></div>
+            <div style="background:var(--panel);padding:12px"><div class="eyebrow">Default Symbol</div><div style="margin-top:6px;font-weight:700">${esc(bt.default_symbol)}</div></div>
+            <div style="background:var(--panel);padding:12px"><div class="eyebrow">Risk Percent</div><div style="margin-top:6px">${bt.risk_percent}%</div></div>
+            <div style="background:var(--panel);padding:12px"><div class="eyebrow">Max Spread</div><div style="margin-top:6px">${bt.max_spread} points</div></div>
+            <div style="background:var(--panel);padding:12px"><div class="eyebrow">Max Daily Loss</div><div style="margin-top:6px">${bt.max_daily_loss_percent}%</div></div>
+            <div style="background:var(--panel);padding:12px"><div class="eyebrow">Max Open Trades</div><div style="margin-top:6px">${bt.max_open_trades}</div></div>
+            <div style="background:var(--panel);padding:12px"><div class="eyebrow">Trailing Stop Dist</div><div style="margin-top:6px">${bt.trailing_stop_distance} ${bt.trailing_stop_enabled ? '✓' : '✗'}</div></div>
+            <div style="background:var(--panel);padding:12px"><div class="eyebrow">Breakeven Trigger</div><div style="margin-top:6px">${bt.breakeven_trigger} ${bt.breakeven_enabled ? '✓' : '✗'}</div></div>
+            <div style="background:var(--panel);padding:12px"><div class="eyebrow">Cooldown</div><div style="margin-top:6px">${bt.cooldown_minutes} min</div></div>
+            <div style="background:var(--panel);padding:12px"><div class="eyebrow">Auto Trading</div><div style="margin-top:6px">${bt.auto_trading ? '✓ ON' : '✗ OFF'}</div></div>
+            <div style="background:var(--panel);padding:12px"><div class="eyebrow">Status</div><div style="margin-top:6px"><span class="pill ${bt.is_active ? 'active' : 'blocked'}">${bt.is_active ? 'ACTIVE' : 'INACTIVE'}</span></div></div>
+            <div style="background:var(--panel);padding:12px"><div class="eyebrow">Accounts Using</div><div style="margin-top:6px;font-size:20px;font-weight:800">${bt.accounts_count || 0}</div></div>
+          </div>
+          ${bt.accounts_using && bt.accounts_using.length > 0 ? `
+            <div style="margin-top:14px">
+              <div class="eyebrow">ACCOUNTS USING THIS BOT TYPE</div>
+              <div style="margin-top:8px;max-height:200px;overflow:auto">
+                ${bt.accounts_using.map(acc => `<div style="padding:8px;background:var(--panel);border:1px solid var(--line);margin-bottom:4px">
+                  <strong>${esc(acc.id)}</strong> - ${esc(acc.display_name || 'N/A')} <span class="pill ${acc.status === 'active' ? 'active' : 'blocked'}">${esc(acc.status || 'N/A')}</span>
+                </div>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button class="button" onclick="closeModal('botTypeDetailModal');showEditBotTypeModal('${esc(bt.id)}')" style="flex:1">SỬA</button>
+            <button class="button danger" onclick="closeModal('botTypeDetailModal')">ĐÓNG</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', html);
+  } catch (e) {
+    alert('❌ ' + e.message);
+  }
+}
+
+async function deleteBotType(id, isActive) {
+  const bt = botTypesData.find(b => b.id === id);
+  if (!bt) return;
+  
+  const action = isActive ? 'vô hiệu hóa (soft delete)' : 'xóa vĩnh viễn (hard delete)';
+  if (!confirm(`Bạn có chắc muốn ${action} bot type "${bt.name}"?`)) return;
+  
+  try {
+    await api(`/api/admin/bot-types/${id}?hard_delete=${!isActive}`, { method: 'DELETE' });
+    loadBotTypes();
+    alert(`✅ Bot type đã được ${isActive ? 'vô hiệu hóa' : 'xóa'}!`);
+  } catch (e) {
+    alert('❌ ' + e.message);
+  }
+}
+
+function closeModal(id) {
+  const m = $(id);
+  if (m) m.remove();
+}
+
+checkAdmin();
+</script>
+</body>
+</html>

@@ -326,47 +326,70 @@
             const token = params.get('access_token') || queryParams.get('access_token');
             const error = params.get('error') || params.get('error_description') || queryParams.get('error');
             
-            try { localStorage.removeItem('access_token'); localStorage.removeItem('account_id'); } catch (e) {}
+            const storedReturnTo = localStorage.getItem('oauth_return_to') || '';
+            const portalParam = queryParams.get('portal') || (storedReturnTo.includes('/admin') ? 'admin' : 'trader');
+            const isPortalAdmin = portalParam === 'admin' || storedReturnTo.includes('/admin');
+            const returnTo = isPortalAdmin ? '/admin' : (storedReturnTo || '/app?view=terminal');
 
             if (!token) {
                 document.querySelector('#status-heading').textContent = 'Authentication Failed';
                 document.querySelector('#error-msg').textContent = error || 'No access token received from authentication provider.';
-                setTimeout(() => { location.href = '/login'; }, 2500);
+                const fallback = isPortalAdmin ? '/admin/login' : '/login';
+                setTimeout(() => { window.location.replace(fallback); }, 2500);
                 return;
             }
 
             fetch('/api/auth/social/callback', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token })
+                body: JSON.stringify({ 
+                    token: token,
+                    portal: isPortalAdmin ? 'admin' : 'trader'
+                })
             })
                 .then(async res => {
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.detail || 'Unable to complete sign-in.');
+
+                    // Save session token in ALL keys for admin and terminal compatibility
                     localStorage.setItem('access_token', data.access_token);
-                    if (data.account_id) localStorage.setItem('account_id', data.account_id);
-                    
-                    const returnTo = localStorage.getItem('oauth_return_to') || '/app?view=terminal';
+                    localStorage.setItem('token', data.access_token);
+                    if (isPortalAdmin || (data.roles && data.roles.includes('admin'))) {
+                        localStorage.setItem('admin_token', data.access_token);
+                    }
+                    if (data.roles) {
+                        localStorage.setItem('user_roles', JSON.stringify(data.roles));
+                    }
+                    if (data.account_id) {
+                        localStorage.setItem('account_id', data.account_id);
+                    }
+
+                    // Set cookie for browser sessions
+                    document.cookie = `session_token=${encodeURIComponent(data.access_token)}; path=/; max-age=86400; SameSite=Lax`;
                     try { localStorage.removeItem('oauth_return_to'); } catch (e) {}
 
-                    document.querySelector('#status-heading').textContent = 'Identity Verified';
-                    document.querySelector('#status-desc').textContent = returnTo.includes('/admin') ? 'Redirecting to Admin…' : 'Initiating Warp Drive…';
+                    document.querySelector('#status-heading').textContent = isPortalAdmin ? 'Admin Access Granted' : 'Identity Verified';
+                    document.querySelector('#status-desc').textContent = isPortalAdmin ? 'Redirecting to Admin Portal…' : 'Initiating Warp Drive…';
 
                     // Trigger full 3D interactive warp tunnel or direct redirect
-                    if (returnTo.includes('/admin')) {
-                        setTimeout(() => { location.href = returnTo; }, 200);
+                    if (isPortalAdmin) {
+                        setTimeout(() => { window.location.replace('/admin'); }, 200);
                     } else if (typeof window.triggerLoginTunnelTransition === 'function') {
                         window.triggerLoginTunnelTransition(returnTo);
                     } else {
-                        setTimeout(() => { location.href = returnTo; }, 150);
+                        setTimeout(() => { window.location.replace(returnTo); }, 150);
                     }
                 })
                 .catch(err => {
-                    const errReturn = localStorage.getItem('oauth_return_to') || '/login';
+                    const errReturn = isPortalAdmin ? '/admin/login' : (storedReturnTo || '/login');
                     try { localStorage.removeItem('oauth_return_to'); } catch (e) {}
-                    document.querySelector('#status-heading').textContent = 'Sign-in Error';
+                    document.querySelector('#status-heading').textContent = 'Access Rejected';
+                    document.querySelector('#status-desc').textContent = isPortalAdmin ? 'Admin authorization failed.' : 'Sign-in Failed';
                     document.querySelector('#error-msg').textContent = err.message;
-                    setTimeout(() => { location.href = errReturn; }, 2500);
+                    setTimeout(() => { 
+                        const sep = errReturn.includes('?') ? '&' : '?';
+                        window.location.replace(`${errReturn}${sep}error=${encodeURIComponent(err.message)}`); 
+                    }, 2800);
                 });
         })();
     </script>

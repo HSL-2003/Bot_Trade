@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Bot Trade</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background-color:#000000;min-height:100vh;overflow:hidden;position:relative}
+#top-gradient{position:fixed;top:-30vh;left:0;width:100vw;height:78vh;z-index:0;pointer-events:none;background:radial-gradient(ellipse at 50% 0%,rgba(0,0,0,0.92) 0%,rgba(0,0,0,0.55) 55%,rgba(0,0,0,0) 100%)}
+.hero-content{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:6vh;width:95%;max-width:1100px;margin:0 auto}
+.eyebrow{font-family:'Outfit',sans-serif;font-size:0.78rem;font-weight:500;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.55);margin-bottom:2rem}
+.eyebrow .dot{color:#39FF14}
+.hero-title{font-family:'Playfair Display',Georgia,serif;font-size:2.8rem;font-weight:400;color:#ffffff;line-height:1.15;margin-bottom:2.2rem;letter-spacing:-0.015em;text-shadow:0 4px 30px rgba(0,0,0,0.5)}
+.hero-btn{font-family:'Outfit',sans-serif;font-size:1.1rem;font-weight:500;color:#ffffff;background-color:#000000;border:1px solid rgba(255,255,255,0.18);padding:1.3rem 2.5rem;border-radius:9999px;display:inline-flex;align-items:center;gap:0.9rem;cursor:pointer;transition:all 0.3s cubic-bezier(0.16,1,0.3,1);outline:none}
+.hero-btn:hover{background-color:#ffffff;color:#000000;border-color:#ffffff;transform:translateY(-2px)}
+.hero-btn:active{transform:translateY(0)}
+.hero-sub{font-family:'Outfit',sans-serif;font-size:0.9rem;color:rgba(255,255,255,0.5);margin-top:1.1rem}
+.hero-sub .live{color:#39FF14;font-weight:500}
+.blinking-dot{width:10px;height:10px;background-color:#39FF14;border-radius:50%;position:relative;display:inline-block;animation:pulse-glow 2s infinite ease-in-out}
+.blinking-dot::after{content:'';position:absolute;top:-5px;left:-5px;right:-5px;bottom:-5px;background-color:rgba(57,255,20,0.45);border-radius:50%;animation:wave-expand 2s infinite ease-in-out}
+@keyframes pulse-glow{0%,100%{opacity:0.5;transform:scale(0.85);box-shadow:0 0 4px rgba(57,255,20,0.3)}50%{opacity:1;transform:scale(1.1);box-shadow:0 0 12px rgba(57,255,20,0.9)}}
+@keyframes wave-expand{0%{transform:scale(0.6);opacity:0.9}100%{transform:scale(2.3);opacity:0}}
+.footer-container{position:fixed;top:50vh;left:20px;right:20px;width:calc(100vw - 40px);transform:translateY(-50%);z-index:3;display:flex;flex-direction:column}
+.footer-top{display:flex;justify-content:space-between;align-items:flex-end;width:100%;padding:0 5px}
+.footer-title{font-family:'General Sans',-apple-system,sans-serif;font-size:1.4rem;font-weight:400;color:#ffffff;letter-spacing:-0.015em;margin:0}
+.footer-title.quote{text-transform:none}
+.footer-divider{border:none;height:1px;background-color:rgba(255,255,255,0.2);margin:1.6rem 0;width:100%}
+.footer-bottom{display:flex;justify-content:space-between;align-items:center;width:100%;padding:0 5px}
+.footer-socials{display:flex;gap:1.25rem;align-items:center;flex:1}
+.social-icon{color:rgba(255,255,255,0.55);transition:all 0.3s cubic-bezier(0.16,1,0.3,1);display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.social-icon:hover{color:#39FF14;transform:translateY(-2px)}
+.footer-links{display:flex;gap:2.8rem;justify-content:center;align-items:center;flex:2}
+.footer-link{font-family:'Outfit',sans-serif;font-size:0.95rem;font-weight:400;color:#ffffff;text-decoration:none;letter-spacing:0.03em;transition:opacity 0.3s ease,transform 0.3s ease,color 0.3s ease}
+.footer-link:hover{opacity:0.8;transform:translateY(-1px);color:#39FF14}
+.footer-copyright{font-family:'Outfit',sans-serif;font-size:0.95rem;font-weight:400;color:rgba(255,255,255,0.45);text-align:right;flex:1;letter-spacing:0.02em}
+.footer-logo-wrap{position:fixed;bottom:20px;left:0;right:0;width:100%;padding:0 20px;box-sizing:border-box;display:flex;justify-content:center;align-items:center;z-index:3;margin:0}
+.footer-logo-text{font-family:'General Sans',-apple-system,sans-serif;font-size:15.5vw;font-weight:400;color:rgba(255,255,255,0.97);letter-spacing:-0.03em;margin-right:-0.03em;transform:translateX(-20px);line-height:0.8;text-align:center;width:100%;pointer-events:none;opacity:0.95;text-shadow:0 0 30px rgba(57,255,20,0.06),0 2px 18px rgba(0,0,0,0.6);white-space:nowrap}
+.video-container{position:fixed;bottom:0;left:0;width:100vw;height:92vh;overflow:hidden;z-index:-1;background:radial-gradient(ellipse at 50% 118%,rgba(0,0,0,0) 0%,rgba(0,0,0,0) 65%,rgba(0,0,0,0.85) 100%)}
+.chart-canvas{position:absolute;inset:0;width:100%;height:100%;opacity:0.9}
+.axis-line{stroke:rgba(255,255,255,0.10);stroke-width:1;stroke-dasharray:3 14}
+.price-fill{fill:url(#glow)}
+.price-line{stroke:#39FF14;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 10px rgba(57,255,20,0.5))}
+.price-line--avg{stroke:rgba(57,255,20,0.42);stroke-width:1.4;fill:none;stroke-dasharray:2 3}
+.tick{font:600 9px 'Outfit',sans-serif;fill:rgba(255,255,255,0.32);letter-spacing:1px}
+.glass-cursor-card{position:fixed;top:0;left:0;z-index:99999;pointer-events:none;padding:0.75rem 1.5rem;background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.18);border-radius:9999px;box-shadow:inset 0 1px 0 0 rgba(255,255,255,0.15);transform:translate(-50%,-50%) scale(0);opacity:0;will-change:transform,opacity;transition:opacity 0.4s cubic-bezier(0.16,1,0.3,1),background 0.35s cubic-bezier(0.16,1,0.3,1),border-color 0.35s cubic-bezier(0.16,1,0.3,1),box-shadow 0.35s cubic-bezier(0.16,1,0.3,1)}
+.glass-cursor-card.active{opacity:1}
+.glass-cursor-card.dark-mode{background:rgba(0,0,0,0.82);border-color:rgba(255,255,255,0.08);box-shadow:inset 0 1px 0 0 rgba(255,255,255,0.05)}
+.cursor-card-text{font-family:'General Sans',-apple-system,sans-serif;font-size:0.85rem;font-weight:500;letter-spacing:0.06em;color:#39FF14;text-transform:uppercase;white-space:nowrap;text-shadow:0 0 8px rgba(57,255,20,0.45)}
+.cursor-card-text .text-white{color:#ffffff;text-shadow:0 1px 3px rgba(0,0,0,0.25)}
+.cursor-ring-outline{position:fixed;top:0;left:0;width:48px;height:48px;border:1.5px solid rgba(255,255,255,0.45);border-radius:50%;z-index:99998;pointer-events:none;transform:translate(-50%,-50%) scale(0);opacity:0;will-change:transform,opacity;transition:opacity 0.4s cubic-bezier(0.16,1,0.3,1),border-color 0.4s ease;box-shadow:0 0 0 0 rgba(57,255,20,0)}
+.cursor-ring-outline.active{opacity:1}
+.cursor-ring-outline.expanded{border-color:rgba(57,255,20,0.65);box-shadow:0 0 18px rgba(57,255,20,0.35)}
+.hero-title .word-wrapper{display:inline-block;overflow:hidden;vertical-align:bottom;padding-bottom:0.15em;margin-bottom:-0.15em}
+.hero-title .word-inner{display:inline-block;opacity:0;transform:translateY(105%);filter:blur(20px);animation:word-reveal-mask 1.3s cubic-bezier(0.05,0.9,0.1,1) forwards}
+@keyframes word-reveal-mask{0%{opacity:0;transform:translateY(105%);filter:blur(20px)}30%{opacity:1}100%{opacity:1;transform:translateY(0);filter:blur(0)}}
+.footer-logo-text .letter-wrapper{display:inline-block;overflow:hidden;vertical-align:bottom;line-height:0.8}
+.footer-logo-text .letter-inner{display:inline-block;opacity:0;transform:translateX(-105%);filter:blur(20px);animation:letter-reveal-mask 1.2s cubic-bezier(0.05,0.9,0.1,1) forwards;color:#ffffff}
+@keyframes letter-reveal-mask{0%{opacity:0;transform:translateX(-105%);filter:blur(20px)}25%{opacity:1}100%{opacity:0.97;transform:translateX(0);filter:blur(0)}}
+@media(max-width:720px){.hero-title{font-size:1.9rem}.footer-logo-text{font-size:10.5vw}.footer-links{gap:1.1rem;font-size:0.82rem}}
+</style>
+</head>
+<body>
+<div id="top-gradient"></div>
+
+<main class="hero-content">
+  <p class="eyebrow"><span>Algo Bot MT5</span><span class="dot"> &middot; </span><span>Live</span></p>
+  <h1 class="hero-title">Bot handluje automatycznie <br> dla Ciebie 24/7</h1>
+  <button class="hero-btn"><span class="btn-text">Zarezerwuj demo</span><span class="blinking-dot"></span></button>
+  <p class="hero-sub"><span class="live">&#9679; Online</span> &nbsp; Obserwuj zlecenia i P&amp;L w czasie rzeczywistym</p>
+</main>
+
+<footer class="footer-container">
+  <div class="footer-top">
+    <h2 class="footer-title">B&#259;d&#378; w kontakcie</h2>
+    <h2 class="footer-title quote">Zyskuj. Obserwuj. Powtarzaj.</h2>
+  </div>
+  <hr class="footer-divider">
+  <div class="footer-bottom">
+    <div class="footer-socials">
+      <a href="#" aria-label="LinkedIn" class="social-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg></a>
+      <a href="#" aria-label="X" class="social-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l11.733 16h4.267l-11.733 -16z"></path><path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772"></path></svg></a>
+      <a href="#" aria-label="Instagram" class="social-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg></a>
+    </div>
+    <nav class="footer-links">
+      <a href="#dashboard" class="footer-link">Dashboard</a>
+      <a href="#bots" class="footer-link">Boty</a>
+      <a href="#pricing" class="footer-link">Cennik</a>
+      <a href="#contact" class="footer-link">Kontakt</a>
+    </nav>
+    <div class="footer-copyright">&copy; 2026 Bot Trade</div>
+  </div>
+</footer>
+
+<div class="footer-logo-wrap"><h2 class="footer-logo-text">BOT&nbsp;TRADE</h2></div>
+
+<div class="video-container">
+  <svg class="chart-canvas" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs>
+      <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#39FF14" stop-opacity="0.30"/>
+        <stop offset="60%" stop-color="#39FF14" stop-opacity="0.10"/>
+        <stop offset="100%" stop-color="#39FF14" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <g class="axis">
+      <line class="axis-line" x1="0" y1="150" x2="1600" y2="150"/>
+      <line class="axis-line" x1="0" y1="380" x2="1600" y2="380"/>
+      <line class="axis-line" x1="0" y1="610" x2="1600" y2="610"/>
+      <line class="axis-line" x1="0" y1="820" x2="1600" y2="820"/>
+    </g>
+    <text class="tick" x="1240" y="120">EURUSD</text>
+    <text class="tick" x="1240" y="760">XAUUSD</text>
+    <g class="series" opacity="0.88">
+      <polygon class="price-fill" points="0,740 120,690 240,712 360,640 480,668 600,600 720,628 840,560 960,588 1080,520 1200,548 1320,470 1440,498 1560,430 1600,450 1600,900 0,900"/>
+      <path class="price-line" d="M0,740 L120,690 L240,712 L360,640 L480,668 L600,600 L720,628 L840,560 L960,588 L1080,520 L1200,548 L1320,470 L1440,498 L1560,430"/>
+      <path class="price-line--avg" d="M0,720 L160,694 L320,700 L480,662 L640,638 L800,600 L960,592 L1120,548 L1280,512 L1420,480 L1600,452"/>
+    </g>
+  </svg>
+</div>
+
+<div id="cursor-ring" class="cursor-ring-outline"></div>
+<div id="glass-card" class="glass-cursor-card"><span class="cursor-card-text"><span class="text-white">Say</span> Hello!</span></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const logoText = document.querySelector('.footer-logo-text');
+  if (logoText) {
+    const text = logoText.textContent.trim().replace(/[\u00a0]/g, ' ');
+    logoText.innerHTML = '';
+    [...text].forEach((char, index) => {
+      const wrapper = document.createElement('span');
+      wrapper.className = 'letter-wrapper';
+      const inner = document.createElement('span');
+      inner.textContent = char === ' ' ? '\u00a0' : char;
+      inner.className = 'letter-inner';
+      inner.style.animationDelay = (index * 0.09) + 's';
+      wrapper.appendChild(inner);
+      logoText.appendChild(wrapper);
+    });
+  }
+
+  const heroTitle = document.querySelector('.hero-title');
+  if (heroTitle) {
+    const text = heroTitle.innerHTML;
+    const parts = text.split(/(\s+|<br\s*\/?>)/i);
+    heroTitle.innerHTML = '';
+    let wordIndex = 0;
+    parts.forEach(part => {
+      if (part.trim() === '') {
+        heroTitle.appendChild(document.createTextNode(' '));
+      } else if (part.toLowerCase().startsWith('<br')) {
+        heroTitle.appendChild(document.createElement('br'));
+      } else {
+        const wrapper = document.createElement('span');
+        wrapper.className = 'word-wrapper';
+        const inner = document.createElement('span');
+        inner.className = 'word-inner';
+        inner.textContent = part;
+        inner.style.animationDelay = (wordIndex * 0.1) + 's';
+        wordIndex++;
+        wrapper.appendChild(inner);
+        heroTitle.appendChild(wrapper);
+      }
+    });
+  }
+
+  const glassCard = document.getElementById('glass-card');
+  const cursorRing = document.getElementById('cursor-ring');
+  if (glassCard && cursorRing) {
+
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    let cardX = mouseX, cardY = mouseY;
+    let ringX = mouseX, ringY = mouseY;
+    let isFirstMove = true;
+    let scale = 0, targetScale = 0;
+    let isHoveringBtn = false;
+
+    document.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      if (isFirstMove) {
+        cardX = mouseX; cardY = mouseY;
+        ringX = mouseX; ringY = mouseY;
+        isFirstMove = false;
+        glassCard.classList.add('active');
+        cursorRing.classList.add('active');
+      }
+      if (!isHoveringBtn) { targetScale = 1; }
+    });
+    document.addEventListener('mouseleave', () => { targetScale = 0; });
+    document.addEventListener('mouseenter', () => { if (!isHoveringBtn) targetScale = 1; });
+
+    const heroBtn = document.querySelector('.hero-btn');
+    if (heroBtn) {
+      heroBtn.addEventListener('mouseenter', () => {
+        isHoveringBtn = true;
+        targetScale = 0;
+        cursorRing.classList.add('expanded');
+      });
+      heroBtn.addEventListener('mouseleave', () => {
+        isHoveringBtn = false;
+        targetScale = 1;
+        cursorRing.classList.remove('expanded');
+      });
+    }
+
+    const updatePhysics = () => {
+      cardX += (mouseX - cardX) * 0.08;
+      cardY += (mouseY - cardY) * 0.08;
+      ringX = mouseX; ringY = mouseY;
+      scale += (targetScale - scale) * 0.15;
+      const currentRingScale = cursorRing.classList.contains('expanded') ? 1.6 * scale : scale;
+      glassCard.style.transform = 'translate3d(' + cardX + 'px,' + cardY + 'px, 0) translate(-50%,-50%) scale(' + scale + ')';
+      cursorRing.style.transform = 'translate3d(' + ringX + 'px,' + ringY + 'px, 0) translate(-50%,-50%) scale(' + currentRingScale + ')';
+      requestAnimationFrame(updatePhysics);
+    };
+    updatePhysics();
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Về Chúng Tôi &amp; Câu Chuyện Sáng Lập — Confluence Algo Bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-dark: #040804;
+  --bg-card: rgba(10, 18, 10, 0.72);
+  --bg-card-hover: rgba(16, 28, 16, 0.88);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-gold: rgba(200, 184, 64, 0.35);
+  --border-green: rgba(16, 185, 129, 0.35);
+  --text-main: #f2f6ee;
+  --text-muted: #9aa892;
+  --text-dim: #64725c;
+  --color-gold: #c8b840;
+  --color-gold-bright: #f5d442;
+  --color-green: #10b981;
+  --color-cyan: #38bdf8;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-dark);
+  color: var(--text-main);
+  line-height: 1.8;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Ambient background glow */
+.bg-ambient {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% -10%, rgba(200, 184, 64, 0.08) 0%, transparent 60%),
+              radial-gradient(circle at 10% 90%, rgba(16, 185, 129, 0.05) 0%, transparent 50%),
+              radial-gradient(circle at 90% 50%, rgba(56, 189, 248, 0.03) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Top Floating Capsule Navbar */
+nav {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 1140px;
+  width: calc(100% - 44px);
+  height: 60px;
+  background: rgba(6, 12, 6, 0.85);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px 0 24px;
+  z-index: 1000;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.7);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  padding-right: 18px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-green);
+  box-shadow: 0 0 10px var(--color-green);
+  animation: pulse-dot 2.2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.brand-title {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 600;
+  color: #f0f4ec;
+  letter-spacing: 0.5px;
+}
+
+.brand-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-gold);
+  background: rgba(200, 184, 64, 0.14);
+  border: 1px solid rgba(200, 184, 64, 0.35);
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(232, 236, 228, 0.65);
+  text-decoration: none;
+  padding: 6px 13px;
+  border-radius: 20px;
+  transition: all 0.22s ease;
+  white-space: nowrap;
+}
+
+.nav-links a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-links a.active {
+  color: var(--color-gold);
+  background: rgba(200, 184, 64, 0.16);
+  font-weight: 600;
+}
+
+.nav-right-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Language Switcher Capsule Button */
+.lang-switch-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  padding: 5px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #e8ece4;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.lang-switch-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(200, 184, 64, 0.4);
+}
+
+.lang-code {
+  opacity: 0.45;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.lang-code.active {
+  opacity: 1;
+  color: var(--color-gold);
+  font-weight: 700;
+}
+
+.lang-divider {
+  opacity: 0.25;
+}
+
+.btn-nav-terminal {
+  padding: 7px 18px;
+  background: linear-gradient(135deg, #f5d442, #c8b840);
+  color: #040804;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  border-radius: 24px;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 16px rgba(200, 184, 64, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.btn-nav-terminal:hover {
+  background: linear-gradient(135deg, #fff, #f5d442);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(200, 184, 64, 0.45);
+}
+
+/* Main Container */
+main {
+  position: relative;
+  z-index: 1;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 130px 24px 80px;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--color-gold);
+  background: rgba(200, 184, 64, 0.1);
+  border: 1px solid var(--border-gold);
+  padding: 5px 16px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+
+h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(32px, 4.5vw, 52px);
+  font-weight: 400;
+  line-height: 1.2;
+  color: #fff;
+  margin-bottom: 22px;
+}
+
+h1 em {
+  font-style: italic;
+  color: var(--color-gold);
+}
+
+.hero-lead {
+  font-size: 16px;
+  line-height: 1.85;
+  color: var(--text-muted);
+  max-width: 860px;
+  margin-bottom: 50px;
+}
+
+/* 4-Metric Track Record Strip */
+.founder-metric-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 70px;
+}
+
+.fms-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px 20px;
+  text-align: center;
+  backdrop-filter: blur(16px);
+  transition: all 0.3s;
+}
+
+.fms-item:hover {
+  border-color: var(--border-gold);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+}
+
+.fms-num {
+  font-family: var(--font-serif);
+  font-size: 32px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+
+.fms-num span {
+  color: var(--color-gold);
+}
+
+.fms-label {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 500;
+}
+
+/* Story Section */
+.story-wrapper {
+  margin-bottom: 70px;
+}
+
+.story-heading {
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 3.8vw, 42px);
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.story-sub {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin-bottom: 40px;
+  max-width: 760px;
+}
+
+/* Timeline Cards */
+.timeline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: relative;
+}
+
+.timeline-container::before {
+  content: '';
+  position: absolute;
+  top: 30px;
+  bottom: 30px;
+  left: 28px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--color-gold), rgba(200, 184, 64, 0.15));
+  z-index: 0;
+}
+
+.timeline-card {
+  position: relative;
+  z-index: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 36px 36px 36px 76px;
+  backdrop-filter: blur(20px);
+  transition: all 0.3s;
+}
+
+.timeline-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-gold);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
+}
+
+.timeline-dot {
+  position: absolute;
+  top: 40px;
+  left: 21px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #040804;
+  border: 3px solid var(--color-gold);
+  box-shadow: 0 0 10px rgba(200, 184, 64, 0.6);
+}
+
+.timeline-year {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-gold);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.timeline-title {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 14px;
+}
+
+.timeline-body {
+  font-size: 14.5px;
+  line-height: 1.85;
+  color: rgba(242, 246, 238, 0.82);
+}
+
+.timeline-body p {
+  margin-bottom: 12px;
+}
+
+.timeline-body p:last-child {
+  margin-bottom: 0;
+}
+
+.quote-highlight {
+  margin: 18px 0;
+  padding: 14px 20px;
+  background: rgba(200, 184, 64, 0.08);
+  border-left: 3px solid var(--color-gold);
+  border-radius: 0 10px 10px 0;
+  font-style: italic;
+  color: #fff;
+  font-size: 14px;
+}
+
+/* Architectural Principles */
+.principles-section {
+  margin-bottom: 70px;
+}
+
+.principles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.principle-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 30px 26px;
+  backdrop-filter: blur(16px);
+  transition: all 0.3s;
+}
+
+.principle-card:hover {
+  border-color: var(--border-gold);
+  background: var(--bg-card-hover);
+  transform: translateY(-3px);
+}
+
+.pc-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-gold);
+  margin-bottom: 10px;
+  letter-spacing: 1.5px;
+}
+
+.pc-title {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.pc-desc {
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--text-muted);
+}
+
+/* Statement Box (Cam kết) */
+.statement-box {
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  border-radius: 16px;
+  padding: 36px 32px;
+  margin-bottom: 60px;
+  backdrop-filter: blur(16px);
+}
+
+.sb-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-green);
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+
+.sb-text {
+  font-size: 14.5px;
+  color: #f2f6ee;
+  line-height: 1.85;
+}
+
+/* Action Banner at Bottom */
+.bottom-cta-banner {
+  background: linear-gradient(145deg, rgba(20, 36, 20, 0.9), rgba(8, 16, 8, 0.95));
+  border: 1px solid var(--border-gold);
+  border-radius: 20px;
+  padding: 44px 36px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  backdrop-filter: blur(20px);
+}
+
+.bottom-cta-banner h2 {
+  font-family: var(--font-serif);
+  font-size: clamp(24px, 3.2vw, 36px);
+  color: #fff;
+}
+
+.bottom-cta-banner p {
+  font-size: 15px;
+  color: var(--text-muted);
+  max-width: 640px;
+}
+
+.cta-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-cta-primary {
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #f5d442, #c8b840);
+  color: #040804;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  border-radius: 25px;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 18px rgba(200, 184, 64, 0.3);
+}
+
+.btn-cta-primary:hover {
+  background: linear-gradient(135deg, #fff, #f5d442);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(200, 184, 64, 0.5);
+}
+
+.btn-cta-outline {
+  padding: 11px 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: #e8ece4;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  border-radius: 25px;
+  text-decoration: none;
+  transition: all 0.25s ease;
+}
+
+.btn-cta-outline:hover {
+  border-color: var(--border-gold);
+  background: rgba(200, 184, 64, 0.1);
+  color: #fff;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .founder-metric-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+  .principles-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  nav {
+    width: calc(100% - 24px);
+    padding: 0 16px;
+  }
+  .nav-links {
+    display: none;
+  }
+  main {
+    padding: 110px 18px 70px;
+  }
+  .founder-metric-strip {
+    grid-template-columns: 1fr;
+  }
+  .timeline-card {
+    padding: 28px 20px 28px 56px;
+  }
+  .timeline-dot {
+    left: 14px;
+  }
+  .timeline-container::before {
+    left: 21px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="bg-ambient"></div>
+
+<!-- NAVIGATION CAPSULE -->
+<nav>
+  <a href="/" class="brand">
+    <div class="brand-dot"></div>
+    <span class="brand-title">Confluence</span>
+    <span class="brand-badge" data-i18n="nav_badge">Story</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="/our-app" data-i18n="nav_our_app">Our App</a></li>
+    <li><a href="/about" class="active" data-i18n="nav_about">About Us</a></li>
+    <li><a href="/pricing" data-i18n="nav_pricing">Pricing</a></li>
+    <li><a href="/faq" data-i18n="nav_faq">Q&amp;A</a></li>
+  </ul>
+  <div class="nav-right-wrap">
+    <button class="lang-switch-btn" id="langSwitchBtn" onclick="toggleLanguage()" title="Chuyển đổi ngôn ngữ / Switch Language" aria-label="Toggle language">
+      <span class="lang-code active" id="langVi">VI</span>
+      <span class="lang-divider">/</span>
+      <span class="lang-code" id="langEn">EN</span>
+    </button>
+    <a href="/" class="btn-nav-terminal" data-i18n="nav_terminal">Web Terminal &rarr;</a>
+  </div>
+</nav>
+
+<!-- MAIN STORY CONTENT -->
+<main>
+  <div class="tag-pill" data-i18n="hero_pill">// CÂU CHUYỆN SÁNG LẬP &amp; HÀNH TRÌNH 4 NĂM ĐỊNH LƯỢNG</div>
+  <h1 data-i18n="hero_h1">Sản Phẩm Này Không Bắt Đầu Từ Phòng Thí Nghiệm.<br><em>Nó Bắt Đầu Từ Những Vết Thương Của Thị Trường.</em></h1>
+  <p class="hero-lead" data-i18n="hero_lead">
+    Một hệ sinh thái giao dịch đáng tin cậy không được tạo nên từ những lời hứa hẹn hoa mỹ.
+    Confluence Algo Bot ra đời từ chính hành trình thực tế đầy biến động: cú ngã đắt giá của một người sinh viên non trẻ,
+    những năm tháng làm việc nơi tuyến đầu sàn giao dịch, cho đến 4 năm chuyên tâm phát triển và vận hành hệ thống bot định lượng.
+  </p>
+
+  <!-- 4-METRIC TRACK RECORD STRIP -->
+  <div class="founder-metric-strip">
+    <div class="fms-item">
+      <div class="fms-num"><span id="m_num_1">4</span> <span data-i18n="m_unit_years">Năm</span></div>
+      <div class="fms-label" data-i18n="m_lbl_1">Thâm niên phát triển &amp; vận hành Bot</div>
+    </div>
+    <div class="fms-item">
+      <div class="fms-num">1:<span>3</span></div>
+      <div class="fms-label" data-i18n="m_lbl_2">Tỷ lệ R:R cố định bất biến</div>
+    </div>
+    <div class="fms-item">
+      <div class="fms-num"><span>0</span> <span data-i18n="m_unit_fund">đ</span></div>
+      <div class="fms-label" data-i18n="m_lbl_3">Không huy động &amp; không giữ vốn</div>
+    </div>
+    <div class="fms-item">
+      <div class="fms-num"><span>24</span>/7</div>
+      <div class="fms-label" data-i18n="m_lbl_4">Hạ tầng Cloud Windows VPS</div>
+    </div>
+  </div>
+
+  <!-- THE FOUNDER STORY (4 CHRONOLOGICAL CHAPTERS) -->
+  <div class="story-wrapper">
+    <h2 class="story-heading" data-i18n="story_heading">Hành Trình Chuyển Hóa: Từ Nạn Nhân Đến Nhà Phát Triển</h2>
+    <p class="story-sub" data-i18n="story_sub">Mỗi dòng mã và thuật toán kiểm soát rủi ro trong Confluence hôm nay đều được đánh đổi bằng những bài học xương máu trong quá khứ.</p>
+
+    <div class="timeline-container">
+
+      <!-- CHAPTER 1: CÚ NGÃ ĐẦU ĐỜI -->
+      <div class="timeline-card">
+        <div class="timeline-dot"></div>
+        <div class="timeline-year" data-i18n="c1_year">HỒI 01 // NĂM 2019 — CÚ NGÃ ĐẦU ĐỜI VÀ CÁNH CỬA ẢO VỌNG</div>
+        <h3 class="timeline-title" data-i18n="c1_title">Lời Rủ Rê Của "Hai Người Anh" Và Vũng Lầy Cờ Bạc Forex</h3>
+        <div class="timeline-body" data-i18n="c1_body">
+          <p>
+            Năm 2019, tôi bước chân vào giảng đường đại học với khát khao tự lập tài chính mãnh liệt nhưng hoàn toàn thiếu thốn kiến thức thực chiến.
+            Cũng như hàng vạn bạn trẻ non nớt khác, tôi đặt trọn niềm tin vào "hai người anh" quen biết ngoài xã hội — những người luôn xuất hiện với vẻ ngoài hào nhoáng,
+            những bức ảnh lợi nhuận xanh mướt và những lời hứa hẹn về một con đường kiếm tiền nhanh chóng thông qua các sàn cờ bạc tài chính và Forex không nguồn gốc.
+          </p>
+          <div class="quote-highlight">
+            "Họ nói với tôi rằng thị trường này là mỏ vàng, chỉ cần theo lệnh của các 'chuyên gia' là có thể nhân đôi tài khoản mỗi tuần."
+          </div>
+          <p>
+            Tin tưởng tuyệt đối, tôi gom góp từng đồng tiền sinh hoạt phí gia đình gửi, vay mượn bạn bè và dốc toàn bộ những gì mình có để ném vào các lệnh đòn bẩy khổng lồ.
+            Thế nhưng, thị trường tài chính không có lòng trắc ẩn. Chỉ sau vài đêm tin tức biến động mạnh, toàn bộ số tiền tích cóp bốc hơi hoàn toàn trong sự bẽ bàng.
+            Sau cú cháy tài khoản cay đắng ấy, "hai người anh" biến mất không một dấu vết, để lại tôi một mình giữa đống nợ nần và sự sụp đổ về niềm tin.
+          </p>
+        </div>
+      </div>
+
+      <!-- CHAPTER 2: TUYẾN ĐẦU SÀN GIAO DỊCH -->
+      <div class="timeline-card">
+        <div class="timeline-dot"></div>
+        <div class="timeline-year" data-i18n="c2_year">HỒI 02 // NĂM 2020 – 2021 — NHÌN TẬN MẮT CỖ MÁY XAY TIỀN</div>
+        <h3 class="timeline-title" data-i18n="c2_title">Bước Vào Tuyến Đầu: Góc Nhìn Của Nhân Viên Support Và Môi Giới IB</h3>
+        <div class="timeline-body" data-i18n="c2_body">
+          <p>
+            Sau cú vấp ngã ê chề, tôi không chọn cách từ bỏ trong uất ức. Tôi tự nhủ: <em>Nếu muốn tồn tại và chiến thắng một trò chơi khốc liệt, mình phải hiểu tường tận từng bánh răng bên trong cỗ máy ấy.</em>
+            Tôi nộp đơn vào làm nhân viên chăm sóc khách hàng (Customer Support) và sau đó chuyển sang làm Nhà môi giới giới thiệu (IB) tại một sàn giao dịch quốc tế.
+          </p>
+          <p>
+            Chính trong hơn hai năm trực tiếp xử lý tài khoản và hỗ trợ cho hàng nghìn nhà đầu tư cá nhân, tôi đã chứng kiến một sự thật trần trụi đến đau lòng:
+            <strong>95% nhà giao dịch thất bại không phải vì họ không thông minh, mà vì tâm lý con người vốn dĩ quá yếu đuối trước đồng tiền.</strong>
+          </p>
+          <ul style="list-style:none;margin:12px 0 16px;display:flex;flex-direction:column;gap:8px;">
+            <li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;">
+              <span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span>
+              Họ FOMO đu đỉnh khi nến xanh đã tăng vọt, rồi hoảng loạn cắt đáy khi vừa có một nhịp rung lắc nhẹ.
+            </li>
+            <li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;">
+              <span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span>
+              Họ gồng lỗ hàng nghìn points với hy vọng mong manh "giá sẽ quay lại", nhưng chỉ vừa thấy lãi vài chục USD là vội vàng chốt non.
+            </li>
+            <li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;">
+              <span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span>
+              Họ phó mặc số phận cho các nhóm kín "bắn tín hiệu", "kéo tài khoản", để rồi chuốc lấy những kết cục đau đớn y hệt như tôi năm nào.
+            </li>
+          </ul>
+          <p>
+            Là một người làm nghề có lương tâm, tôi cảm thấy bất lực khi nhìn những đồng vốn mồ hôi nước mắt của khách hàng tan biến vì những sai lầm lặp đi lặp lại.
+            Tôi tự đặt cho mình câu hỏi nhức nhối: <em>Liệu có giải pháp nào có thể bảo vệ tài khoản của nhà đầu tư khỏi chính cảm xúc của họ?</em>
+          </p>
+        </div>
+      </div>
+
+      <!-- CHAPTER 3: SỰ THỨC TỈNH CỦA KỶ LUẬT THUẬT TOÁN -->
+      <div class="timeline-card">
+        <div class="timeline-dot"></div>
+        <div class="timeline-year" data-i18n="c3_year">HỒI 03 // NĂM 2022 – 2024 — SỰ THỨC TỈNH VÀ BƯỚC NGOẶT ĐỊNH LƯỢNG</div>
+        <h3 class="timeline-title" data-i18n="c3_title">Khước Từ Lối Mòn Truyền Thống: Thuật Toán Phải Thay Thế Con Người</h3>
+        <div class="timeline-body" data-i18n="c3_body">
+          <p>
+            Tôi hiểu ra rằng trong một thị trường nơi các quỹ định chế hàng đầu thế giới sử dụng siêu máy tính, thuật toán định lượng và giao dịch cao tần (HFT),
+            thì việc một cá nhân ngồi trước màn hình bấm lệnh bằng tay dựa trên linh cảm chẳng khác nào mang vũ khí thô sơ ra trận địa hiện đại.
+          </p>
+          <div class="quote-highlight">
+            "Muốn chiến thắng một cỗ máy không cảm xúc, chúng ta phải trở thành một cỗ máy — hoặc để thuật toán làm điều đó thay mình."
+          </div>
+          <p>
+            Tôi quyết định từ bỏ công việc môi giới thuần túy để dấn thân toàn lực vào lĩnh vực <strong>Giao dịch Thuật toán (Algorithmic Trading System)</strong>.
+            Tôi tự học lập trình MQL5, Python, kết nối API giao thức MetaTrader 5 và bắt đầu tự xây dựng những con bot đầu tiên cho chính tài khoản của mình.
+            Không còn những đêm thức trắng theo dõi tin tức, không còn cảm giác tim đập thình thịch khi nến giật, mọi quyết định giờ đây được giao trọn cho các công thức xác suất toán học.
+          </p>
+        </div>
+      </div>
+
+      <!-- CHAPTER 4: 4 NĂM THÂM NIÊN KINH DOANH BOT -->
+      <div class="timeline-card">
+        <div class="timeline-dot"></div>
+        <div class="timeline-year" data-i18n="c4_year">HỒI 04 // NĂM 2022 – 2026 — 4 NĂM KINH NGHIỆM CHIẾN TRƯỜNG &amp; SỰ RA ĐỜI CỦA CONFLUENCE</div>
+        <h3 class="timeline-title" data-i18n="c4_title">Bản Lĩnh Rèn Giũa Qua Thăng Trầm: 4 Năm Vận Hành Đội Bot Thực Chiến</h3>
+        <div class="timeline-body" data-i18n="c4_body">
+          <p>
+            Đến nay, tôi đã có <strong>4 năm thâm niên chuyên sâu trong lĩnh vực kinh doanh, nghiên cứu và vận hành hệ thống trading bot</strong>.
+            Bốn năm qua không phải là chuỗi ngày êm đềm màu hồng, mà là hành trình đối mặt với hàng loạt biến cố thị trường thực tế:
+            những cuộc xung đột địa chính trị toàn cầu, lạm phát kỷ lục, các đêm bầu cử và các phiên Non-Farm Payrolls giật dữ dội quét sạch hàng nghìn tài khoản tay.
+          </p>
+          <p>
+            Chính trong lửa đỏ của thị trường, hệ thống <strong>Confluence Algo Bot</strong> và phiên bản di động <strong>Confluence Mobile</strong> đã được thai nghén và tôi luyện:
+          </p>
+          <ul style="list-style:none;margin:12px 0 16px;display:flex;flex-direction:column;gap:8px;">
+            <li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;">
+              <span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span>
+              <strong>Triết lý Confluence Engine:</strong> Không bao giờ vào lệnh chỉ dựa vào 1 chỉ báo. Tín hiệu chỉ kích hoạt khi có sự đồng thuận từ cấu trúc nến, ngưỡng RSI quá bán/quá mua và vùng kích hoạt 300 points.
+            </li>
+            <li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;">
+              <span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span>
+              <strong>Kỷ luật R:R = 1:3 bất biến:</strong> Cắt lỗ 500 points để giới hạn rủi ro tối đa, nhưng chốt lời 1500 points để đảm bảo chỉ cần tỷ lệ thắng 35% tài khoản vẫn sinh lời bền vững.
+            </li>
+            <li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;">
+              <span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span>
+              <strong>Bộ đôi bảo vệ vốn Breakeven + Trailing Stop:</strong> Khi đạt +500 points lợi nhuận, bot tự động dời SL về hòa vốn và thả Trailing Stop từng nấc 500 points để khóa chặt thành quả.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 4 NGUYÊN TẮC CỐT LÕI -->
+  <div class="principles-section">
+    <h2 class="story-heading" data-i18n="princ_heading">Bốn Nguyên Tắc Cốt Lõi Tạo Nên Giá Trị</h2>
+    <p class="story-sub" data-i18n="princ_sub">Những giá trị không thể thương lượng được đúc kết từ bài học xương máu của người sáng lập.</p>
+
+    <div class="principles-grid">
+      <div class="principle-card">
+        <div class="pc-num" data-i18n="p1_num">01 // MINH BẠCH VỐN</div>
+        <h3 class="pc-title" data-i18n="p1_title">Không Bao Giờ Giữ Tiền Khách Hàng</h3>
+        <p class="pc-desc" data-i18n="p1_desc">
+          Vì từng là nạn nhân bị lừa đảo, tôi thấu hiểu cảm giác bất an khi gửi tiền cho người khác.
+          Confluence cam kết 100% không nhận ủy thác. Bạn tự mở tài khoản MT5 đứng tên mình tại bất kỳ sàn uy tín nào; bot chỉ kết nối thực thi lệnh qua API.
+        </p>
+      </div>
+
+      <div class="principle-card">
+        <div class="pc-num" data-i18n="p2_num">02 // KỶ LUẬT THUẬT TOÁN</div>
+        <h3 class="pc-title" data-i18n="p2_title">Triệt Tiêu 100% Yếu Tố Cảm Xúc</h3>
+        <p class="pc-desc" data-i18n="p2_desc">
+          Bot không biết sợ hãi, không biết tham lam, không biết tiếc nuối. Khi thị trường đi đúng kịch bản, bot mở lệnh; khi chạm ngưỡng rủi ro, bot dứt khoát cắt lệnh.
+          Kỷ luật sắt đá là sự khác biệt duy nhất giữa cờ bạc và đầu tư.
+        </p>
+      </div>
+
+      <div class="principle-card">
+        <div class="pc-num" data-i18n="p3_num">03 // CHIA SẺ LỢI NHUẬN CÔNG BẰNG</div>
+        <h3 class="pc-title" data-i18n="p3_title">Chỉ Thu Phí Khi Khách Hàng Có Lãi</h3>
+        <p class="pc-desc" data-i18n="p3_desc">
+          Mô hình phí dịch vụ 5% - 8% được tính toán dựa trên tổng lợi nhuận ròng thực tế.
+          Nếu tài khoản của bạn hòa vốn hoặc thua lỗ trong một chu kỳ, bạn không phải trả bất kỳ đồng phí dịch vụ nào. Chúng tôi chỉ thắng khi bạn thắng.
+        </p>
+      </div>
+
+      <div class="principle-card">
+        <div class="pc-num" data-i18n="p4_num">04 // HỖ TRỢ TÀI KHOẢN NHỎ</div>
+        <h3 class="pc-title" data-i18n="p4_title">Dành Cho Mọi Nhà Giao Dịch</h3>
+        <p class="pc-desc" data-i18n="p4_desc">
+          Chúng tôi không thiết kế bot chỉ cho giới tinh hoa nhiều tiền.
+          Thuật toán Dynamic Lot Sizing linh hoạt giúp những người có số vốn khởi điểm khiêm tốn từ $50 - $200 USD vẫn có thể tiếp cận công nghệ định lượng với rủi ro trong tầm tay.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAM KẾT ĐẠO ĐỨC NGHỀ NGHIỆP -->
+  <div class="statement-box">
+    <div class="sb-title" data-i18n="sb_title">TUYÊN NGÔN AN TOÀN VỐN &amp; CAM KẾT ĐẠO ĐỨC NGHỀ NGHIỆP</div>
+    <p class="sb-text" data-i18n="sb_text">
+      "Tôi lập ra Confluence không phải để bán những giấc mơ viển vông, mà để mang lại cho bạn một công cụ phòng vệ thực sự trước sự tàn khốc của thị trường tài chính.
+      Một công cụ được đúc kết từ thất bại cay đắng nhất của chính tôi, được kiểm chứng qua 4 năm vận hành bền bỉ trên hàng nghìn tài khoản thực tế.
+      Bạn có quyền tự chủ tài chính của mình — và chúng tôi cung cấp kỷ luật để bảo vệ điều đó."
+      <br><br>
+      <strong style="color:var(--color-gold);">&mdash; Người Sáng Lập Confluence Trading Technologies</strong>
+    </p>
+  </div>
+
+  <!-- BOTTOM CTA BANNER -->
+  <div class="bottom-cta-banner">
+    <h2 data-i18n="cta_h2">Sẵn Sàng Giao Dịch Với Kỷ Luật Định Lượng?</h2>
+    <p data-i18n="cta_p">Trải nghiệm ngay Confluence Mobile trên điện thoại hoặc kết nối tài khoản MT5 của bạn vào Web Terminal trong vòng 60 giây.</p>
+    <div class="cta-actions-row">
+      <a href="/our-app" class="btn-cta-primary" data-i18n="btn_explore_app">Khám Phá Confluence Mobile &rarr;</a>
+      <a href="/pricing" class="btn-cta-outline" data-i18n="btn_view_pricing">Xem Bảng Giá 3 Gói Bot</a>
+      <a href="/faq" class="btn-cta-outline" data-i18n="btn_view_faq">Xem Hỏi &amp; Đáp (Q&amp;A)</a>
+      <a href="/" class="btn-cta-outline" data-i18n="btn_open_terminal">Mở Web Terminal</a>
+    </div>
+  </div>
+</main>
+
+<script>
+// --- I18N DICTIONARY FOR ABOUT US ---
+const i18n = {
+  vi: {
+    nav_badge: "Story",
+    nav_our_app: "Our App",
+    nav_about: "About Us",
+    nav_pricing: "Pricing",
+    nav_faq: "Q&A",
+    nav_terminal: "Web Terminal &rarr;",
+    hero_pill: "// CÂU CHUYỆN SÁNG LẬP &amp; HÀNH TRÌNH 4 NĂM ĐỊNH LƯỢNG",
+    hero_h1: "Sản Phẩm Này Không Bắt Đầu Từ Phòng Thí Nghiệm.<br><em>Nó Bắt Đầu Từ Những Vết Thương Của Thị Trường.</em>",
+    hero_lead: "Một hệ sinh thái giao dịch đáng tin cậy không được tạo nên từ những lời hứa hẹn hoa mỹ. Confluence Algo Bot ra đời từ chính hành trình thực tế đầy biến động: cú ngã đắt giá của một người sinh viên non trẻ, những năm tháng làm việc nơi tuyến đầu sàn giao dịch, cho đến 4 năm chuyên tâm phát triển và vận hành hệ thống bot định lượng.",
+    m_unit_years: "Năm",
+    m_unit_fund: "đ",
+    m_lbl_1: "Thâm niên phát triển &amp; vận hành Bot",
+    m_lbl_2: "Tỷ lệ R:R cố định bất biến",
+    m_lbl_3: "Không huy động &amp; không giữ vốn",
+    m_lbl_4: "Hạ tầng Cloud Windows VPS",
+    story_heading: "Hành Trình Chuyển Hóa: Từ Nạn Nhân Đến Nhà Phát Triển",
+    story_sub: "Mỗi dòng mã và thuật toán kiểm soát rủi ro trong Confluence hôm nay đều được đánh đổi bằng những bài học xương máu trong quá khứ.",
+    c1_year: "HỒI 01 // NĂM 2019 — CÚ NGÃ ĐẦU ĐỜI VÀ CÁNH CỬA ẢO VỌNG",
+    c1_title: "Lời Rủ Rê Của "Hai Người Anh" Và Vũng Lầy Cờ Bạc Forex",
+    c1_body: `<p>Năm 2019, tôi bước chân vào giảng đường đại học với khát khao tự lập tài chính mãnh liệt nhưng hoàn toàn thiếu thốn kiến thức thực chiến. Cũng như hàng vạn bạn trẻ non nớt khác, tôi đặt trọn niềm tin vào "hai người anh" quen biết ngoài xã hội — những người luôn xuất hiện với vẻ ngoài hào nhoáng, những bức ảnh lợi nhuận xanh mướt và những lời hứa hẹn về một con đường kiếm tiền nhanh chóng thông qua các sàn cờ bạc tài chính và Forex không nguồn gốc.</p><div class="quote-highlight">"Họ nói với tôi rằng thị trường này là mỏ vàng, chỉ cần theo lệnh của các 'chuyên gia' là có thể nhân đôi tài khoản mỗi tuần."</div><p>Tin tưởng tuyệt đối, tôi gom góp từng đồng tiền sinh hoạt phí gia đình gửi, vay mượn bạn bè và dốc toàn bộ những gì mình có để ném vào các lệnh đòn bẩy khổng lồ. Thế nhưng, thị trường tài chính không có lòng trắc ẩn. Chỉ sau vài đêm tin tức biến động mạnh, toàn bộ số tiền tích cóp bốc hơi hoàn toàn trong sự bẽ bàng. Sau cú cháy tài khoản cay đắng ấy, "hai người anh" biến mất không một dấu vết, để lại tôi một mình giữa đống nợ nần và sự sụp đổ về niềm tin.</p>`,
+    c2_year: "HỒI 02 // NĂM 2020 – 2021 — NHÌN TẬN MẮT CỖ MÁY XAY TIỀN",
+    c2_title: "Bước Vào Tuyến Đầu: Góc Nhìn Của Nhân Viên Support Và Môi Giới IB",
+    c2_body: `<p>Sau cú vấp ngã ê chề, tôi không chọn cách từ bỏ trong uất ức. Tôi tự nhủ: <em>Nếu muốn tồn tại và chiến thắng một trò chơi khốc liệt, mình phải hiểu tường tận từng bánh răng bên trong cỗ máy ấy.</em> Tôi nộp đơn vào làm nhân viên chăm sóc khách hàng (Customer Support) và sau đó chuyển sang làm Nhà môi giới giới thiệu (IB) tại một sàn giao dịch quốc tế.</p><p>Chính trong hơn hai năm trực tiếp xử lý tài khoản và hỗ trợ cho hàng nghìn nhà đầu tư cá nhân, tôi đã chứng kiến một sự thật trần trụi đến đau lòng: <strong>95% nhà giao dịch thất bại không phải vì họ không thông minh, mà vì tâm lý con người vốn dĩ quá yếu đuối trước đồng tiền.</strong></p><ul style="list-style:none;margin:12px 0 16px;display:flex;flex-direction:column;gap:8px;"><li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;"><span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span> Họ FOMO đu đỉnh khi nến xanh đã tăng vọt, rồi hoảng loạn cắt đáy khi vừa có một nhịp rung lắc nhẹ.</li><li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;"><span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span> Họ gồng lỗ hàng nghìn points với hy vọng mong manh "giá sẽ quay lại", nhưng chỉ vừa thấy lãi vài chục USD là vội vàng chốt non.</li><li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;"><span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span> Họ phó mặc số phận cho các nhóm kín "bắn tín hiệu", "kéo tài khoản", để rồi chuốc lấy những kết cục đau đớn y hệt như tôi năm nào.</li></ul><p>Là một người làm nghề có lương tâm, tôi cảm thấy bất lực khi nhìn những đồng vốn mồ hôi nước mắt của khách hàng tan biến vì những sai lầm lặp đi lặp lại. Tôi tự đặt cho mình câu hỏi nhức nhối: <em>Liệu có giải pháp nào có thể bảo vệ tài khoản của nhà đầu tư khỏi chính cảm xúc của họ?</em></p>`,
+    c3_year: "HỒI 03 // NĂM 2022 – 2024 — SỰ THỨC TỈNH VÀ BƯỚC NGOẶT ĐỊNH LƯỢNG",
+    c3_title: "Khước Từ Lối Mòn Truyền Thống: Thuật Toán Phải Thay Thế Con Người",
+    c3_body: `<p>Tôi hiểu ra rằng trong một thị trường nơi các quỹ định chế hàng đầu thế giới sử dụng siêu máy tính, thuật toán định lượng và giao dịch cao tần (HFT), thì việc một cá nhân ngồi trước màn hình bấm lệnh bằng tay dựa trên linh cảm chẳng khác nào mang vũ khí thô sơ ra trận địa hiện đại.</p><div class="quote-highlight">"Muốn chiến thắng một cỗ máy không cảm xúc, chúng ta phải trở thành một cỗ máy — hoặc để thuật toán làm điều đó thay mình."</div><p>Tôi quyết định từ bỏ công việc môi giới thuần túy để dấn thân toàn lực vào lĩnh vực <strong>Giao dịch Thuật toán (Algorithmic Trading System)</strong>. Tôi tự học lập trình MQL5, Python, kết nối API giao thức MetaTrader 5 và bắt đầu tự xây dựng những con bot đầu tiên cho chính tài khoản của mình. Không còn những đêm thức trắng theo dõi tin tức, không còn cảm giác tim đập thình thịch khi nến giật, mọi quyết định giờ đây được giao trọn cho các công thức xác suất toán học.</p>`,
+    c4_year: "HỒI 04 // NĂM 2022 – 2026 — 4 NĂM KINH NGHIỆM CHIẾN TRƯỜNG & SỰ RA ĐỜI CỦA CONFLUENCE",
+    c4_title: "Bản Lĩnh Rèn Giũa Qua Thăng Trầm: 4 Năm Vận Hành Đội Bot Thực Chiến",
+    c4_body: `<p>Đến nay, tôi đã có <strong>4 năm thâm niên chuyên sâu trong lĩnh vực kinh doanh, nghiên cứu và vận hành hệ thống trading bot</strong>. Bốn năm qua không phải là chuỗi ngày êm đềm màu hồng, mà là hành trình đối mặt với hàng loạt biến cố thị trường thực tế: những cuộc xung đột địa chính trị toàn cầu, lạm phát kỷ lục, các đêm bầu cử và các phiên Non-Farm Payrolls giật dữ dội quét sạch hàng nghìn tài khoản tay.</p><p>Chính trong lửa đỏ của thị trường, hệ thống <strong>Confluence Algo Bot</strong> và phiên bản di động <strong>Confluence Mobile</strong> đã được thai nghén và tôi luyện:</p><ul style="list-style:none;margin:12px 0 16px;display:flex;flex-direction:column;gap:8px;"><li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;"><span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span> <strong>Triết lý Confluence Engine:</strong> Không bao giờ vào lệnh chỉ dựa vào 1 chỉ báo. Tín hiệu chỉ kích hoạt khi có sự đồng thuận từ cấu trúc nến, ngưỡng RSI quá bán/quá mua và vùng kích hoạt 300 points.</li><li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;"><span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span> <strong>Kỷ luật R:R = 1:3 bất biến:</strong> Cắt lỗ 500 points để giới hạn rủi ro tối đa, nhưng chốt lời 1500 points để đảm bảo chỉ cần tỷ lệ thắng 35% tài khoản vẫn sinh lời bền vững.</li><li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;"><span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span> <strong>Bộ đôi bảo vệ vốn Breakeven + Trailing Stop:</strong> Khi đạt +500 points lợi nhuận, bot tự động dời SL về hòa vốn và thả Trailing Stop từng nấc 500 points để khóa chặt thành quả.</li></ul>`,
+    princ_heading: "Bốn Nguyên Tắc Cốt Lõi Tạo Nên Giá Trị",
+    princ_sub: "Những giá trị không thể thương lượng được đúc kết từ bài học xương máu của người sáng lập.",
+    p1_num: "01 // MINH BẠCH VỐN",
+    p1_title: "Không Bao Giờ Giữ Tiền Khách Hàng",
+    p1_desc: "Vì từng là nạn nhân bị lừa đảo, tôi thấu hiểu cảm giác bất an khi gửi tiền cho người khác. Confluence cam kết 100% không nhận ủy thác. Bạn tự mở tài khoản MT5 đứng tên mình tại bất kỳ sàn uy tín nào; bot chỉ kết nối thực thi lệnh qua API.",
+    p2_num: "02 // KỶ LUẬT THUẬT TOÁN",
+    p2_title: "Triệt Tiêu 100% Yếu Tố Cảm Xúc",
+    p2_desc: "Bot không biết sợ hãi, không biết tham lam, không biết tiếc nuối. Khi thị trường đi đúng kịch bản, bot mở lệnh; khi chạm ngưỡng rủi ro, bot dứt khoát cắt lệnh. Kỷ luật sắt đá là sự khác biệt duy nhất giữa cờ bạc và đầu tư.",
+    p3_num: "03 // CHIA SẺ LỢI NHUẬN CÔNG BẰNG",
+    p3_title: "Chỉ Thu Phí Khi Khách Hàng Có Lãi",
+    p3_desc: "Mô hình phí dịch vụ 5% - 8% được tính toán dựa trên tổng lợi nhuận ròng thực tế. Nếu tài khoản của bạn hòa vốn hoặc thua lỗ trong một chu kỳ, bạn không phải trả bất kỳ đồng phí dịch vụ nào. Chúng tôi chỉ thắng khi bạn thắng.",
+    p4_num: "04 // HỖ TRỢ TÀI KHOẢN NHỎ",
+    p4_title: "Dành Cho Mọi Nhà Giao Dịch",
+    p4_desc: "Chúng tôi không thiết kế bot chỉ cho giới tinh hoa nhiều tiền. Thuật toán Dynamic Lot Sizing linh hoạt giúp những người có số vốn khởi điểm khiêm tốn từ $50 - $200 USD vẫn có thể tiếp cận công nghệ định lượng với rủi ro trong tầm tay.",
+    sb_title: "TUYÊN NGÔN AN TOÀN VỐN &amp; CAM KẾT ĐẠO ĐỨC NGHỀ NGHIỆP",
+    sb_text: `"Tôi lập ra Confluence không phải để bán những giấc mơ viển vông, mà để mang lại cho bạn một công cụ phòng vệ thực sự trước sự tàn khốc của thị trường tài chính. Một công cụ được đúc kết từ thất bại cay đắng nhất của chính tôi, được kiểm chứng qua 4 năm vận hành bền bỉ trên hàng nghìn tài khoản thực tế. Bạn có quyền tự chủ tài chính của mình — và chúng tôi cung cấp kỷ luật để bảo vệ điều đó."<br><br><strong style="color:var(--color-gold);">&mdash; Người Sáng Lập Confluence Trading Technologies</strong>`,
+    cta_h2: "Sẵn Sàng Giao Dịch Với Kỷ Luật Định Lượng?",
+    cta_p: "Trải nghiệm ngay Confluence Mobile trên điện thoại hoặc kết nối tài khoản MT5 của bạn vào Web Terminal trong vòng 60 giây.",
+    btn_explore_app: "Khám Phá Confluence Mobile &rarr;",
+    btn_view_pricing: "Xem Bảng Giá 3 Gói Bot",
+    btn_view_faq: "Xem Hỏi &amp; Đáp (Q&amp;A)",
+    btn_open_terminal: "Mở Web Terminal"
+  },
+  en: {
+    nav_badge: "Story",
+    nav_our_app: "Our App",
+    nav_about: "About Us",
+    nav_pricing: "Pricing",
+    nav_faq: "Q&A",
+    nav_terminal: "Web Terminal &rarr;",
+    hero_pill: "// FOUNDER'S JOURNEY &amp; 4-YEAR QUANTITATIVE TRACK RECORD",
+    hero_h1: "This Product Did Not Begin in a Clean Laboratory.<br><em>It Rose from the Brutal Wounds of the Financial Market.</em>",
+    hero_lead: "A resilient trading ecosystem is never built on empty promises. Confluence Algo Bot was forged through raw, high-stakes reality: a student's costly financial crash, years on the frontlines of international brokerages, followed by four dedicated years of designing, stress-testing, and running live quantitative algorithmic bots.",
+    m_unit_years: "Years",
+    m_unit_fund: "$",
+    m_lbl_1: "Quantitative Bot Track Record",
+    m_lbl_2: "Immutable 1:3 Risk-to-Reward Ratio",
+    m_lbl_3: "100% Non-Custodial Capital Protection",
+    m_lbl_4: "24/7 Dedicated Cloud VPS Uptime",
+    story_heading: "The Transformation: From Victim to Quantitative Architect",
+    story_sub: "Every line of code and defensive risk parameter in Confluence today was paid for with unforgettable lessons in market discipline.",
+    c1_year: "CHAPTER 01 // 2019 — THE INITIAL CRASH &amp; THE ILLUSION TRAP",
+    c1_title: "The Enticement of Two Senior Acquaintances &amp; Unregulated Forex Gambling",
+    c1_body: `<p>In 2019, I entered university with an intense hunger for financial independence but without any practical trading armor. Like thousands of inexperienced young people, I placed absolute trust in two flashy acquaintances who flaunted green profit screenshots and promised rapid wealth through unregulated financial gambling platforms and obscure forex brokers.</p><div class="quote-highlight">"They told me the market was an effortless goldmine: simply mirror the orders of their 'mentors' to double your account every single week."</div><p>Blinded by trust, I scraped together every dollar of living expenses sent from my parents, borrowed from classmates, and threw everything into massive leverage orders. The market showed zero compassion. After a few volatile geopolitical headlines, every cent evaporated overnight. Following that catastrophic wipeout, the two acquaintances vanished without a trace, leaving me alone with mounting debt and shattered faith.</p>`,
+    c2_year: "CHAPTER 02 // 2020 – 2021 — INSIDE THE MEAT GRINDER",
+    c2_title: "Stepping onto the Frontline: The Perspective of Customer Support &amp; Introducing Broker",
+    c2_body: `<p>Instead of giving up in bitter defeat, I resolved to understand every gear inside the financial machine: <em>If I am to conquer this unforgiving battlefield, I must master how the institution operates from within.</em> I applied for a role as a Customer Support specialist and subsequently worked as an Introducing Broker (IB) at an international brokerage.</p><p>Over two years handling accounts and guiding thousands of retail traders, I observed a heartbreaking reality: <strong>95% of traders do not fail from a lack of intelligence; they fail because human psychology is inherently vulnerable when real money is on the line.</strong></p><ul style="list-style:none;margin:12px 0 16px;display:flex;flex-direction:column;gap:8px;"><li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;"><span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span> They FOMO buy the peak after massive green expansions, then panic sell the exact bottom on minor pullbacks.</li><li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;"><span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span> They hold floating losses for thousands of points hoping price will return, yet prematurely close winning setups for tiny gains.</li><li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;"><span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span> They surrender their capital to secretive signal groups and account-flipping schemes, suffering identical agony to what I endured.</li></ul><p>Witnessing hard-earned savings dissolve due to predictable emotional traps became unbearable. I asked myself: <em>Can an automated software shield retail traders from their own emotional impulses?</em></p>`,
+    c3_year: "CHAPTER 03 // 2022 – 2024 — THE QUANTITATIVE AWAKENING",
+    c3_title: "Rejecting Intuitive Trading: Algorithms Must Replace Human Emotion",
+    c3_body: `<p>I realized that in an institutional arena dominated by supercomputers, statistical arbitrage, and High-Frequency Trading (HFT) algorithms, an individual trader manual clicking buttons based on gut feeling is bringing stone tools into modern mechanized warfare.</p><div class="quote-highlight">"To beat an emotionless quantitative machine, you must operate like one — or entrust the logic entirely to cold mathematical algorithms."</div><p>I left retail brokerage to dedicate my life to <strong>Algorithmic Trading Systems</strong>. I taught myself MQL5, Python, connected MT5 API protocols, and developed initial bot frameworks for my own capital. No more sleepless nights monitoring charts; every entry, risk guard, and exit was handed over to probability models.</p>`,
+    c4_year: "CHAPTER 04 // 2022 – 2026 — 4-YEAR LIVE BOT OPERATION &amp; BIRTH OF CONFLUENCE",
+    c4_title: "Forged in Live Market Fires: 4 Years Operating Trading Bot Fleets",
+    c4_body: `<p>Today, I hold <strong>4 years of specialized field experience building, operating, and refining algorithmic trading bot systems</strong>. These four years were not an academic exercise: they tested our algorithms through major geopolitical conflicts, record inflation cycles, election flash moves, and extreme Non-Farm Payrolls spikes that wiped out thousands of manual accounts.</p><p>Through live fire, <strong>Confluence Algo Bot</strong> and its mobile companion <strong>Confluence Mobile</strong> were tempered:</p><ul style="list-style:none;margin:12px 0 16px;display:flex;flex-direction:column;gap:8px;"><li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;"><span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span> <strong>Multi-layer Confluence Engine:</strong> Never trigger on a single indicator. Orders only execute when candle structure, dynamic RSI boundaries, and a 300pt trigger window agree.</li><li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;"><span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span> <strong>Non-Negotiable 1:3 R:R:</strong> Enforcing a 500pt Stop Loss while capturing 1500pt Take Profit guarantees sustained profitability with just a 35% win rate.</li><li style="color:var(--text-muted);font-size:14px;padding-left:20px;position:relative;"><span style="position:absolute;left:0;color:var(--color-gold);">&bull;</span> <strong>Automated Breakeven + Trailing Defense:</strong> At +500 points in profit, the bot shifts SL to entry price and advances a 500pt trailing stop to secure accumulated gains.</li></ul>`,
+    princ_heading: "Four Ethical Pillars of Our Ecosystem",
+    princ_sub: "Uncompromising principles distilled from the founder's most painful lessons.",
+    p1_num: "01 // CAPITAL TRANSPARENCY",
+    p1_title: "Zero Fund Custody — Ever",
+    p1_desc: "Having survived financial exploitation, I understand the fear of entrusting funds to others. Confluence is 100% non-custodial. You maintain your personal MT5 account with your preferred broker; our software only transmits orders via API.",
+    p2_num: "02 // ALGORITHMIC DISCIPLINE",
+    p2_title: "100% Elimination of Human Emotion",
+    p2_desc: "The bot knows no fear, greed, or hesitation. When criteria align, it enters; when thresholds are hit, it exits cleanly. Relentless discipline is the only true barrier between gambling and investment.",
+    p3_num: "03 // PERFORMANCE-DRIVEN PRICING",
+    p3_title: "Fees Charged Only on Realized Net Profit",
+    p3_desc: "Our 5% to 8% performance fee is calculated exclusively on net realized gains after losses. If your account breaks even or incurs a drawdown, you pay $0 in performance fees. We only win when you win.",
+    p4_num: "04 // ACCESSIBILITY FOR SMALL ACCOUNTS",
+    p4_title: "Engineered for Every Disciplined Trader",
+    p4_desc: "We did not build Confluence exclusively for wealthy elites. Dynamic Recovery Lot Sizing enables accounts starting from $50 - $200 USD to harness institutional quant logic with micro-lots (0.01).",
+    sb_title: "CAPITAL SAFETY MANIFESTO &amp; ETHICAL PLEDGE",
+    sb_text: `"I created Confluence not to sell fantasy dreams, but to give you an authentic defensive shield against the brutality of financial markets. An instrument refined from personal failure and validated across four continuous years of live fleet execution. You deserve sovereign ownership of your financial destiny — and we provide the algorithmic discipline to guard it."<br><br><strong style="color:var(--color-gold);">&mdash; Founder, Confluence Trading Technologies</strong>`,
+    cta_h2: "Ready to Trade with Algorithmic Discipline?",
+    cta_p: "Experience Confluence Mobile on your smartphone or connect your personal MT5 account to the Web Terminal in under 60 seconds.",
+    btn_explore_app: "Explore Confluence Mobile &rarr;",
+    btn_view_pricing: "Review Bot Tiers & Pricing",
+    btn_view_faq: "Frequently Asked Questions (Q&A)",
+    btn_open_terminal: "Open Web Terminal"
+  }
+};
+
+let currentLang = localStorage.getItem('confluence_lang') || 'vi';
+
+function applyLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('confluence_lang', lang);
+  document.documentElement.lang = lang;
+
+  document.getElementById('langVi').classList.toggle('active', lang === 'vi');
+  document.getElementById('langEn').classList.toggle('active', lang === 'en');
+
+  const dict = i18n[lang] || i18n.vi;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) {
+      el.innerHTML = dict[key];
+    }
+  });
+}
+
+function toggleLanguage() {
+  const next = currentLang === 'vi' ? 'en' : 'vi';
+  applyLanguage(next);
+}
+
+// Initialize on page load
+applyLanguage(currentLang);
+</script>
+</body>
+</html>

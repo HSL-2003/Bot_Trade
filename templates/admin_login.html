@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loopstack • Admin Portal Sign In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap">
+<style>
+/* ==========================================================================
+   FONTS & TYPOGRAPHY FALLBACKS
+   ========================================================================== */
+
+/* ==========================================================================
+   GLOBAL RESET & PAGE MODEL
+   ========================================================================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    background-color: #000000;
+    height: 100%;
+}
+
+body {
+    background-color: #000000;
+    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+    font-family: 'Outfit', sans-serif;
+    color: #ffffff;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==========================================================================
+   BACKGROUND VIDEO & GRADIENT OVERLAYS (Explicit Z-Index Hierarchy)
+   z-index: 1 -> Video Container
+   z-index: 2 -> Top Gradient SVG (Inline & Img)
+   z-index: 3 -> Top Ambient Vignette
+   z-index: 4 -> Giant Loopstack Wordmark
+   z-index: 10+ -> Content & Login Card
+   ========================================================================== */
+.video-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    height: 90vh;
+    overflow: hidden;
+    z-index: 1;
+    pointer-events: none;
+}
+
+#bg-video {
+    width: 100%;
+    height: 110%;
+    object-fit: cover;
+    display: block;
+    transform: translateY(0%);
+}
+
+#top-gradient {
+    position: fixed;
+    top: -30vh;
+    left: 0;
+    width: 100vw;
+    height: auto;
+    display: block;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.top-gradient-inline {
+    position: fixed;
+    top: -25vh;
+    left: 0;
+    width: 100vw;
+    height: 70vh;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.top-ambient-vignette {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 48vh;
+    background: linear-gradient(180deg, #000000 0%, rgba(0, 0, 0, 0.88) 25%, rgba(0, 0, 0, 0.45) 65%, transparent 100%);
+    pointer-events: none;
+    z-index: 3;
+}
+
+/* ==========================================================================
+   TOP BAR (Brand & View Toggle)
+   ========================================================================== */
+.top-bar {
+    position: fixed;
+    top: 24px;
+    left: 32px;
+    right: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 20;
+    pointer-events: auto;
+}
+
+.brand-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'General Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.brand-badge:hover {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.brand-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #39FF14;
+    box-shadow: 0 0 8px rgba(57, 255, 20, 0.8);
+    animation: pulse-glow 2s infinite ease-in-out;
+}
+
+.view-toggle-wrap {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9999px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+.toggle-btn {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toggle-btn.active {
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ==========================================================================
+   HERO CONTENT & LOGIN CARD
+   ========================================================================== */
+.hero-content {
+    position: relative;
+    z-index: 15;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding-top: 5vh;
+    width: 95%;
+    max-width: 1100px;
+    margin: 0 auto;
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+}
+
+.hero-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(2rem, 3.2vw, 3rem);
+    font-weight: 400;
+    color: #ffffff;
+    line-height: 1.15;
+    margin-bottom: 1.8rem;
+    letter-spacing: -0.015em;
+    text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+.hero-btn {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: #ffffff;
+    background-color: #000000;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 1.15rem 2.4rem;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4);
+    outline: none;
+    text-decoration: none;
+}
+
+.hero-btn:hover {
+    background-color: #ffffff;
+    color: #000000;
+    border-color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.3);
+}
+
+.hero-btn:active {
+    transform: translateY(0);
+}
+
+.hero-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Blinking Neon Dot */
+.blinking-dot {
+    width: 10px;
+    height: 10px;
+    background-color: #39FF14;
+    border-radius: 50%;
+    position: relative;
+    display: inline-block;
+    animation: pulse-glow 2s infinite ease-in-out;
+}
+
+.blinking-dot::after {
+    content: '';
+    position: absolute;
+    top: -5px; left: -5px; right: -5px; bottom: -5px;
+    background-color: rgba(57, 255, 20, 0.45);
+    border-radius: 50%;
+    animation: wave-expand 2s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        opacity: 0.5;
+        transform: scale(0.85);
+        box-shadow: 0 0 4px rgba(57, 255, 20, 0.3);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.1);
+        box-shadow: 0 0 12px rgba(57, 255, 20, 0.9);
+    }
+}
+
+@keyframes wave-expand {
+    0%   { transform: scale(0.6); opacity: 0.9; }
+    100% { transform: scale(2.3); opacity: 0; }
+}
+
+/* Taste-Skill Luxury Login Card */
+.login-card {
+    width: 100%;
+    max-width: 440px;
+    margin: 0 auto;
+    padding: 2.2rem 2.4rem;
+    background: rgba(12, 12, 14, 0.68);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 28px;
+    box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        inset 0 0 20px rgba(255, 255, 255, 0.02),
+        0 24px 64px -12px rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    z-index: 16;
+}
+
+.login-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+
+.login-card-title {
+    font-family: 'General Sans', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+}
+
+.login-card-subtitle {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 4px;
+}
+
+.security-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #39FF14;
+    background: rgba(57, 255, 20, 0.1);
+    border: 1px solid rgba(57, 255, 20, 0.25);
+    padding: 4px 10px;
+    border-radius: 9999px;
+}
+
+/* Inputs */
+.form-group {
+    margin-bottom: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-label {
+    font-family: 'General Sans', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.85rem 1.1rem;
+    padding-left: 2.8rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    color: #ffffff;
+    outline: none;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.form-input::placeholder {
+    color: rgba(255, 255, 255, 0.28);
+}
+
+.form-input:focus {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: #39FF14;
+    box-shadow: 0 0 0 3px rgba(57, 255, 20, 0.15), inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.input-icon {
+    position: absolute;
+    left: 1rem;
+    width: 18px;
+    height: 18px;
+    color: rgba(255, 255, 255, 0.4);
+    pointer-events: none;
+    transition: color 0.2s ease;
+}
+
+.form-input:focus ~ .input-icon {
+    color: #39FF14;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 1rem;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    transition: color 0.2s ease;
+}
+
+.password-toggle:hover {
+    color: #ffffff;
+}
+
+.login-card .hero-btn {
+    width: 100%;
+    margin-top: 0.6rem;
+    padding: 1.05rem 1.8rem;
+    font-size: 0.98rem;
+}
+
+.card-divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 1.2rem 0;
+}
+
+.card-divider::before,
+.card-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.card-divider span {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.social-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.social-login-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: rgba(255, 255, 255, 0.8);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.social-login-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.social-login-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Floating Notification Toast */
+.alert-toast {
+    position: fixed;
+    top: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-30px);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 9999;
+    padding: 0.85rem 1.6rem;
+    background: rgba(20, 8, 10, 0.85);
+    border: 1px solid rgba(255, 60, 60, 0.35);
+    border-radius: 9999px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 50, 50, 0.15);
+    font-size: 0.85rem;
+    color: #ff9494;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.alert-toast.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+}
+
+.alert-toast.success {
+    background: rgba(8, 20, 10, 0.85);
+    border-color: rgba(57, 255, 20, 0.4);
+    color: #39FF14;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(57, 255, 20, 0.2);
+}
+
+/* ==========================================================================
+   FOOTER BLOCK (Fixed / Adaptive)
+   ========================================================================== */
+.footer-container {
+    position: fixed;
+    bottom: 85px;
+    left: 32px;
+    right: 32px;
+    width: calc(100vw - 64px);
+    z-index: 12;
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto;
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.mode-showcase .footer-container {
+    top: 50vh;
+    bottom: auto;
+    left: 20px;
+    right: 20px;
+    width: calc(100vw - 40px);
+    transform: translateY(-50%);
+    z-index: 12;
+}
+
+body.mode-showcase .login-card {
+    display: none;
+}
+
+body.mode-showcase .showcase-hero-btn-wrap {
+    display: block;
+}
+
+body.mode-login .showcase-hero-btn-wrap {
+    display: none;
+}
+
+body.mode-login .footer-container {
+    bottom: 75px;
+}
+
+.footer-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    width: 100%;
+    padding: 0 5px;
+}
+
+.footer-title {
+    font-family: 'General Sans', -apple-system, sans-serif;
+    font-size: 1.25rem;
+    font-weight: 400;
+    color: #ffffff;
+    letter-spacing: -0.015em;
+    margin: 0;
+}
+
+.footer-title.quote {
+    text-transform: none;
+}
+
+.footer-divider {
+    border: none;
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.16);
+    margin: 1.1rem 0;
+    width: 100%;
+}
+
+.footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0 5px;
+}
+
+.footer-socials {
+    display: flex;
+    gap: 1.25rem;
+    align-items: center;
+    flex: 1;
+}
+
+.social-icon {
+    color: rgba(255, 255, 255, 0.55);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.social-icon:hover {
+    color: #ffffff;
+    transform: translateY(-2px);
+}
+
+.footer-links {
+    display: flex;
+    gap: 2.4rem;
+    justify-content: center;
+    align-items: center;
+    flex: 2;
+}
+
+.footer-link {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    letter-spacing: 0.03em;
+    transition: opacity 0.3s ease, transform 0.3s ease, color 0.3s ease;
+}
+
+.footer-link:hover {
+    color: #39FF14;
+    transform: translateY(-1px);
+}
+
+.footer-copyright {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.45);
+    text-align: right;
+    flex: 1;
+    letter-spacing: 0.02em;
+}
+
+/* ==========================================================================
+   GIANT WORDMARK PINNED TO BOTTOM
+   ========================================================================== */
+.footer-logo-wrap {
+    position: fixed;
+    bottom: 20px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    padding: 0 20px;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 4;
+    margin: 0;
+    pointer-events: none;
+}
+
+.footer-logo-text {
+    font-family: 'General Sans', -apple-system, sans-serif;
+    font-size: 21.9vw;
+    font-weight: 400;
+    color: #ffffff;
+    letter-spacing: -0.03em;
+    margin-right: -0.03em;
+    transform: translateX(-20px);
+    line-height: 0.8;
+    margin-top: 0;
+    margin-bottom: 0;
+    margin-left: 0;
+    text-align: center;
+    width: 100%;
+    pointer-events: none;
+    opacity: 0.95;
+    text-shadow: none;
+    white-space: nowrap;
+}
+
+/* ==========================================================================
+   CUSTOM CURSOR ELEMENTS
+   ========================================================================== */
+.glass-cursor-card {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 99999;
+    pointer-events: none;
+    padding: 0.75rem 1.5rem;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 9999px;
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+    will-change: transform, opacity;
+    transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                background 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-cursor-card.active { opacity: 1; }
+
+.cursor-card-text {
+    font-family: 'General Sans', -apple-system, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: #39FF14;
+    text-transform: uppercase;
+    white-space: nowrap;
+    text-shadow: 0 0 8px rgba(57, 255, 20, 0.45);
+}
+
+.cursor-card-text .text-white {
+    color: #ffffff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.cursor-ring-outline {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 48px;
+    height: 48px;
+    border: 1.5px solid rgba(255, 255, 255, 0.45);
+    border-radius: 50%;
+    z-index: 99998;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+    will-change: transform, opacity;
+    transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.4s ease;
+}
+
+.cursor-ring-outline.active { opacity: 1; }
+
+.cursor-ring-outline.expanded {
+    border-color: rgba(57, 255, 20, 0.6);
+}
+
+/* ==========================================================================
+   ENTRANCE REVEAL ANIMATIONS
+   ========================================================================== */
+.hero-title .word-wrapper {
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: bottom;
+    padding-bottom: 0.15em;
+    margin-bottom: -0.15em;
+}
+
+.hero-title .word-inner {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(105%);
+    filter: blur(20px);
+    animation: word-reveal-mask 1.3s cubic-bezier(0.05, 0.9, 0.1, 1) forwards;
+}
+
+@keyframes word-reveal-mask {
+    0%   { opacity: 0; transform: translateY(105%); filter: blur(20px); }
+    30%  { opacity: 1; }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.footer-logo-text .letter-wrapper {
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: bottom;
+    line-height: 0.8;
+}
+
+.footer-logo-text .letter-inner {
+    display: inline-block;
+    opacity: 0;
+    transform: translateX(-105%);
+    filter: blur(20px);
+    animation: letter-reveal-mask 1.2s cubic-bezier(0.05, 0.9, 0.1, 1) forwards;
+}
+
+@keyframes letter-reveal-mask {
+    0%   { opacity: 0; transform: translateX(-105%); filter: blur(20px); }
+    25%  { opacity: 1; }
+    100% { opacity: 0.95; transform: translateX(0); filter: blur(0); }
+}
+
+@media (max-width: 768px) {
+    .top-bar {
+        left: 20px;
+        right: 20px;
+        top: 16px;
+    }
+    .hero-content {
+        padding-top: 8vh;
+        width: 92%;
+    }
+    .hero-title {
+        font-size: 1.8rem;
+        margin-bottom: 1.2rem;
+    }
+    .login-card {
+        padding: 1.6rem 1.4rem;
+        border-radius: 20px;
+    }
+    .footer-container {
+        display: none;
+    }
+.btn-preset-pill {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.72rem;
+    font-family: 'Outfit', sans-serif;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+.btn-preset-pill:hover {
+    background: rgba(57, 255, 20, 0.12);
+    border-color: rgba(57, 255, 20, 0.4);
+    color: #39FF14;
+}
+</style>
+</head>
+<body class="mode-login">
+
+<!-- 1. BACKGROUND FLOWER VIDEO (Local Instant File with CDN Fallback) -->
+<div class="video-container">
+    <video autoplay muted playsinline loop id="bg-video" preload="metadata">
+        <source src="/static/flower.mp4" type="video/mp4">
+        <source src="https://api.getlayers.ai/storage/v1/object/public/public/assets/loopstack-f8c64439bf/flower.mp4" type="video/mp4">
+        Ваш браузер не поддерживает видео.
+    </video>
+</div>
+
+<!-- 2. TOP GRADIENT OVERLAYS (Inline SVG Filter + Img Fallback) -->
+<svg class="top-gradient-inline" viewBox="0 0 1600 981" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <g clip-path="url(#clip0_175_289)">
+        <g filter="url(#filter0_f_175_289)">
+            <path d="M1877.6 551.463C1449.45 854.596 1191 376.123 471.705 635C-247.591 893.877 -809 387.775 -809 150.188C-809 -87.3981 -235.609 -280 471.705 -280C1179.02 -280 2305.75 248.331 1877.6 551.463Z" fill="black"/>
+        </g>
+    </g>
+    <defs>
+        <filter id="filter0_f_175_289" x="-925.4" y="-396.4" width="3013.8" height="1219.64" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+            <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+            <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+            <feGaussianBlur stdDeviation="58.2" result="effect1_foregroundBlur_175_289"/>
+        </filter>
+        <clipPath id="clip0_175_289">
+            <rect width="1600" height="981" fill="white"/>
+        </clipPath>
+    </defs>
+</svg>
+
+<img src="/static/black_gradient.svg" 
+     alt="Top Gradient" 
+     id="top-gradient"
+     onerror="this.onerror=null; this.src='https://api.getlayers.ai/storage/v1/object/public/public/assets/loopstack-f8c64439bf/black_gradient.svg';">
+
+<div class="top-ambient-vignette"></div>
+
+<!-- Top Navigation Bar -->
+<header class="top-bar">
+    <div class="brand-badge interactive-target">
+        <span class="brand-status-dot"></span>
+        <span>Loopstack • Admin Portal</span>
+    </div>
+    <div class="view-toggle-wrap">
+        <button type="button" class="toggle-btn active interactive-target" id="btnModeLogin" onclick="setPageMode('login')">Admin Login</button>
+        <button type="button" class="toggle-btn interactive-target" id="btnModeShowcase" onclick="setPageMode('showcase')">Showcase Hero</button>
+    </div>
+</header>
+
+<!-- Notification Toast -->
+<div class="alert-toast" id="alertToast">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+    <span id="alertToastMsg">Error message</span>
+</div>
+
+<!-- 3. HERO CONTENT (Headline + Login Card / Showcase Button) -->
+<main class="hero-content">
+    <h1 class="hero-title" id="heroTitle">Apply Now to be part <br> of the closed beta</h1>
+
+    <!-- Showcase Mode Button (Loopstack Verbatim) -->
+    <div class="showcase-hero-btn-wrap" style="display: none;">
+        <button class="hero-btn interactive-target" onclick="setPageMode('login')">
+            <span class="btn-text">Book a demo</span>
+            <span class="blinking-dot"></span>
+        </button>
+    </div>
+
+    <!-- Login Mode Card (Taste-Skill Luxury Admin Login) -->
+    <div class="login-card" id="loginCard">
+        <div class="login-card-header">
+            <div>
+                <h2 class="login-card-title">Admin Portal Sign In</h2>
+                <p class="login-card-subtitle">Hệ thống quản trị độc lập • Dedicated Control Panel</p>
+            </div>
+            <div class="security-badge">
+                <span>TLS 1.3</span>
+            </div>
+        </div>
+
+        <form id="adminLoginForm" onsubmit="handleAdminLogin(event)">
+            <!-- Email Field -->
+            <div class="form-group">
+                <label class="form-label" for="adminEmail">Operator Email</label>
+                <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                        <polyline points="22,6 12,13 2,6"></polyline>
+                    </svg>
+                    <input 
+                        type="email" 
+                        id="adminEmail" 
+                        class="form-input interactive-target" 
+                        placeholder="operator@ponytail.finance" 
+                        value="operator@ponytail.finance"
+                        required 
+                        autocomplete="email"
+                    >
+                </div>
+            </div>
+
+            <!-- Password Field -->
+            <div class="form-group">
+                <label class="form-label" for="adminPassword">Master Passkey</label>
+                <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <input 
+                        type="password" 
+                        id="adminPassword" 
+                        class="form-input interactive-target" 
+                        placeholder="••••••••••••" 
+                        value="Admin@2026!"
+                        required 
+                        autocomplete="current-password"
+                    >
+                    <button type="button" class="password-toggle interactive-target" onclick="togglePasswordVisibility()" aria-label="Toggle password visibility">
+                        <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Submit Button (Loopstack Hero Button Style) -->
+            <button type="submit" class="hero-btn interactive-target" id="loginSubmitBtn">
+                <span class="btn-text">Authenticate & Enter Admin</span>
+                <span class="blinking-dot"></span>
+            </button>
+        </form>
+
+            
+
+        <div class="card-divider">
+            <span>or single sign-on</span>
+        </div>
+
+        <!-- Social OAuth Login -->
+        <div class="social-grid">
+            <a href="/api/auth/google" class="social-login-btn interactive-target" onclick="handleSocialAuth(event, 'Google')">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Google
+            </a>
+
+            <a href="/api/auth/github" class="social-login-btn interactive-target" onclick="handleSocialAuth(event, 'GitHub')">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                GitHub
+            </a>
+        </div>
+    </div>
+</main>
+
+<!-- 4. FOOTER BLOCK (Fixed / Responsive) -->
+<footer class="footer-container">
+    <div class="footer-top">
+        <h2 class="footer-title">Stay in Touch</h2>
+        <h2 class="footer-title quote">Think. Build. Repeat.</h2>
+    </div>
+
+    <hr class="footer-divider">
+
+    <div class="footer-bottom">
+        <div class="footer-socials">
+            <a href="#" aria-label="LinkedIn" class="social-icon interactive-target">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+            </a>
+            <a href="#" aria-label="X" class="social-icon interactive-target">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l11.733 16h4.267l-11.733 -16z"></path><path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772"></path></svg>
+            </a>
+            <a href="#" aria-label="Instagram" class="social-icon interactive-target">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+            </a>
+        </div>
+
+        <nav class="footer-links">
+            <a href="#about" class="footer-link interactive-target">About</a>
+            <a href="#features" class="footer-link interactive-target">Features</a>
+            <a href="#pricing" class="footer-link interactive-target">Pricing</a>
+            <a href="#contact" class="footer-link interactive-target">Contact</a>
+        </nav>
+
+        <div class="footer-copyright">
+            © 2026 Loopstack
+        </div>
+    </div>
+</footer>
+
+<!-- 5. GIANT "LOOPSTACK" WORDMARK (Pinned to bottom) -->
+<div class="footer-logo-wrap">
+    <h2 class="footer-logo-text">Loopstack</h2>
+</div>
+
+<!-- 6. CUSTOM CURSOR ELEMENTS -->
+<div id="cursor-ring" class="cursor-ring-outline"></div>
+
+<div id="glass-card" class="glass-cursor-card">
+    <span class="cursor-card-text"><span class="text-white">Say</span> Hello!</span>
+</div>
+
+<!-- ==========================================================================
+   INTERACTION LOGIC & REVEAL SCRIPTS
+   ========================================================================== -->
+<script>
+// Mode Switching
+function setPageMode(mode) {
+    const body = document.body;
+    const btnLogin = document.getElementById('btnModeLogin');
+    const btnShowcase = document.getElementById('btnModeShowcase');
+    const showcaseWrap = document.querySelector('.showcase-hero-btn-wrap');
+    const loginCard = document.getElementById('loginCard');
+
+    if (mode === 'showcase') {
+        body.classList.remove('mode-login');
+        body.classList.add('mode-showcase');
+        btnLogin.classList.remove('active');
+        btnShowcase.classList.add('active');
+        if (showcaseWrap) showcaseWrap.style.display = 'block';
+        if (loginCard) loginCard.style.display = 'none';
+    } else {
+        body.classList.remove('mode-showcase');
+        body.classList.add('mode-login');
+        btnShowcase.classList.remove('active');
+        btnLogin.classList.add('active');
+        if (showcaseWrap) showcaseWrap.style.display = 'none';
+        if (loginCard) loginCard.style.display = 'flex';
+    }
+}
+
+// Instant & Resilient Video Autoplay Engine
+(function setupVideoEngine() {
+    const video = document.getElementById('bg-video');
+    if (!video) return;
+
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+
+    const startPlaying = () => {
+        video.muted = true;
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(() => {});
+        }
+    };
+
+    startPlaying();
+    video.addEventListener('canplay', startPlaying);
+    video.addEventListener('loadeddata', startPlaying);
+
+    // Any user touch or mousemove guarantees playback starts
+    const unlockEvents = ['pointerdown', 'mousedown', 'mousemove', 'click', 'keydown', 'touchstart'];
+    const unlockHandler = () => {
+        startPlaying();
+        if (!video.paused) {
+            unlockEvents.forEach(e => window.removeEventListener(e, unlockHandler));
+        }
+    };
+    unlockEvents.forEach(e => window.addEventListener(e, unlockHandler, { passive: true }));
+
+    // Loop fallback
+    video.addEventListener('ended', () => {
+        video.currentTime = 0;
+        startPlaying();
+    });
+})();
+
+// Fast Session Check with strict timeout to guarantee zero page-load stall
+(async function verifySession() {
+    const token = localStorage.getItem('token') || localStorage.getItem('admin_token');
+    if (!token) return;
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
+        const res = await fetch('/api/auth/verify', {
+            headers: { 'Authorization': `Bearer ${token}` },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+            window.location.replace('/admin');
+        } else if (res.status === 401 || res.status === 403) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('admin_token');
+        }
+    } catch (err) {}
+})();
+
+// Floating Toast Notification
+function showToast(msg, isSuccess = false) {
+    const toast = document.getElementById('alertToast');
+    const toastMsg = document.getElementById('alertToastMsg');
+    if (!toast || !toastMsg) return;
+
+    toastMsg.textContent = msg;
+    if (isSuccess) {
+        toast.classList.add('success');
+    } else {
+        toast.classList.remove('success');
+    }
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 4500);
+}
+
+// Password Visibility Toggle
+function togglePasswordVisibility() {
+    const pwdInput = document.getElementById('adminPassword');
+    const eyeIcon = document.getElementById('eyeIcon');
+    if (!pwdInput) return;
+
+    if (pwdInput.type === 'password') {
+        pwdInput.type = 'text';
+        if (eyeIcon) {
+            eyeIcon.innerHTML = `
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+            `;
+        }
+    } else {
+        pwdInput.type = 'password';
+        if (eyeIcon) {
+            eyeIcon.innerHTML = `
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            `;
+        }
+    }
+}
+
+// Reset/Fill default operator credentials
+function fillOperatorCredentials() {
+    const emailInput = document.getElementById('adminEmail');
+    const pwdInput = document.getElementById('adminPassword');
+    if (emailInput && pwdInput) {
+        emailInput.value = 'operator@ponytail.finance';
+        pwdInput.value = 'Admin@2026!';
+        showToast('Đã điền thông tin Operator Admin', true);
+    }
+}
+
+// Social Auth Handler - ensures return to /admin
+function handleSocialAuth(event, provider) {
+    try {
+        localStorage.setItem('oauth_return_to', '/admin');
+    } catch (_) {}
+    const href = event.currentTarget.getAttribute('href');
+    if (!href || href === '#') {
+        event.preventDefault();
+        showToast(`${provider} OAuth connecting...`);
+    }
+}
+
+// Form Submission -> authenticate & redirect to /admin
+async function handleAdminLogin(event) {
+    event.preventDefault();
+
+    const email = document.getElementById('adminEmail').value.trim();
+    const password = document.getElementById('adminPassword').value;
+    const submitBtn = document.getElementById('loginSubmitBtn');
+    const btnText = submitBtn.querySelector('.btn-text');
+
+    submitBtn.disabled = true;
+    if (btnText) btnText.textContent = 'Verifying Passkey...';
+
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.access_token) {
+            localStorage.setItem('token', data.access_token);
+            localStorage.setItem('admin_token', data.access_token);
+            if (data.roles) localStorage.setItem('user_roles', JSON.stringify(data.roles));
+            showToast('Xác thực thành công. Đang chuyển hướng vào Admin Portal...', true);
+            setTimeout(() => {
+                window.location.replace('/admin');
+            }, 400);
+        } else {
+            showToast(data.detail || 'Xác thực không thành công. Kiểm tra lại thông tin.');
+        }
+    } catch (err) {
+        showToast('Lỗi kết nối: ' + err.message);
+    } finally {
+        submitBtn.disabled = false;
+        if (btnText) btnText.textContent = 'Authenticate & Enter Admin';
+    }
+}
+
+// Loopstack Verbatim Entrance Animation & Cursor Logic
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Giant Wordmark letter-by-letter reveal
+    const logoText = document.querySelector('.footer-logo-text');
+    if (logoText) {
+        const text = logoText.textContent.trim();
+        logoText.innerHTML = '';
+
+        [...text].forEach((char, index) => {
+            const wrapper = document.createElement('span');
+            wrapper.className = 'letter-wrapper';
+
+            const inner = document.createElement('span');
+            inner.textContent = char === ' ' ? ' ' : char;
+            inner.className = 'letter-inner';
+            inner.style.animationDelay = `${index * 0.09}s`;
+
+            wrapper.appendChild(inner);
+            logoText.appendChild(wrapper);
+        });
+    }
+
+    // 2. Hero Title word-by-word reveal
+    const heroTitle = document.querySelector('.hero-title');
+    if (heroTitle) {
+        const text = heroTitle.innerHTML;
+        const parts = text.split(/(\s+|<br\s*\/?>)/i);
+        heroTitle.innerHTML = '';
+
+        let wordIndex = 0;
+        parts.forEach(part => {
+            if (part.trim() === '') {
+                heroTitle.appendChild(document.createTextNode(' '));
+            } else if (part.toLowerCase().startsWith('<br')) {
+                heroTitle.appendChild(document.createElement('br'));
+            } else {
+                const wrapper = document.createElement('span');
+                wrapper.className = 'word-wrapper';
+
+                const inner = document.createElement('span');
+                inner.className = 'word-inner';
+                inner.textContent = part;
+                inner.style.animationDelay = `${wordIndex * 0.1}s`;
+                wordIndex++;
+
+                wrapper.appendChild(inner);
+                heroTitle.appendChild(wrapper);
+            }
+        });
+    }
+
+    // 3. Custom Cursor with LERP physics
+    const glassCard = document.getElementById('glass-card');
+    const cursorRing = document.getElementById('cursor-ring');
+
+    if (glassCard && cursorRing) {
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+
+        let cardX = mouseX;
+        let cardY = mouseY;
+        let ringX = mouseX;
+        let ringY = mouseY;
+
+        let isFirstMove = true;
+        let scale = 0;
+        let targetScale = 0;
+        let isHoveringInteractive = false;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+
+            if (isFirstMove) {
+                cardX = mouseX;
+                cardY = mouseY;
+                ringX = mouseX;
+                ringY = mouseY;
+                isFirstMove = false;
+                glassCard.classList.add('active');
+                cursorRing.classList.add('active');
+            }
+
+            if (!isHoveringInteractive) {
+                targetScale = 1;
+            }
+        });
+
+        document.addEventListener('mouseleave', () => { targetScale = 0; });
+        document.addEventListener('mouseenter', () => {
+            if (!isHoveringInteractive) targetScale = 1;
+        });
+
+        const interactiveElements = document.querySelectorAll(
+            '.hero-btn, .toggle-btn, .social-icon, .footer-link, .form-input, .social-login-btn, .interactive-target, button, input'
+        );
+
+        interactiveElements.forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                isHoveringInteractive = true;
+                targetScale = 0;
+                cursorRing.classList.add('expanded');
+            });
+            el.addEventListener('mouseleave', () => {
+                isHoveringInteractive = false;
+                targetScale = 1;
+                cursorRing.classList.remove('expanded');
+            });
+        });
+
+        const updatePhysics = () => {
+            cardX += (mouseX - cardX) * 0.08;
+            cardY += (mouseY - cardY) * 0.08;
+            ringX = mouseX;
+            ringY = mouseY;
+            scale += (targetScale - scale) * 0.15;
+
+            const currentRingScale = cursorRing.classList.contains('expanded') ? 1.6 * scale : scale;
+
+            glassCard.style.transform = `translate3d(${cardX}px, ${cardY}px, 0) translate(-50%, -50%) scale(${scale})`;
+            cursorRing.style.transform = `translate3d(${ringX}px, ${ringY}px, 0) translate(-50%, -50%) scale(${currentRingScale})`;
+
+            requestAnimationFrame(updatePhysics);
+        };
+
+        updatePhysics();
+    }
+});
+</script>
+
+</body>
+</html>

@@ -1420,10 +1420,15 @@
         <nav class="landing-nav">
             <div class="brand-logo">CONFLUENCE ALGO BOT</div>
             <div class="nav-menu">
-                <a href="#section-arch">Architecture</a>
-                <a href="#section-strat">Strategy</a>
-                <a href="#section-risk">Risk</a>
-                <a href="#section-specs">Telemetry</a>
+                <a href="/our-app" style="color:var(--accent-primary);font-weight:700;" aria-label="Our Mobile App">Our App</a>
+                <a href="/about">About Us</a>
+                <a href="/pricing">Pricing</a>
+                <a href="/faq">Q&amp;A</a>
+                <button class="lang-switch-btn" id="langSwitchBtnLanding" onclick="toggleLandingLanguage()" title="Chuyển đổi ngôn ngữ / Switch Language" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);border-radius:20px;padding:5px 12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:#e8ece4;font-family:var(--font-mono);font-size:11px;font-weight:600;">
+                    <span class="lang-code active" id="langViLanding" style="color:var(--accent-primary);font-weight:700;">VI</span>
+                    <span style="opacity:0.25;">/</span>
+                    <span class="lang-code" id="langEnLanding" style="opacity:0.45;">EN</span>
+                </button>
                 <button class="btn-enter-terminal-nav" onclick="enterTerminal()">Skip to Terminal</button>
             </div>
         </nav>
@@ -1509,7 +1514,52 @@
                 </div>
             </section>
 
-            <!-- SECTION 05: LAUNCH CTA -->
+            <!-- SECTION 05: ABOUT US -->
+            <section id="section-about" class="landing-info-section left">
+                <div class="text-card">
+                    <div class="section-label">05 — About Us</div>
+                    <h2>Engineered for Execution Purity</h2>
+                    <p>Confluence Algo Bot is an autonomous quantitative trading infrastructure developed for high-precision algorithmic execution on MetaTrader 5, specializing in Gold (XAUUSD), Indices, and Currencies with fixed 1:3 R:R discipline.</p>
+                    <ul class="spec-bullets">
+                        <li><span>Core Philosophy</span><span>Mathematical Confluence</span></li>
+                        <li><span>Execution Protocol</span><span>Sub-50ms Direct Gateway</span></li>
+                        <li><span>Risk Mandate</span><span>Capital Preservation First</span></li>
+                        <li><span>Mobile App</span><span>Full Remote Control</span></li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SECTION 06: Q&A / FAQ -->
+            <section id="section-faq" class="landing-info-section right">
+                <div class="text-card">
+                    <div class="section-label">06 — Q&A / System Briefing</div>
+                    <h2>Frequently Asked Questions</h2>
+                    <p>Key parameters, execution rules, and account integration details.</p>
+                    <ul class="spec-bullets">
+                        <li><span>Target R:R Ratio</span><span>Fixed 1:3 (SL 500pt / TP 1500pt)</span></li>
+                        <li><span>Trailing & Breakeven</span><span>Automated at 500pt Profit</span></li>
+                        <li><span>RSI Entry Window</span><span>BUY &lt; 42 // SELL &gt; 58</span></li>
+                        <li><span>Broker Support</span><span>MetaTrader 5 All Brokers</span></li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SECTION 07: PRICING -->
+            <section id="section-pricing" class="landing-info-section left">
+                <div class="text-card">
+                    <div class="section-label">07 — Bot Pricing &amp; Plans</div>
+                    <h2>Minh Bạch &amp; Hiệu Quả Tối Đa</h2>
+                    <p>Hệ thống định giá 3 tầng rõ ràng theo chiến lược rủi ro của từng nhà giao dịch.</p>
+                    <ul class="spec-bullets">
+                        <li><span>Bot Mạo Hiểm (High)</span><span>VPS 260.000đ (10$) + Thuê 159.000đ (6.1$) + Phí 8% LN</span></li>
+                        <li><span>Bot Trung Bình (Mid)</span><span>VPS 260.000đ (10$) + Thuê 199.000đ (7.7$) + Phí 7% LN</span></li>
+                        <li><span>Bot An Toàn (Safe)</span><span>VPS 260.000đ (10$) + Thuê 219.000đ (8.5$) + Phí 5% LN</span></li>
+                        <li><span>Chi Tiết Bảng Giá</span><span><a href="/pricing" style="color:var(--accent-primary);text-decoration:underline;">Xem Chi Tiết / Bảng So Sánh &rarr;</a></span></li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- SECTION 08: LAUNCH CTA -->
             <section class="landing-cta-section">
                 <div class="section-label">05 — Terminal Access</div>
                 <h2 style="font-family: 'Cinzel', serif; font-size: 3rem; margin-top: 10px; color: #f8fafc;">READY TO
@@ -4710,6 +4760,34 @@
                 console.error('Three.js setup note:', err);
             }
         })();
+
+        // Landing Nav Language Switcher Sync
+        function toggleLandingLanguage() {
+            const cur = localStorage.getItem('confluence_lang') || 'vi';
+            const next = cur === 'vi' ? 'en' : 'vi';
+            localStorage.setItem('confluence_lang', next);
+            localStorage.setItem('confluence_mobile_lang', next);
+            updateLandingLangUI(next);
+        }
+
+        function updateLandingLangUI(lang) {
+            const viEl = document.getElementById('langViLanding');
+            const enEl = document.getElementById('langEnLanding');
+            if (viEl && enEl) {
+                if (lang === 'vi') {
+                    viEl.style.opacity = '1';
+                    viEl.style.fontWeight = '700';
+                    enEl.style.opacity = '0.45';
+                    enEl.style.fontWeight = '500';
+                } else {
+                    enEl.style.opacity = '1';
+                    enEl.style.fontWeight = '700';
+                    viEl.style.opacity = '0.45';
+                    viEl.style.fontWeight = '500';
+                }
+            }
+        }
+        updateLandingLangUI(localStorage.getItem('confluence_lang') || 'vi');
     </script>
 
 </body>

@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Login | Bot Trade</title>
+<style>
+/* Typography */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=SF+Pro+Display:wght@400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  background: #FBFBFA;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  color: #2F3437;
+  line-height: 1.6;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+  background: 
+    linear-gradient(135deg, rgba(251, 251, 250, 0.95) 0%, rgba(247, 246, 243, 0.97) 100%),
+    url('https://images.unsplash.com/photo-1557683316-973673baf926?w=1920&q=80&auto=format&fit=crop');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(112, 109, 104, 0.04) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(112, 109, 104, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Container */
+.login-wrapper {
+  width: 100%;
+  max-width: 480px;
+  position: relative;
+  z-index: 10;
+}
+
+/* Header */
+.login-header {
+  margin-bottom: 40px;
+}
+
+.login-header h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(32px, 6vw, 48px);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  color: #111111;
+  line-height: 1.1;
+  margin-bottom: 8px;
+}
+
+.login-header p {
+  font-size: 15px;
+  color: #787774;
+  font-weight: 400;
+}
+
+/* Logo/Brand */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #2F3437;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.brand-dot {
+  width: 6px;
+  height: 6px;
+  background: #111111;
+  border-radius: 50%;
+}
+
+/* Form */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #2F3437;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+input {
+  padding: 12px 14px;
+  border: 1px solid #EAEAEA;
+  background: #FFFFFF;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  color: #2F3437;
+  transition: all 200ms ease;
+}
+
+input::placeholder {
+  color: #BFBDB9;
+}
+
+input:focus {
+  outline: none;
+  border-color: #111111;
+  background: #FFFFFF;
+}
+
+/* Error Message */
+.error-msg {
+  display: none;
+  padding: 12px 14px;
+  background: #FDEBEC;
+  border: 1px solid #E8C9CA;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #9F2F2D;
+}
+
+.error-msg.show {
+  display: block;
+}
+
+/* Buttons */
+.btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+button {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 200ms ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.btn-submit {
+  background: #111111;
+  color: #FFFFFF;
+  border: 1px solid #111111;
+}
+
+.btn-submit:hover {
+  background: #2F2F2F;
+  border-color: #2F2F2F;
+  transform: scale(0.98);
+}
+
+.btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Divider */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #EAEAEA;
+}
+
+.divider span {
+  font-size: 12px;
+  color: #BFBDB9;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Social Buttons */
+.social-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.btn-social {
+  background: #F7F6F3;
+  color: #2F3437;
+  border: 1px solid #EAEAEA;
+  font-size: 12px;
+  padding: 11px 14px;
+}
+
+.btn-social:hover {
+  background: #F0EFEC;
+  border-color: #D3D1CC;
+}
+
+.btn-social svg {
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+}
+
+/* Footer */
+.login-footer {
+  text-align: center;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #EAEAEA;
+}
+
+.login-footer p {
+  font-size: 12px;
+  color: #BFBDB9;
+}
+
+.login-footer a {
+  color: #111111;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 200ms ease;
+}
+
+.login-footer a:hover {
+  color: #787774;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-wrapper {
+  animation: fadeInUp 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .login-header h1 {
+    font-size: 32px;
+  }
+
+  .login-wrapper {
+    max-width: 100%;
+  }
+
+  .social-buttons {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Scroll entry animation for elements */
+@supports (animation: fadeInUp) {
+  .fade-in {
+    opacity: 0;
+    transform: translateY(12px);
+    animation: fadeInUp 600ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .delay-1 { animation-delay: 80ms; }
+  .delay-2 { animation-delay: 160ms; }
+  .delay-3 { animation-delay: 240ms; }
+}
+</style>
+</head>
+<body>
+
+<div class="login-wrapper">
+  <!-- Brand -->
+  <div class="brand">
+    <span>Bot Trade</span>
+    <div class="brand-dot"></div>
+    <span>Admin</span>
+  </div>
+
+  <!-- Header -->
+  <div class="login-header">
+    <h1>Sign in</h1>
+    <p>Access your trading dashboard</p>
+  </div>
+
+  <!-- Error Message -->
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Login Form -->
+  <form id="loginForm" onsubmit="handleLogin(event)">
+    <div class="form-group fade-in delay-1">
+      <label for="email">Email</label>
+      <input 
+        type="email" 
+        id="email" 
+        placeholder="admin@example.com" 
+        required
+      >
+    </div>
+
+    <div class="form-group fade-in delay-2">
+      <label for="password">Password</label>
+      <input 
+        type="password" 
+        id="password" 
+        placeholder="••••••••" 
+        required
+      >
+    </div>
+
+    <div class="btn-group fade-in delay-3">
+      <button type="submit" class="btn-submit" id="submitBtn">Sign In</button>
+    </div>
+  </form>
+
+  <!-- Divider -->
+  <div class="divider fade-in delay-3">
+    <span>or continue with</span>
+  </div>
+
+  <!-- Social Login -->
+  <div class="social-buttons fade-in delay-3">
+    <button type="button" class="btn-social" onclick="loginWithGoogle()">
+      <svg viewBox="0 0 24 24" fill="currentColor" style="display: inline; width: 14px; height: 14px; margin-right: 4px;">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Google
+    </button>
+
+    <button type="button" class="btn-social" onclick="loginWithGithub()">
+      <svg viewBox="0 0 24 24" fill="currentColor" style="display: inline; width: 14px; height: 14px; margin-right: 4px;">
+        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+      </svg>
+      GitHub
+    </button>
+  </div>
+
+  <!-- Footer -->
+  <div class="login-footer">
+    <p>© 2026 Bot Trade. <a href="#">Terms</a> • <a href="#">Privacy</a></p>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// AUTH CHECK - Redirect to admin if already logged in
+// ============================================================
+(async function checkExistingSession() {
+  const token = localStorage.getItem('token') || localStorage.getItem('admin_token');
+
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/auth/verify', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (res.ok) {
+      window.location.replace('/admin');
+    } else {
+      localStorage.removeItem('token');
+      localStorage.removeItem('admin_token');
+    }
+  } catch (err) {
+    console.warn('❌ Token verification failed:', err);
+  }
+})();
+
+// ============================================================
+// ERROR MESSAGE
+// ============================================================
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+// ============================================================
+// LOGIN HANDLER
+// ============================================================
+async function handleLogin(event) {
+  event.preventDefault();
+
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  const btn = document.getElementById('submitBtn');
+
+  btn.disabled = true;
+  btn.textContent = 'Signing in...';
+
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.access_token) {
+      localStorage.setItem('token', data.access_token);
+      console.log('✅ Login successful');
+      setTimeout(() => {
+        window.location.replace('/admin');
+      }, 500);
+    } else {
+      showError(data.detail || 'Login failed. Check your credentials.');
+      console.error('❌ Login failed:', data);
+    }
+  } catch (err) {
+    showError('Network error: ' + err.message);
+    console.error('❌ Network error:', err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
+}
+
+// ============================================================
+// SOCIAL LOGIN PLACEHOLDERS
+// ============================================================
+function loginWithGoogle() {
+  showError('Google login coming soon');
+}
+
+function loginWithGithub() {
+  showError('GitHub login coming soon');
+}
+
+// ============================================================
+// LOGGING
+// ============================================================
+console.log('✅ Admin Login Page Loaded');
+console.log('📋 Using minimalist-skill design');
+console.log('🔒 Auth check: ' + (localStorage.getItem('token') ? 'Token found' : 'No token'));
+</script>
+
+</body>
+</html>

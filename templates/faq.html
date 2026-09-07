@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hỏi &amp; Đáp (Q&amp;A) &amp; Trung Tâm Hỗ Trợ — Confluence Algo Bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-dark: #040804;
+  --bg-card: rgba(10, 18, 10, 0.72);
+  --bg-card-hover: rgba(16, 28, 16, 0.88);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-gold: rgba(200, 184, 64, 0.35);
+  --border-green: rgba(16, 185, 129, 0.35);
+  --text-main: #f2f6ee;
+  --text-muted: #9aa892;
+  --text-dim: #64725c;
+  --color-gold: #c8b840;
+  --color-gold-bright: #f5d442;
+  --color-green: #10b981;
+  --color-cyan: #38bdf8;
+  --color-zalo: #0068ff;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-dark);
+  color: var(--text-main);
+  line-height: 1.8;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Ambient background glow */
+.bg-ambient {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% -10%, rgba(200, 184, 64, 0.08) 0%, transparent 60%),
+              radial-gradient(circle at 10% 90%, rgba(16, 185, 129, 0.05) 0%, transparent 50%),
+              radial-gradient(circle at 90% 50%, rgba(56, 189, 248, 0.03) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Top Floating Capsule Navbar */
+nav {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 1140px;
+  width: calc(100% - 44px);
+  height: 60px;
+  background: rgba(6, 12, 6, 0.85);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px 0 24px;
+  z-index: 1000;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.7);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  padding-right: 18px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-green);
+  box-shadow: 0 0 10px var(--color-green);
+  animation: pulse-dot 2.2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.brand-title {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 600;
+  color: #f0f4ec;
+  letter-spacing: 0.5px;
+}
+
+.brand-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-gold);
+  background: rgba(200, 184, 64, 0.14);
+  border: 1px solid rgba(200, 184, 64, 0.35);
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(232, 236, 228, 0.65);
+  text-decoration: none;
+  padding: 6px 13px;
+  border-radius: 20px;
+  transition: all 0.22s ease;
+  white-space: nowrap;
+}
+
+.nav-links a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-links a.active {
+  color: var(--color-gold);
+  background: rgba(200, 184, 64, 0.16);
+  font-weight: 600;
+}
+
+.nav-right-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Language Switcher Capsule Button */
+.lang-switch-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  padding: 5px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #e8ece4;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.lang-switch-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(200, 184, 64, 0.4);
+}
+
+.lang-code {
+  opacity: 0.45;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.lang-code.active {
+  opacity: 1;
+  color: var(--color-gold);
+  font-weight: 700;
+}
+
+.lang-divider {
+  opacity: 0.25;
+}
+
+.btn-nav-terminal {
+  padding: 7px 18px;
+  background: linear-gradient(135deg, #f5d442, #c8b840);
+  color: #040804;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  border-radius: 24px;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 16px rgba(200, 184, 64, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.btn-nav-terminal:hover {
+  background: linear-gradient(135deg, #fff, #f5d442);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(200, 184, 64, 0.45);
+}
+
+/* Main Container */
+main {
+  position: relative;
+  z-index: 1;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 130px 24px 80px;
+}
+
+/* Header Section */
+.header-wrap {
+  text-align: center;
+  max-width: 780px;
+  margin: 0 auto 40px;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--color-gold);
+  background: rgba(200, 184, 64, 0.1);
+  border: 1px solid var(--border-gold);
+  padding: 5px 16px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+
+h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(32px, 4.5vw, 52px);
+  font-weight: 400;
+  line-height: 1.15;
+  color: #fff;
+  margin-bottom: 18px;
+}
+
+h1 em {
+  font-style: italic;
+  color: var(--color-gold);
+}
+
+.subtext {
+  font-size: 15px;
+  color: var(--text-muted);
+  line-height: 1.8;
+}
+
+/* Category Filter Tabs */
+.category-filter-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+}
+
+.cat-btn {
+  padding: 8px 18px;
+  border-radius: 24px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.cat-btn:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.cat-btn.active {
+  background: rgba(200, 184, 64, 0.16);
+  border-color: var(--border-gold);
+  color: var(--color-gold-bright);
+  font-weight: 600;
+}
+
+/* FAQ Accordion List */
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 60px;
+}
+
+.faq-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: all 0.3s ease;
+}
+
+.faq-card:hover {
+  border-color: var(--border-gold);
+  background: var(--bg-card-hover);
+}
+
+.faq-card.open {
+  border-color: var(--border-gold);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.faq-question-btn {
+  width: 100%;
+  padding: 24px 28px;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.faq-q-text {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.5;
+  transition: color 0.22s ease;
+}
+
+.faq-card:hover .faq-q-text {
+  color: var(--color-gold-bright);
+}
+
+.faq-icon-chevron {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  stroke: var(--color-gold);
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.35s ease;
+}
+
+.faq-card.open .faq-icon-chevron {
+  transform: rotate(180deg);
+}
+
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0 28px;
+}
+
+.faq-card.open .faq-answer {
+  max-height: 500px;
+  padding-bottom: 26px;
+}
+
+.faq-answer-inner {
+  font-size: 14.5px;
+  color: rgba(242, 246, 238, 0.82);
+  line-height: 1.85;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 18px;
+  text-align: left;
+}
+
+.faq-answer-inner p {
+  margin-bottom: 12px;
+}
+
+.faq-answer-inner p:last-child {
+  margin-bottom: 0;
+}
+
+.faq-answer-inner strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.faq-answer-inner em {
+  color: var(--color-gold);
+  font-style: normal;
+}
+
+.faq-highlight-box {
+  margin: 14px 0;
+  padding: 12px 18px;
+  background: rgba(200, 184, 64, 0.08);
+  border-left: 3px solid var(--color-gold);
+  border-radius: 0 8px 8px 0;
+  font-size: 13.5px;
+  color: #fff;
+}
+
+/* ZALO TECHNICAL SUPPORT CARD */
+.support-card {
+  background: linear-gradient(145deg, rgba(8, 20, 14, 0.9), rgba(4, 12, 8, 0.95));
+  border: 1px solid var(--border-gold);
+  border-radius: 20px;
+  padding: 34px 32px;
+  margin-bottom: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.support-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(to bottom, var(--color-gold-bright), var(--color-green));
+}
+
+.support-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.zalo-avatar-wrap {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  min-width: 68px;
+  border-radius: 50%;
+  padding: 2px;
+  background: linear-gradient(135deg, var(--color-gold-bright), var(--color-green));
+  box-shadow: 0 0 16px rgba(200, 184, 64, 0.35);
+  cursor: pointer;
+}
+
+.zalo-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #040804;
+}
+
+.zalo-status-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-green);
+  border: 2px solid #040804;
+  box-shadow: 0 0 8px var(--color-green);
+}
+
+.support-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.support-badge-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-gold-bright);
+  margin-bottom: 4px;
+}
+
+.support-info h3 {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.support-name-hl {
+  color: var(--color-gold-bright);
+}
+
+.support-info p {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  max-width: 520px;
+}
+
+.support-actions {
+  display: flex;
+  align-items: center;
+  min-width: 200px;
+  justify-content: flex-end;
+}
+
+.btn-qr-view {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 26px;
+  background: linear-gradient(135deg, #f5d442, #c8b840);
+  color: #040804;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 18px rgba(200, 184, 64, 0.3);
+  white-space: nowrap;
+}
+
+.btn-qr-view:hover {
+  background: linear-gradient(135deg, #fff, #f5d442);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(200, 184, 64, 0.5);
+}
+
+/* MODAL POPUP FOR ZALO QR */
+.qr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.qr-modal-overlay.active {
+  display: flex;
+  opacity: 1;
+}
+
+.qr-modal-card {
+  background: #081008;
+  border: 1px solid var(--border-gold);
+  border-radius: 24px;
+  padding: 32px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+  transform: scale(0.95);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.qr-modal-overlay.active .qr-modal-card {
+  transform: scale(1);
+}
+
+.qr-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  transition: color 0.2s ease;
+}
+
+.qr-modal-close:hover {
+  color: #fff;
+}
+
+.qr-modal-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-gold);
+  margin-bottom: 6px;
+}
+
+.qr-modal-title {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.qr-modal-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.qr-modal-img-wrap {
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  display: inline-block;
+}
+
+.qr-modal-img {
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  border-radius: 10px;
+  display: block;
+}
+
+/* Bottom CTA Banner */
+.bottom-cta-banner {
+  background: linear-gradient(145deg, rgba(20, 36, 20, 0.9), rgba(8, 16, 8, 0.95));
+  border: 1px solid var(--border-gold);
+  border-radius: 20px;
+  padding: 44px 36px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  backdrop-filter: blur(20px);
+}
+
+.bottom-cta-banner h2 {
+  font-family: var(--font-serif);
+  font-size: clamp(24px, 3.2vw, 36px);
+  color: #fff;
+}
+
+.bottom-cta-banner p {
+  font-size: 15px;
+  color: var(--text-muted);
+  max-width: 640px;
+}
+
+.cta-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-cta-primary {
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #f5d442, #c8b840);
+  color: #040804;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  border-radius: 25px;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 18px rgba(200, 184, 64, 0.3);
+}
+
+.btn-cta-primary:hover {
+  background: linear-gradient(135deg, #fff, #f5d442);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(200, 184, 64, 0.5);
+}
+
+.btn-cta-outline {
+  padding: 11px 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: #e8ece4;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  border-radius: 25px;
+  text-decoration: none;
+  transition: all 0.25s ease;
+}
+
+.btn-cta-outline:hover {
+  border-color: var(--border-gold);
+  background: rgba(200, 184, 64, 0.1);
+  color: #fff;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  nav {
+    width: calc(100% - 24px);
+    padding: 0 16px;
+  }
+  .nav-links {
+    display: none;
+  }
+  main {
+    padding: 110px 18px 70px;
+  }
+  .support-card {
+    flex-direction: column;
+    text-align: center;
+    gap: 20px;
+  }
+  .support-left {
+    flex-direction: column;
+    text-align: center;
+  }
+  .support-actions {
+    width: 100%;
+    justify-content: center;
+  }
+  .faq-question-btn {
+    padding: 20px 20px;
+  }
+  .faq-answer {
+    padding: 0 20px;
+  }
+  .faq-card.open .faq-answer {
+    padding-bottom: 20px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="bg-ambient"></div>
+
+<!-- NAVIGATION CAPSULE -->
+<nav>
+  <a href="/" class="brand">
+    <div class="brand-dot"></div>
+    <span class="brand-title">Confluence</span>
+    <span class="brand-badge" data-i18n="nav_badge">Q&amp;A</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="/our-app" data-i18n="nav_our_app">Our App</a></li>
+    <li><a href="/about" data-i18n="nav_about">About Us</a></li>
+    <li><a href="/pricing" data-i18n="nav_pricing">Pricing</a></li>
+    <li><a href="/faq" class="active" data-i18n="nav_faq">Q&amp;A</a></li>
+  </ul>
+  <div class="nav-right-wrap">
+    <button class="lang-switch-btn" id="langSwitchBtn" onclick="toggleLanguage()" title="Chuyển đổi ngôn ngữ / Switch Language" aria-label="Toggle language">
+      <span class="lang-code active" id="langVi">VI</span>
+      <span class="lang-divider">/</span>
+      <span class="lang-code" id="langEn">EN</span>
+    </button>
+    <a href="/" class="btn-nav-terminal" data-i18n="nav_terminal">Web Terminal &rarr;</a>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main>
+  <div class="header-wrap">
+    <div class="tag-pill" data-i18n="faq_tag">// QUESTIONS &amp; ANSWERS — TRUNG TÂM GIẢI ĐÁP</div>
+    <h1 data-i18n="faq_title">Hỏi &amp; Đáp <em>Hệ Thống</em></h1>
+    <p class="subtext" data-i18n="faq_sub">
+      Giải đáp chi tiết và minh bạch về chi phí máy chủ VPS, cơ chế chia sẻ lợi nhuận 5% — 8%, 
+      kết nối không ủy thác qua MetaTrader 5 và triết lý quản lý rủi ro toán học.
+    </p>
+  </div>
+
+  <!-- CATEGORY FILTER TABS -->
+  <div class="category-filter-wrap">
+    <button class="cat-btn active" onclick="filterCat('all')" data-i18n="cat_all">Tất Cả Câu Hỏi</button>
+    <button class="cat-btn" onclick="filterCat('fees')" data-i18n="cat_fees">Chi Phí &amp; VPS</button>
+    <button class="cat-btn" onclick="filterCat('mt5')" data-i18n="cat_mt5">Tài Khoản &amp; MT5</button>
+    <button class="cat-btn" onclick="filterCat('algo')" data-i18n="cat_algo">Kỷ Luật &amp; Thuật Toán</button>
+  </div>
+
+  <!-- FAQ LIST -->
+  <div class="faq-list">
+
+    <!-- Q1 -->
+    <div class="faq-card open" data-cat="fees">
+      <button class="faq-question-btn" onclick="toggleFaq(this)">
+        <span class="faq-q-text" data-i18n="q1_q">1. Phí VPS Cloud 260.000 VND / tháng (10 USD) dùng để làm gì và tại sao bắt buộc phải có?</span>
+        <svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-answer">
+        <div class="faq-answer-inner" data-i18n="q1_a">
+          <p>
+            <strong>VPS (Virtual Private Server)</strong> là máy chủ đám mây Windows cấu hình cao hoạt động liên tục 24/7/365 với đường truyền cáp quang băng thông cao và địa chỉ IP tĩnh.
+          </p>
+          <p>
+            Máy chủ này đảm bảo bot giao dịch của bạn luôn trực tuyến để quét tín hiệu Confluence Engine và gửi lệnh vào sàn MT5 chỉ trong <strong>50ms</strong>. 
+            Đặc biệt, hệ thống sẽ tự động kích hoạt dời Stop Loss về hòa vốn (Breakeven) và kéo Trailing Stop bảo vệ lợi nhuận ngay cả khi máy tính cá nhân của bạn tắt nguồn, 
+            điện thoại hết pin hoặc khu vực của bạn mất kết nối mạng Internet.
+          </p>
+          <div class="faq-highlight-box">
+            VPS vận hành hoàn toàn độc lập trên Cloud, giải phóng bạn khỏi việc phải treo máy tính liên tục 24 giờ mỗi ngày.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="faq-card" data-cat="fees">
+      <button class="faq-question-btn" onclick="toggleFaq(this)">
+        <span class="faq-q-text" data-i18n="q2_q">2. Phí dịch vụ 5% — 8% lợi nhuận được tính và thu như thế nào?</span>
+        <svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-answer">
+        <div class="faq-answer-inner" data-i18n="q2_a">
+          <p>
+            Phí dịch vụ chỉ được tính trên <strong>tổng lợi nhuận ròng thực tế</strong> (lợi nhuận các lệnh thắng trừ đi các lệnh thua) phát sinh từ các giao dịch do bot thực thi trong chu kỳ đối soát (theo tuần hoặc theo tháng).
+          </p>
+          <p>
+            Nếu trong chu kỳ tài khoản của bạn hòa vốn hoặc không có lãi ròng, bạn <strong>hoàn toàn không phải thanh toán bất kỳ đồng phí dịch vụ nào</strong>. 
+            Mức phí cụ thể cho từng cấu hình:
+          </p>
+          <ul style="list-style:none;margin:8px 0 12px;padding-left:16px;display:flex;flex-direction:column;gap:6px;">
+            <li>• <strong>Bot An Toàn:</strong> 5% trên lợi nhuận ròng (mức ưu đãi nhất).</li>
+            <li>• <strong>Bot Trung Bình:</strong> 7% trên lợi nhuận ròng (gói khuyên dùng).</li>
+            <li>• <strong>Bot Mạo Hiểm:</strong> 8% trên lợi nhuận ròng.</li>
+          </ul>
+          <div class="faq-highlight-box">
+            Cam kết lợi ích đồng hành: Chúng tôi chỉ có thành quả khi bạn kiếm được lợi nhuận thực tế.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="faq-card" data-cat="mt5">
+      <button class="faq-question-btn" onclick="toggleFaq(this)">
+        <span class="faq-q-text" data-i18n="q3_q">3. Tôi có cần nạp tiền vào Confluence Bot hay ủy thác quỹ không?</span>
+        <svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-answer">
+        <div class="faq-answer-inner" data-i18n="q3_a">
+          <p>
+            <strong>Tuyệt đối KHÔNG!</strong> Confluence Algo Bot hoạt động theo mô hình <em>100% Non-Custodial (Không giữ vốn khách hàng)</em>.
+          </p>
+          <p>
+            Bạn tự đứng tên mở tài khoản giao dịch MetaTrader 5 cá nhân tại bất kỳ sàn uy tín nào được cấp phép quốc tế (như Exness, IC Markets, XM, Tickmill,...). 
+            Bot chỉ kết nối qua giao diện API bằng tài khoản giao dịch để đặt lệnh và dời SL/TP. Chúng tôi <strong>hoàn toàn không có quyền rút tiền hay can thiệp số dư ngân hàng</strong> của bạn.
+          </p>
+          <p>
+            Bạn giữ toàn quyền nạp, rút và quản lý dòng vốn của mình 100% vào bất kỳ lúc nào.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="faq-card" data-cat="mt5">
+      <button class="faq-question-btn" onclick="toggleFaq(this)">
+        <span class="faq-q-text" data-i18n="q4_q">4. Số vốn tối thiểu để bắt đầu vận hành bot là bao nhiêu?</span>
+        <svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-answer">
+        <div class="faq-answer-inner" data-i18n="q4_a">
+          <p>
+            Nhờ tích hợp thuật toán <strong>Dynamic Recovery Lot Sizing</strong> linh hoạt, hệ thống có thể chạy an toàn trên các tài khoản nhỏ chỉ từ <strong>$50 — $200 USD</strong> với khối lượng micro-lot (0.01 lot).
+          </p>
+          <p>
+            Tuy nhiên, để tỷ suất sinh lời bù đắp hiệu quả chi phí duy trì VPS cố định hàng tháng (khoảng 260.000 VND / 10 USD), mức vốn khuyến nghị lý tưởng nhất cho nhà đầu tư cá nhân là từ <strong>$300 — $1,000 USD</strong> trở lên.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q5 -->
+    <div class="faq-card" data-cat="algo">
+      <button class="faq-question-btn" onclick="toggleFaq(this)">
+        <span class="faq-q-text" data-i18n="q5_q">5. Bot có tự động quản lý lệnh không hay tôi phải can thiệp thủ công?</span>
+        <svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-answer">
+        <div class="faq-answer-inner" data-i18n="q5_a">
+          <p>
+            Hệ thống vận hành <strong>tự động 100%</strong> từ khâu phân tích đến chốt lời:
+          </p>
+          <ul style="list-style:none;margin:8px 0 12px;padding-left:16px;display:flex;flex-direction:column;gap:8px;">
+            <li>• <strong>Vào lệnh chuẩn xác:</strong> Tự động tính toán khối lượng lot theo vốn tài khoản và đặt sẵn SL (500 points) và TP (1500 points) theo tỷ lệ vàng R:R = 1:3.</li>
+            <li>• <strong>Tự dời Breakeven hòa vốn:</strong> Khi giá chạy đúng hướng đạt +500 points, bot tự dời SL về điểm vào lệnh để biến vị thế thành giao dịch an toàn 0% rủi ro.</li>
+            <li>• <strong>Trailing Stop co giãn:</strong> Thả dời chặn lãi từng nấc 500 points để khóa chặt thành quả khi giá bứt phá mạnh.</li>
+          </ul>
+          <p>
+            Bạn có thể theo dõi biểu đồ vị thế trực tiếp qua Confluence Mobile hoặc đóng lệnh thủ công bất cứ khi nào bạn muốn.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q6 -->
+    <div class="faq-card" data-cat="mt5">
+      <button class="faq-question-btn" onclick="toggleFaq(this)">
+        <span class="faq-q-text" data-i18n="q6_q">6. Bot hỗ trợ những sàn giao dịch (Broker) nào và spread bao nhiêu thì tối ưu?</span>
+        <svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-answer">
+        <div class="faq-answer-inner" data-i18n="q6_a">
+          <p>
+            Bot tương thích 100% với bất kỳ sàn giao dịch nào cung cấp nền tảng <strong>MetaTrader 5 (MT5)</strong>.
+          </p>
+          <p>
+            Thuật toán được hiệu chỉnh tối ưu cho cặp Vàng (XAU/USD) với bộ đệm dung sai giãn spread lên tới <strong>100 points</strong>. 
+            Tuy nhiên, để tối ưu hóa tỷ lệ lợi nhuận, bạn nên ưu tiên các loại tài khoản Pro hoặc Raw Spread có phí chênh lệch thấp tại các sàn có thanh khoản hàng đầu thị trường.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q7 -->
+    <div class="faq-card" data-cat="fees">
+      <button class="faq-question-btn" onclick="toggleFaq(this)">
+        <span class="faq-q-text" data-i18n="q7_q">7. Tôi có thể linh hoạt chuyển đổi giữa 3 cấu hình Bot không?</span>
+        <svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-answer">
+        <div class="faq-answer-inner" data-i18n="q7_a">
+          <p>
+            <strong>Hoàn toàn có thể.</strong> Bạn có thể chuyển đổi linh hoạt giữa 3 gói cấu hình:
+          </p>
+          <ul style="list-style:none;margin:8px 0 12px;padding-left:16px;display:flex;flex-direction:column;gap:6px;">
+            <li>• <strong>Bot Mạo Hiểm:</strong> Nhồi lệnh liên tục, tần suất cao trong giai đoạn thị trường có sóng dài rõ nét.</li>
+            <li>• <strong>Bot Trung Bình:</strong> Cân bằng giữa tần suất và kích hoạt Breakeven hòa vốn (phù hợp với đa số thị trường).</li>
+            <li>• <strong>Bot An Toàn:</strong> Siêu chọn lọc, chỉ nhận tín hiệu 4 sao khi thị trường có dấu hiệu rung lắc bất định.</li>
+          </ul>
+          <p>
+            Thao tác chuyển đổi diễn ra tức thì ngay trên bảng điều khiển Web hoặc ứng dụng điện thoại.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q8 -->
+    <div class="faq-card" data-cat="algo">
+      <button class="faq-question-btn" onclick="toggleFaq(this)">
+        <span class="faq-q-text" data-i18n="q8_q">8. Khi thị trường xuất hiện tin tức bão mạnh (Non-Farm, CPI, Chiến tranh) thì bot xử lý ra sao?</span>
+        <svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-answer">
+        <div class="faq-answer-inner" data-i18n="q8_a">
+          <p>
+            Hệ thống Confluence được trang bị <strong>bộ lọc tin tức vĩ mô</strong> và cơ chế ngắt mạch tự động <em>(Circuit Breaker)</em>.
+          </p>
+          <p>
+            Trước các khung giờ công bố tin tức đỏ nhạy cảm, bot tự động thắt chặt điều kiện kích hoạt hoặc tạm dừng mở lệnh mới để tránh quét trượt giá (slippage). 
+            Đặc biệt, 100% mọi lệnh mở đều có Stop Loss cứng 500 points được gửi trực tiếp lên máy chủ sàn giao dịch, đảm bảo không bao giờ xảy ra tình trạng gồng lỗ thả nổi hay cháy tài khoản.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ZALO DIRECT SUPPORT CONTACT CARD -->
+  <div class="support-card">
+    <div class="support-left">
+      <div class="zalo-avatar-wrap" onclick="openQrModal()" title="Bấm để xem mã QR Zalo">
+        <img src="/static/zalo_contact.jpg" alt="Hoàng Sơn Zalo" class="zalo-avatar-img">
+        <div class="zalo-status-dot"></div>
+      </div>
+      <div class="support-info">
+        <span class="support-badge-tag" data-i18n="sup_badge">// HỖ TRỢ KỸ THUẬT MT5 &amp; VPS CLOUD 24/7</span>
+        <h3><span data-i18n="sup_title">Liên Hệ Kỹ Thuật:</span> <span class="support-name-hl">Hoàng Sơn</span></h3>
+        <p data-i18n="sup_desc">Hỗ trợ trực tiếp 1-1: kết nối tài khoản MT5 cá nhân, cấu hình máy chủ VPS đám mây và tối ưu hóa tham số bot theo số vốn của bạn.</p>
+      </div>
+    </div>
+    <div class="support-actions">
+      <button type="button" class="btn-qr-view" onclick="openQrModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <span data-i18n="btn_qr_zalo">Quét Mã QR Zalo (Hoàng Sơn)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- BOTTOM CTA BANNER -->
+  <div class="bottom-cta-banner">
+    <h2 data-i18n="bot_cta_h2">Trải Nghiệm Hệ Sinh Thái Confluence</h2>
+    <p data-i18n="bot_cta_p">Khám phá giao diện di động Confluence Mobile hoặc xem bảng giá chi tiết các gói cấu hình bot ngay hôm nay.</p>
+    <div class="cta-actions-row">
+      <a href="/our-app" class="btn-cta-primary" data-i18n="btn_explore_app">Khám Phá Confluence Mobile &rarr;</a>
+      <a href="/pricing" class="btn-cta-outline" data-i18n="btn_view_pricing">Xem Bảng Giá 3 Gói Bot</a>
+      <a href="/about" class="btn-cta-outline" data-i18n="btn_read_story">Đọc Câu Chuyện 4 Năm</a>
+      <a href="/" class="btn-cta-outline" data-i18n="btn_open_terminal">Mở Web Terminal</a>
+    </div>
+  </div>
+
+</main>
+
+<!-- ZALO QR CODE POPUP MODAL -->
+<div class="qr-modal-overlay" id="zaloQrModal" onclick="closeQrModal(event)">
+  <div class="qr-modal-card" onclick="event.stopPropagation()">
+    <button class="qr-modal-close" onclick="closeQrModalDirect()" aria-label="Đóng">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="qr-modal-badge" data-i18n="modal_badge">// ZALO NAME CARD CHÍNH THỨC</div>
+    <h3 class="qr-modal-title">Hoàng Sơn</h3>
+    <p class="qr-modal-sub" data-i18n="modal_sub">Mở Zalo trên điện thoại quét mã QR bên dưới để kết nối trực tiếp</p>
+    
+    <div class="qr-modal-img-wrap">
+      <img src="/static/zalo_contact.jpg" alt="Zalo QR Hoàng Sơn" class="qr-modal-img">
+    </div>
+
+    <div class="qr-modal-actions">
+      <a href="https://zaloapp.com/qr/p/x0r4vmghnx7i" target="_blank" rel="noopener noreferrer" class="btn-nav-terminal" style="justify-content:center;padding:12px 24px;font-size:12px;" data-i18n="btn_open_zalo_app">
+        Mở Ứng Dụng Zalo &rarr;
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- I18N DICTIONARY ---
+const i18n = {
+  vi: {
+    nav_badge: "Q&A",
+    nav_our_app: "Our App",
+    nav_about: "About Us",
+    nav_pricing: "Pricing",
+    nav_faq: "Q&A",
+    nav_terminal: "Web Terminal &rarr;",
+    faq_tag: "// QUESTIONS & ANSWERS — TRUNG TÂM GIẢI ĐÁP",
+    faq_title: "Hỏi &amp; Đáp <em>Hệ Thống</em>",
+    faq_sub: "Giải đáp chi tiết và minh bạch về chi phí máy chủ VPS, cơ chế chia sẻ lợi nhuận 5% — 8%, kết nối không ủy thác qua MetaTrader 5 và triết lý quản lý rủi ro toán học.",
+    cat_all: "Tất Cả Câu Hỏi",
+    cat_fees: "Chi Phí & VPS",
+    cat_mt5: "Tài Khoản & MT5",
+    cat_algo: "Kỷ Luật & Thuật Toán",
+    q1_q: "1. Phí VPS Cloud 260.000 VND / tháng (10 USD) dùng để làm gì và tại sao bắt buộc phải có?",
+    q1_a: `<p><strong>VPS (Virtual Private Server)</strong> là máy chủ đám mây Windows cấu hình cao hoạt động liên tục 24/7/365 với đường truyền cáp quang băng thông cao và địa chỉ IP tĩnh.</p><p>Máy chủ này đảm bảo bot giao dịch của bạn luôn trực tuyến để quét tín hiệu Confluence Engine và gửi lệnh vào sàn MT5 chỉ trong <strong>50ms</strong>. Đặc biệt, hệ thống sẽ tự động kích hoạt dời Stop Loss về hòa vốn (Breakeven) và kéo Trailing Stop bảo vệ lợi nhuận ngay cả khi máy tính cá nhân của bạn tắt nguồn, điện thoại hết pin hoặc khu vực của bạn mất kết nối mạng Internet.</p><div class="faq-highlight-box">VPS vận hành hoàn toàn độc lập trên Cloud, giải phóng bạn khỏi việc phải treo máy tính liên tục 24 giờ mỗi ngày.</div>`,
+    q2_q: "2. Phí dịch vụ 5% — 8% lợi nhuận được tính và thu như thế nào?",
+    q2_a: `<p>Phí dịch vụ chỉ được tính trên <strong>tổng lợi nhuận ròng thực tế</strong> (lợi nhuận các lệnh thắng trừ đi các lệnh thua) phát sinh từ các giao dịch do bot thực thi trong chu kỳ đối soát (theo tuần hoặc theo tháng).</p><p>Nếu trong chu kỳ tài khoản của bạn hòa vốn hoặc không có lãi ròng, bạn <strong>hoàn toàn không phải thanh toán bất kỳ đồng phí dịch vụ nào</strong>. Mức phí cụ thể: Bot An Toàn (5%), Bot Trung Bình (7%), Bot Mạo Hiểm (8%).</p><div class="faq-highlight-box">Cam kết lợi ích đồng hành: Chúng tôi chỉ có thành quả khi bạn kiếm được lợi nhuận thực tế.</div>`,
+    q3_q: "3. Tôi có cần nạp tiền vào Confluence Bot hay ủy thác quỹ không?",
+    q3_a: `<p><strong>Tuyệt đối KHÔNG!</strong> Confluence Algo Bot hoạt động theo mô hình <em>100% Non-Custodial (Không giữ vốn khách hàng)</em>.</p><p>Bạn tự đứng tên mở tài khoản giao dịch MetaTrader 5 cá nhân tại bất kỳ sàn uy tín nào được cấp phép quốc tế (như Exness, IC Markets, XM, Tickmill,...). Bot chỉ kết nối qua giao diện API bằng tài khoản giao dịch để đặt lệnh và dời SL/TP. Chúng tôi <strong>hoàn toàn không có quyền rút tiền hay can thiệp số dư ngân hàng</strong> của bạn.</p><p>Bạn giữ toàn quyền nạp, rút và quản lý dòng vốn của mình 100% vào bất kỳ lúc nào.</p>`,
+    q4_q: "4. Số vốn tối thiểu để bắt đầu vận hành bot là bao nhiêu?",
+    q4_a: `<p>Nhờ tích hợp thuật toán <strong>Dynamic Recovery Lot Sizing</strong> linh hoạt, hệ thống có thể chạy an toàn trên các tài khoản nhỏ chỉ từ <strong>$50 — $200 USD</strong> với khối lượng micro-lot (0.01 lot).</p><p>Tuy nhiên, để tỷ suất sinh lời bù đắp hiệu quả chi phí duy trì VPS cố định hàng tháng (khoảng 260.000 VND / 10 USD), mức vốn khuyến nghị lý tưởng nhất cho nhà đầu tư cá nhân là từ <strong>$300 — $1,000 USD</strong> trở lên.</p>`,
+    q5_q: "5. Bot có tự động quản lý lệnh không hay tôi phải can thiệp thủ công?",
+    q5_a: `<p>Hệ thống vận hành <strong>tự động 100%</strong> từ khâu phân tích đến chốt lời:</p><ul style="list-style:none;margin:8px 0 12px;padding-left:16px;display:flex;flex-direction:column;gap:8px;"><li>• <strong>Vào lệnh chuẩn xác:</strong> Tự động tính toán khối lượng lot theo vốn tài khoản và đặt sẵn SL (500 points) và TP (1500 points) theo tỷ lệ vàng R:R = 1:3.</li><li>• <strong>Tự dời Breakeven hòa vốn:</strong> Khi giá chạy đúng hướng đạt +500 points, bot tự dời SL về điểm vào lệnh để biến vị thế thành giao dịch an toàn 0% rủi ro.</li><li>• <strong>Trailing Stop co giãn:</strong> Thả dời chặn lãi từng nấc 500 points để khóa chặt thành quả khi giá bứt phá mạnh.</li></ul><p>Bạn có thể theo dõi biểu đồ vị thế trực tiếp qua Confluence Mobile hoặc đóng lệnh thủ công bất cứ khi nào bạn muốn.</p>`,
+    q6_q: "6. Bot hỗ trợ những sàn giao dịch (Broker) nào và spread bao nhiêu thì tối ưu?",
+    q6_a: `<p>Bot tương thích 100% với bất kỳ sàn giao dịch nào cung cấp nền tảng <strong>MetaTrader 5 (MT5)</strong>.</p><p>Thuật toán được hiệu chỉnh tối ưu cho cặp Vàng (XAU/USD) với bộ đệm dung sai giãn spread lên tới <strong>100 points</strong>. Tuy nhiên, để tối ưu hóa tỷ lệ lợi nhuận, bạn nên ưu tiên các loại tài khoản Pro hoặc Raw Spread có phí chênh lệch thấp tại các sàn có thanh khoản hàng đầu thị trường.</p>`,
+    q7_q: "7. Tôi có thể linh hoạt chuyển đổi giữa 3 cấu hình Bot không?",
+    q7_a: `<p><strong>Hoàn toàn có thể.</strong> Bạn có thể chuyển đổi linh hoạt giữa 3 gói cấu hình: Bot Mạo Hiểm (nhồi lệnh tối đa), Bot Trung Bình (cân bằng), Bot An Toàn (bảo toàn vốn tối đa) trực tiếp trên Web Terminal hoặc Confluence Mobile.</p>`,
+    q8_q: "8. Khi thị trường xuất hiện tin tức bão mạnh (Non-Farm, CPI, Chiến tranh) thì bot xử lý ra sao?",
+    q8_a: `<p>Hệ thống Confluence được trang bị <strong>bộ lọc tin tức vĩ mô</strong> và cơ chế ngắt mạch tự động <em>(Circuit Breaker)</em>. Trước các khung giờ tin đỏ, bot siết chặt điều kiện hoặc tạm dừng mở lệnh mới. 100% mọi lệnh đều có Stop Loss cứng 500 points bảo vệ tuyệt đối.</p>`,
+    sup_badge: "// HỖ TRỢ KỸ THUẬT MT5 & VPS CLOUD 24/7",
+    sup_title: "Liên Hệ Kỹ Thuật:",
+    sup_desc: "Hỗ trợ trực tiếp 1-1: kết nối tài khoản MT5 cá nhân, cấu hình máy chủ VPS đám mây và tối ưu hóa tham số bot theo số vốn của bạn.",
+    btn_qr_zalo: "Quét Mã QR Zalo (Hoàng Sơn)",
+    modal_badge: "// ZALO NAME CARD CHÍNH THỨC",
+    modal_sub: "Mở Zalo trên điện thoại quét mã QR bên dưới để kết nối trực tiếp",
+    btn_open_zalo_app: "Mở Ứng Dụng Zalo &rarr;",
+    bot_cta_h2: "Trải Nghiệm Hệ Sinh Thái Confluence",
+    bot_cta_p: "Khám phá giao diện di động Confluence Mobile hoặc xem bảng giá chi tiết các gói cấu hình bot ngay hôm nay.",
+    btn_explore_app: "Khám Phá Confluence Mobile &rarr;",
+    btn_view_pricing: "Xem Bảng Giá 3 Gói Bot",
+    btn_read_story: "Đọc Câu Chuyện 4 Năm",
+    btn_open_terminal: "Mở Web Terminal"
+  },
+  en: {
+    nav_badge: "Q&A",
+    nav_our_app: "Our App",
+    nav_about: "About Us",
+    nav_pricing: "Pricing",
+    nav_faq: "Q&A",
+    nav_terminal: "Web Terminal &rarr;",
+    faq_tag: "// QUESTIONS & ANSWERS — HELP CENTER",
+    faq_title: "Frequently Asked <em>Questions</em>",
+    faq_sub: "Clear and transparent answers regarding Cloud VPS requirements, 5% — 8% performance fee billing, non-custodial MT5 connectivity, and mathematical risk management.",
+    cat_all: "All Questions",
+    cat_fees: "Fees & VPS",
+    cat_mt5: "Account & MT5",
+    cat_algo: "Algo & Risk Rules",
+    q1_q: "1. What is the Cloud VPS fee (260,000 VND / $10 USD/mo) used for and why is it mandatory?",
+    q1_a: `<p><strong>VPS (Virtual Private Server)</strong> is a high-availability 24/7/365 Windows Cloud server equipped with dedicated fiber bandwidth and a static IP address.</p><p>This cloud instance ensures your MT5 algorithmic bot remains active around the clock, evaluating confluence indicators and dispatching orders with sub-<strong>50ms latency</strong>. Crucially, automated breakeven trailing logic operates continuously without needing your PC powered on or your smartphone connected to 4G.</p><div class="faq-highlight-box">The VPS runs completely autonomously in the cloud, eliminating any need to leave your personal computer running 24 hours a day.</div>`,
+    q2_q: "2. How is the 5% — 8% performance fee calculated and billed?",
+    q2_a: `<p>The performance fee is calculated strictly on <strong>net realized profit</strong> (winning trade profits minus loss trade deficits) generated by bot executions during the accounting cycle (weekly or monthly).</p><p>If your account breaks even or produces no net gain during a cycle, <strong>you owe exactly $0 in performance fees</strong>. Rates: Conservative Bot (5%), Balanced Bot (7%), Aggressive Bot (8%).</p><div class="faq-highlight-box">Aligned incentives: We only earn a performance fee when your account generates real, verified profit.</div>`,
+    q3_q: "3. Do I need to deposit funds into Confluence or transfer capital to your team?",
+    q3_a: `<p><strong>ABSOLUTELY NOT!</strong> Confluence operates on a strict <em>100% Non-Custodial architecture</em>.</p><p>You open and maintain your own MetaTrader 5 trading account in your own legal name with any regulated global broker of your choice (such as Exness, IC Markets, XM, Tickmill, etc.). The bot connects solely via secure trading API credentials to place trades and manage SL/TP. We have <strong>zero authorization or ability to withdraw funds or alter your bank balance</strong>.</p><p>You retain 100% autonomous custody and access to your capital at all times.</p>`,
+    q4_q: "4. What is the minimum capital required to run the bot?",
+    q4_a: `<p>Thanks to our dynamic recovery lot sizing engine, the bot safely operates on micro accounts starting from <strong>$50 — $200 USD</strong> using 0.01 micro-lots.</p><p>However, to ensure net returns comfortably outpace fixed monthly VPS hosting costs (~$10 USD), we recommend an optimal initial balance of <strong>$300 — $1,000 USD</strong> for retail traders.</p>`,
+    q5_q: "5. Does the bot manage trades automatically or do I have to intervene manually?",
+    q5_a: `<p>The system is <strong>100% autonomous</strong> from entry scan to exit lock:</p><ul style="list-style:none;margin:8px 0 12px;padding-left:16px;display:flex;flex-direction:column;gap:8px;"><li>• <strong>Calculated Entries:</strong> Dynamically sizes order volume and enforces predefined SL (500pt) and TP (1500pt) based on our golden 1:3 R:R rule.</li><li>• <strong>Automated Breakeven:</strong> When market price moves +500 points in profit, the bot relocates SL to entry price to eliminate all capital risk.</li><li>• <strong>Dynamic Trailing Stop:</strong> Steps trailing defense every 500 points to lock in trending runups.</li></ul><p>You can monitor live trades anytime on Confluence Mobile or close positions manually whenever you choose.</p>`,
+    q6_q: "6. Which brokers are supported and what spread tolerance is recommended?",
+    q6_a: `<p>The bot is 100% compatible with any broker offering the <strong>MetaTrader 5 (MT5)</strong> terminal.</p><p>The execution engine is calibrated for Gold (XAU/USD) with an expansive spread buffer of up to <strong>100 points</strong>. For best performance, Pro or Raw Spread ECN accounts with deep liquidity are recommended.</p>`,
+    q7_q: "7. Can I switch between the 3 bot tiers flexibly?",
+    q7_a: `<p><strong>Yes, absolutely.</strong> You can transition between Aggressive (maximum order stacking), Balanced (risk-adjusted equilibrium), and Conservative (ultra-selective capital preservation) instantly through the Web Terminal or Mobile App.</p>`,
+    q8_q: "8. How does the bot handle heavy macroeconomic events (NFP, CPI, Geopolitical shocks)?",
+    q8_a: `<p>Confluence integrates an <strong>economic news volatility filter</strong> alongside an automated <em>Circuit Breaker</em>. Ahead of high-impact releases, the bot tightens entry filters or pauses new orders. Every open position is anchored with an immutable 500pt Stop Loss, completely preventing catastrophic drawdowns.</p>`,
+    sup_badge: "// 24/7 TECHNICAL SUPPORT & VPS CLOUD",
+    sup_title: "Technical Specialist:",
+    sup_desc: "Direct 1-on-1 support: connecting your personal MT5 account, configuring cloud VPS servers, and tailoring bot risk parameters to your balance.",
+    btn_qr_zalo: "Scan Zalo QR Code (Hoang Son)",
+    modal_badge: "// OFFICIAL ZALO NAME CARD",
+    modal_sub: "Open Zalo on your smartphone and scan the QR code below to connect directly",
+    btn_open_zalo_app: "Open Zalo App &rarr;",
+    bot_cta_h2: "Experience the Confluence Ecosystem",
+    bot_cta_p: "Explore the Confluence Mobile showcase or review detailed tier pricing today.",
+    btn_explore_app: "Explore Confluence Mobile &rarr;",
+    btn_view_pricing: "View 3 Bot Tiers & Pricing",
+    btn_read_story: "Read Founder Journey",
+    btn_open_terminal: "Open Web Terminal"
+  }
+};
+
+let currentLang = localStorage.getItem('confluence_lang') || 'vi';
+
+function applyLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('confluence_lang', lang);
+  document.documentElement.lang = lang;
+
+  document.getElementById('langVi').classList.toggle('active', lang === 'vi');
+  document.getElementById('langEn').classList.toggle('active', lang === 'en');
+
+  const dict = i18n[lang] || i18n.vi;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) {
+      el.innerHTML = dict[key];
+    }
+  });
+}
+
+function toggleLanguage() {
+  const next = currentLang === 'vi' ? 'en' : 'vi';
+  applyLanguage(next);
+}
+
+function toggleFaq(btn) {
+  const card = btn.parentElement;
+  const isOpen = card.classList.contains('open');
+
+  if (isOpen) {
+    card.classList.remove('open');
+  } else {
+    document.querySelectorAll('.faq-card').forEach(c => c.classList.remove('open'));
+    card.classList.add('open');
+  }
+}
+
+function filterCat(cat) {
+  document.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('onclick').includes(cat));
+  });
+
+  const cards = document.querySelectorAll('.faq-card');
+  cards.forEach(card => {
+    const cardCat = card.getAttribute('data-cat');
+    if (cat === 'all' || cardCat === cat) {
+      card.style.display = 'block';
+    } else {
+      card.style.display = 'none';
+      card.classList.remove('open');
+    }
+  });
+}
+
+function openQrModal() {
+  const modal = document.getElementById('zaloQrModal');
+  modal.style.display = 'flex';
+  setTimeout(() => {
+    modal.classList.add('active');
+  }, 10);
+}
+
+function closeQrModal(event) {
+  if (event.target === document.getElementById('zaloQrModal')) {
+    closeQrModalDirect();
+  }
+}
+
+function closeQrModalDirect() {
+  const modal = document.getElementById('zaloQrModal');
+  modal.classList.remove('active');
+  setTimeout(() => {
+    modal.style.display = 'none';
+  }, 300);
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeQrModalDirect();
+  }
+});
+
+// Initialize language on load
+applyLanguage(currentLang);
+</script>
+</body>
+</html>

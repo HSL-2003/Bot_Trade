@@ -67,9 +67,9 @@ class Session:
 @runtime_checkable
 class SessionService(Protocol):
     def register(self, email: str, password: str, display_name: str | None = None) -> dict: ...
-    def login(self, email: str, password: str) -> dict: ...
+    def login(self, email: str, password: str, portal: str | None = None) -> dict: ...
     def magic_link(self, email: str) -> None: ...
-    def login_with_supabase_token(self, supabase_token: str) -> dict: ...
+    def login_with_supabase_token(self, supabase_token: str, portal: str = "trader") -> dict: ...
     def create(self, principal: Principal) -> Session: ...
     def authenticate(self, token: str) -> Principal: ...
     def revoke(self, token: str) -> None: ...
@@ -127,12 +127,27 @@ class InMemorySessionService:
             "account_id": account_id,
         }
 
-    def login(self, email: str, password: str) -> dict:
+    def login(self, email: str, password: str, portal: str | None = None) -> dict:
         email = normalize_email(email)
         user = self._users.get(email)
         if not user or not self._verify_pw(password, user["password_hash"]):
             raise AuthenticationError("Invalid email or password")
-        roles = list(self._user_roles.get(user["user_id"]) or ["trader"])
+        existing_roles = list(self._user_roles.get(user["user_id"]) or ["trader"])
+        
+        # Enforce mutual exclusion: trader != admin
+        if portal == "admin":
+            if "trader" in existing_roles and "admin" not in existing_roles:
+                raise AuthenticationError("Tài khoản của bạn là tài khoản dùng BOT (Trader), không được phép truy cập hệ thống Quản trị (Admin).")
+            roles = ["admin"]
+            self._user_roles[user["user_id"]] = frozenset(roles)
+        elif portal == "trader":
+            if "admin" in existing_roles and "trader" not in existing_roles:
+                raise AuthenticationError("Tài khoản Quản trị viên (Admin) không được sử dụng để chạy bot giao dịch. Vui lòng đăng nhập tại /admin/login.")
+            roles = ["trader"]
+            self._user_roles[user["user_id"]] = frozenset(roles)
+        else:
+            roles = ["admin"] if "admin" in existing_roles else ["trader"]
+
         session = self.create(Principal(user["account_id"], user["user_id"], frozenset(roles)))
         return {
             "access_token": session.token,
@@ -146,7 +161,7 @@ class InMemorySessionService:
     def magic_link(self, email: str) -> None:
         raise AuthenticationError("Email sign-in is not supported in development mode")
 
-    def login_with_supabase_token(self, supabase_token: str) -> dict:
+    def login_with_supabase_token(self, supabase_token: str, portal: str = "trader") -> dict:
         raise AuthenticationError("OAuth sign-in is not supported in development mode")
 
     def _cleanup_expired(self) -> None:
@@ -182,15 +197,25 @@ class InMemorySessionService:
         self._sessions.pop(token, None)
 
     def set_user_roles(self, user_id: str, roles: list[str]) -> list[str]:
-        clean = sorted({r.strip() for r in roles if r.strip()} or ["trader"])
+        clean_set = {r.strip() for r in roles if r.strip()}
+        if "admin" in clean_set and "trader" in clean_set:
+            raise AuthenticationError("Một tài khoản không thể đồng thời là Admin và Trader (dùng bot). Vai trò mang tính loại trừ lẫn nhau.")
+        clean = ["admin"] if "admin" in clean_set else ["trader"]
         self._user_roles[user_id] = frozenset(clean)
         return clean
 
+    def get_user_email(self, user_id: str) -> Optional[str]:
+        for email, u in self._users.items():
+            if u.get("user_id") == user_id:
+                return email
+        return None
 
 class SupabaseSessionService:
     """Supabase Auth client plus persistent application session storage."""
 
     def __init__(self, url: str, service_role_key: str, ttl_seconds: int = 3600):
+        url = (url or "").strip()
+        service_role_key = (service_role_key or "").strip()
         if not url or not service_role_key:
             raise ValueError("Supabase URL and service-role key are required")
         if ttl_seconds <= 0:
@@ -201,7 +226,7 @@ class SupabaseSessionService:
         self.ttl = timedelta(seconds=ttl_seconds)
         # Principal cache: skips 2 Supabase round-trips (~0.5s) per API call.
         self._auth_cache: dict[str, tuple[float, Principal]] = {}
-        self._auth_cache_ttl = 15.0
+        self._auth_cache_ttl = 60.0
 
     @staticmethod
     def _hash(token: str) -> str:
@@ -237,7 +262,7 @@ class SupabaseSessionService:
         }, headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
         return self._create_session(user_id, account_id)
 
-    def login(self, email: str, password: str) -> dict:
+    def login(self, email: str, password: str, portal: str | None = None) -> dict:
         email = normalize_email(email)
         try:
             response = httpx.post(f"{self.auth_url}/token", params={"grant_type": "password"},
@@ -257,8 +282,38 @@ class SupabaseSessionService:
         user_id = user.get("id")
         if not user_id:
             raise AuthenticationError("Invalid authentication response")
+
+        # Validate mutual exclusion between Admin and Trader
+        existing_roles = self._get_user_roles(user_id)
+        if portal == "admin":
+            if "trader" in existing_roles and "admin" not in existing_roles:
+                raise AuthenticationError("Tài khoản của bạn là tài khoản dùng BOT (Trader), không được phép truy cập hệ thống Quản trị (Admin).")
+            roles = ["admin"]
+            if existing_roles != ["admin"]:
+                try:
+                    self._request("PATCH", f"{self.rest_url}/user_profiles",
+                                  params={"user_id": f"eq.{user_id}"},
+                                  json={"roles": ["admin"]},
+                                  headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
+                except Exception:
+                    pass
+        elif portal == "trader":
+            if "admin" in existing_roles and "trader" not in existing_roles:
+                raise AuthenticationError("Tài khoản Quản trị viên (Admin) không được sử dụng để chạy bot giao dịch. Vui lòng đăng nhập tại /admin/login.")
+            roles = ["trader"]
+            if existing_roles != ["trader"]:
+                try:
+                    self._request("PATCH", f"{self.rest_url}/user_profiles",
+                                  params={"user_id": f"eq.{user_id}"},
+                                  json={"roles": ["trader"]},
+                                  headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
+                except Exception:
+                    pass
+        else:
+            roles = list(existing_roles) if existing_roles else ["trader"]
+
         account_id = self._ensure_account(user_id)
-        return self._create_session(user_id, account_id)
+        return self._create_session(user_id, account_id, roles=roles)
 
     def magic_link(self, email: str) -> None:
         """Send a passwordless sign-in (magic) link to the given email."""
@@ -275,13 +330,12 @@ class SupabaseSessionService:
                 detail = response.text
             raise AuthenticationError(detail or "Could not send a sign-in link")
 
-    def login_with_supabase_token(self, supabase_token: str) -> dict:
+    def login_with_supabase_token(self, supabase_token: str, portal: str = "trader") -> dict:
         """Exchange a Supabase OAuth or magic-link token into an app session.
 
-        The user returns from GitHub OAuth / email link with a short-lived
+        The user returns from GitHub/Google OAuth or email link with a short-lived
         Supabase access token in the URL fragment. We verify it against the
-        Supabase Auth /user endpoint, then mint our own session + account so
-        the rest of the app can scope by account_id as usual.
+        Supabase Auth /user endpoint, enforce role separation, and mint our session.
         """
         if not supabase_token:
             raise AuthenticationError("Missing authentication token")
@@ -295,11 +349,95 @@ class SupabaseSessionService:
             raise AuthenticationError("Authentication service is unavailable") from exc
         if response.status_code >= 400:
             raise AuthenticationError("Invalid or expired sign-in token")
-        user_id = (response.json().get("id") or "").strip()
+        user_data = response.json()
+        user_id = (user_data.get("id") or "").strip()
+        email = (user_data.get("email") or "").strip().lower()
         if not user_id:
             raise AuthenticationError("Invalid authentication response")
+
+        # Check existing profile & roles
+        prof = []
+        try:
+            prof = self._request("GET", f"{self.rest_url}/user_profiles", params={
+                "user_id": f"eq.{user_id}", "select": "roles,user_id", "limit": "1",
+            }).json()
+        except Exception:
+            pass
+
+        existing_roles = list(prof[0].get("roles") or []) if prof and len(prof) > 0 and prof[0].get("roles") else []
+
+        if portal == "admin":
+            # Validation rule: If account is already a trader (bot user), deny admin access
+            if "trader" in existing_roles and "admin" not in existing_roles:
+                raise AuthenticationError("Tài khoản của bạn là tài khoản dùng BOT (Trader), không có quyền Quản trị (Admin).")
+            
+            roles = ["admin"]
+            # Save / update profile to guarantee admin role and no trader role
+            if prof and len(prof) > 0:
+                if existing_roles != ["admin"]:
+                    try:
+                        self._request("PATCH", f"{self.rest_url}/user_profiles",
+                                      params={"user_id": f"eq.{user_id}"},
+                                      json={"roles": ["admin"]},
+                                      headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
+                    except Exception:
+                        pass
+            else:
+                display = (user_data.get("user_metadata") or {}).get("full_name") or (email.split("@")[0] if email else "Admin Operator")
+                try:
+                    self._request("POST", f"{self.rest_url}/user_profiles", json={
+                        "user_id": user_id,
+                        "display_name": display,
+                        "roles": ["admin"],
+                    }, headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
+                except Exception:
+                    pass
+        else: # portal == "trader"
+            # Validation rule: If account is already an admin, deny trader / bot usage
+            if "admin" in existing_roles and "trader" not in existing_roles:
+                raise AuthenticationError("Tài khoản Quản trị viên (Admin) không được sử dụng để chạy bot giao dịch. Vui lòng đăng nhập tại /admin/login.")
+            
+            roles = list(existing_roles) if ("trader" in existing_roles) else ["trader"]
+            if prof and len(prof) > 0:
+                if "trader" not in existing_roles:
+                    try:
+                        updated_roles = list(set(existing_roles + ["trader"]))
+                        self._request("PATCH", f"{self.rest_url}/user_profiles",
+                                      params={"user_id": f"eq.{user_id}"},
+                                      json={"roles": updated_roles},
+                                      headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
+                        roles = updated_roles
+                    except Exception:
+                        pass
+            else:
+                display = (user_data.get("user_metadata") or {}).get("full_name") or (email.split("@")[0] if email else "Trader")
+                try:
+                    self._request("POST", f"{self.rest_url}/user_profiles", json={
+                        "user_id": user_id,
+                        "display_name": display,
+                        "roles": ["trader"],
+                    }, headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
+                except Exception:
+                    pass
+
         account_id = self._ensure_account(user_id)
-        return self._create_session(user_id, account_id)
+        return self._create_session(user_id, account_id, roles=roles)
+
+    def get_user_email(self, user_id: str) -> Optional[str]:
+        if not user_id:
+            return None
+        if not hasattr(self, "_email_cache"):
+            self._email_cache = {}
+        if user_id in self._email_cache:
+            return self._email_cache[user_id]
+        try:
+            response = self._request("GET", f"{self.auth_url}/admin/users/{user_id.strip()}")
+            email = response.json().get("email")
+            if email:
+                self._email_cache[user_id] = email
+            return email
+        except Exception:
+            return None
 
     def _ensure_account(self, user_id: str) -> str:
         """Return the user's active account, repairing legacy/missing rows."""
@@ -381,6 +519,8 @@ class SupabaseSessionService:
             roles = []
         if not roles:
             roles = list(row.get("roles") or ["trader"])
+        if "admin" in roles and "trader" in roles:
+            roles = ["admin"]
         principal = Principal(str(row["account_id"]), user_id, frozenset(roles))
         self._auth_cache[token_hash] = (now, principal)
         return principal
@@ -390,3 +530,20 @@ class SupabaseSessionService:
         self._request("PATCH", f"{self.rest_url}/user_sessions", params={"token_hash": f"eq.{self._hash(token)}"},
                       json={"status": "revoked", "is_active": False, "revoked_at": datetime.now(timezone.utc).isoformat()},
                       headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
+
+    def set_user_roles(self, user_id: str, roles: list[str]) -> list[str]:
+        clean_set = {r.strip() for r in roles if r.strip()}
+        if "admin" in clean_set and "trader" in clean_set:
+            raise AuthenticationError("Một tài khoản không thể đồng thời là Admin và Trader (dùng bot). Vai trò mang tính loại trừ lẫn nhau.")
+        clean = ["admin"] if "admin" in clean_set else ["trader"]
+        try:
+            self._request("PATCH", f"{self.rest_url}/user_profiles",
+                          params={"user_id": f"eq.{user_id.strip()}"},
+                          json={"roles": clean},
+                          headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
+            for thash, (_, principal) in list(self._auth_cache.items()):
+                if principal.user_id == user_id.strip():
+                    self._auth_cache.pop(thash, None)
+        except Exception:
+            pass
+        return clean

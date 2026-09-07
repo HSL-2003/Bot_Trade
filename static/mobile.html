@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Bot Trade Mobile Terminal Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-gradient: radial-gradient(circle at 50% 0%, #102a49 0%, #070b14 60%);
+      --card-bg: rgba(16, 26, 43, 0.85);
+      --card-border: #243b58;
+      --accent: #38bdf8;
+      --success: #4ade80;
+      --error: #fb7185;
+      --warning: #f59e0b;
+      --text-primary: #e7f0ff;
+      --text-muted: #91a6c1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: #020408;
+      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+
+    /* Mobile Device Frame Mockup */
+    .mobile-frame {
+      width: 100%;
+      max-width: 412px;
+      height: 860px;
+      max-height: 94vh;
+      background: var(--bg-gradient);
+      border: 3px solid #243b58;
+      border-radius: 42px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(56, 189, 248, 0.15);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Status Bar */
+    .status-bar {
+      height: 44px;
+      padding: 12px 24px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      z-index: 10;
+    }
+    .island-notch {
+      width: 110px;
+      height: 22px;
+      background: #000;
+      border-radius: 20px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .app-header {
+      padding: 14px 20px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand-title {
+      font-family: 'SpaceGrotesk', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 30%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .bot-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: 1px solid rgba(74, 222, 128, 0.3);
+      background: rgba(74, 222, 128, 0.1);
+      color: var(--success);
+    }
+    .bot-badge.stopped {
+      border-color: rgba(251, 113, 133, 0.3);
+      background: rgba(251, 113, 133, 0.1);
+      color: var(--error);
+    }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    /* Scrollable Container */
+    .scroll-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 18px 24px;
+      scrollbar-width: none;
+    }
+    .scroll-content::-webkit-scrollbar { display: none; }
+
+    /* Summary Card (Glassmorphism) */
+    .summary-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    .summary-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+    }
+    .pnl-total {
+      font-family: 'SpaceGrotesk', sans-serif;
+      font-size: 30px;
+      font-weight: 700;
+      margin: 6px 0 12px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .pnl-total.profit { color: var(--success); }
+    .pnl-total.loss { color: var(--error); }
+    .equity-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+    }
+    .equity-item span { color: var(--text-muted); display: block; margin-bottom: 2px; }
+    .equity-item strong { color: var(--text-primary); font-size: 14px; font-weight: 600; }
+
+    /* Section Header */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 18px 2px 10px;
+    }
+    .section-title {
+      font-family: 'SpaceGrotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge-count {
+      font-size: 11px;
+      background: #1e293b;
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      border: 1px solid #334155;
+    }
+
+    /* Position Cards */
+    .position-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .position-card:hover {
+      border-color: #3b82f6;
+    }
+    .position-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+    }
+    .position-card.buy::before { background: var(--success); }
+    .position-card.sell::before { background: var(--error); }
+
+    .card-row-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .ticket-badge {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+    .side-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .side-pill.buy { background: rgba(74, 222, 128, 0.15); color: var(--success); }
+    .side-pill.sell { background: rgba(251, 113, 133, 0.15); color: var(--error); }
+
+    .symbol-name {
+      font-family: 'SpaceGrotesk', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+    .lot-badge {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .profit-badge {
+      font-family: 'SpaceGrotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 8px;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+    .profit-badge.profit {
+      color: var(--success);
+      background: rgba(74, 222, 128, 0.1);
+    }
+    .profit-badge.loss {
+      color: var(--error);
+      background: rgba(251, 113, 133, 0.1);
+    }
+    .flash-up {
+      animation: flashGreen 0.6s ease;
+    }
+    .flash-down {
+      animation: flashRed 0.6s ease;
+    }
+    @keyframes flashGreen {
+      0% { background: rgba(74, 222, 128, 0.5); }
+      100% { background: rgba(74, 222, 128, 0.1); }
+    }
+    @keyframes flashRed {
+      0% { background: rgba(251, 113, 133, 0.5); }
+      100% { background: rgba(251, 113, 133, 0.1); }
+    }
+
+    .card-row-prices {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin: 8px 0;
+      color: var(--text-muted);
+    }
+    .card-row-prices strong { color: var(--text-primary); font-weight: 600; }
+
+    /* SL / TP Bar */
+    .sltp-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin: 8px 0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .sltp-item span { color: var(--text-muted); }
+    .sltp-item.sl strong { color: #f87171; }
+    .sltp-item.tp strong { color: #4ade80; }
+
+    /* Action Buttons inside Card */
+    .card-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .btn-card {
+      border: none;
+      padding: 7px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+    .btn-modify {
+      background: #1e293b;
+      color: var(--text-primary);
+      border: 1px solid #334155;
+    }
+    .btn-modify:hover { background: #334155; }
+    .btn-close-pos {
+      background: rgba(251, 113, 133, 0.15);
+      color: #fecdd3;
+      border: 1px solid rgba(251, 113, 133, 0.3);
+    }
+    .btn-close-pos:hover { background: rgba(251, 113, 133, 0.3); }
+
+    /* Bottom Quick Panic Bar */
+    .panic-bar {
+      padding: 12px 18px 16px;
+      background: rgba(10, 16, 26, 0.95);
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      gap: 10px;
+    }
+    .btn-panic {
+      flex: 2;
+      background: linear-gradient(135deg, #e11d48, #be123c);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
+      transition: all 0.2s ease;
+    }
+    .btn-panic:active { transform: scale(0.98); }
+    .btn-softlock {
+      flex: 1;
+      background: #1e293b;
+      border: 1px solid #f59e0b;
+      color: #f59e0b;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Empty state */
+    .empty-state {
+      padding: 36px 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: absolute;
+      top: 60px;
+      left: 20px;
+      right: 20px;
+      background: #1e293b;
+      border: 1px solid var(--accent);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      display: none;
+      z-index: 100;
+      animation: slideDown 0.3s ease;
+    }
+    @keyframes slideDown {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="mobile-frame">
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span id="current-time">09:41</span>
+      <div class="island-notch"></div>
+      <span>5G 100%</span>
+    </div>
+
+    <!-- Header -->
+    <div class="app-header">
+      <div>
+        <div class="brand-title">Bot Trade Mobile</div>
+        <div style="font-size: 11px; color: var(--text-muted);">Institutional Terminal</div>
+      </div>
+      <div id="bot-badge" class="bot-badge">
+        <span class="pulse-dot"></span>
+        <span id="bot-status-text">BOT ONLINE</span>
+      </div>
+    </div>
+
+    <!-- Toast message -->
+    <div id="app-toast" class="toast"></div>
+
+    <!-- Scroll Content -->
+    <div class="scroll-content">
+      <!-- Live Floating PnL Card -->
+      <div class="summary-card">
+        <div class="summary-label">Floating Profit / Loss</div>
+        <div id="total-pnl" class="pnl-total profit">$ 0.00</div>
+        <div class="equity-stats">
+          <div class="equity-item">
+            <span>Balance</span>
+            <strong id="acc-balance">$10,000.00</strong>
+          </div>
+          <div class="equity-item">
+            <span>Equity</span>
+            <strong id="acc-equity">$10,000.00</strong>
+          </div>
+          <div class="equity-item">
+            <span>Free Margin</span>
+            <strong id="acc-free-margin">$10,000.00</strong>
+          </div>
+          <div class="equity-item">
+            <span>Drawdown</span>
+            <strong id="acc-drawdown" style="color: var(--success);">0.0%</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Orders Header -->
+      <div class="section-header">
+        <div class="section-title">
+          <span style="color: var(--accent);">●</span>
+          Active Positions
+          <span id="positions-count-badge" class="badge-count">0 open</span>
+        </div>
+        <span style="font-size: 11px; color: var(--text-muted);">Live 500ms WS</span>
+      </div>
+
+      <!-- Positions Container -->
+      <div id="positions-container">
+        <div class="empty-state">Đang kết nối WebSocket...</div>
+      </div>
+    </div>
+
+    <!-- Panic Emergency Bottom Bar -->
+    <div class="panic-bar">
+      <button class="btn-panic" onclick="closeAllPositions()">
+        🚨 CLOSE ALL POSITIONS
+      </button>
+      <button id="btn-softlock" class="btn-softlock" onclick="toggleSoftLock()">
+        SOFT LOCK
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let ws = null;
+    let csrfToken = '';
+    let previousProfits = {};
+
+    // Update Clock
+    function updateClock() {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const mins = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('current-time').innerText = `${hours}:${mins}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function showToast(msg) {
+      const t = document.getElementById('app-toast');
+      t.innerText = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 2500);
+    }
+
+    // Get CSRF Token
+    async function fetchCsrf() {
+      try {
+        const resp = await fetch('/');
+        const cookies = document.cookie.split(';');
+        for (let c of cookies) {
+          const [k, v] = c.trim().split('=');
+          if (k === '_csrf') csrfToken = v;
+        }
+      } catch (e) {
+        console.error('CSRF fetch error', e);
+      }
+    }
+    fetchCsrf();
+
+    function getHeaders() {
+      const h = { 'Content-Type': 'application/json' };
+      if (csrfToken) h['X-CSRF-Token'] = csrfToken;
+      return h;
+    }
+
+    // Connect WebSocket
+    function connectWebSocket() {
+      const host = window.location.host;
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${host}/ws`;
+
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log('Mobile WS connected');
+        showToast('Kết nối realtime thành công (500ms)');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const state = JSON.parse(event.data);
+          renderBotState(state);
+        } catch (err) {
+          console.error('WS Parse error', err);
+        }
+      };
+
+      ws.onclose = () => {
+        console.warn('WS disconnected, reconnecting in 2s...');
+        setTimeout(connectWebSocket, 2000);
+      };
+
+      ws.onerror = (err) => {
+        console.error('WS error', err);
+        ws.close();
+      };
+    }
+
+    // Render Bot State
+    function renderBotState(state) {
+      // 1. Bot status badge
+      const badge = document.getElementById('bot-badge');
+      const badgeText = document.getElementById('bot-status-text');
+      if (state.system_locked || state.lock_state === 'locked') {
+        badge.className = 'bot-badge stopped';
+        badgeText.innerText = 'LOCKED';
+      } else if (state.lock_state === 'soft_locked') {
+        badge.className = 'bot-badge stopped';
+        badgeText.innerText = 'SOFT LOCK';
+      } else if (state.is_running) {
+        badge.className = 'bot-badge';
+        badgeText.innerText = state.simulation_mode ? 'SIMULATION' : 'LIVE MT5';
+      } else {
+        badge.className = 'bot-badge';
+        badgeText.innerText = 'ONLINE';
+      }
+
+      // 2. Account info
+      if (state.account_info) {
+        const acc = state.account_info;
+        document.getElementById('acc-balance').innerText = `$${acc.balance.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        document.getElementById('acc-equity').innerText = `$${acc.equity.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        document.getElementById('acc-free-margin').innerText = `$${(acc.free_margin || acc.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        const dd = acc.daily_drawdown_percent || 0;
+        const ddEl = document.getElementById('acc-drawdown');
+        ddEl.innerText = `${dd.toFixed(1)}%`;
+        ddEl.style.color = dd > 3 ? 'var(--error)' : 'var(--success)';
+      }
+
+      // 3. Render Positions
+      const positions = state.positions || [];
+      document.getElementById('positions-count-badge').innerText = `${positions.length} open`;
+
+      let totalProfit = 0;
+      positions.forEach(p => totalProfit += (p.profit || 0));
+
+      const pnlEl = document.getElementById('total-pnl');
+      pnlEl.innerText = `${totalProfit >= 0 ? '+$' : '-$'}${Math.abs(totalProfit).toFixed(2)}`;
+      pnlEl.className = `pnl-total ${totalProfit >= 0 ? 'profit' : 'loss'}`;
+
+      const container = document.getElementById('positions-container');
+      if (positions.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div style="font-size: 28px; margin-bottom: 8px;">📊</div>
+            <div>Không có lệnh nào đang chạy</div>
+            <div style="font-size: 11px; margin-top: 4px; color: var(--accent);">Bot đang quét tín hiệu Confluence...</div>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      positions.forEach(pos => {
+        const prevProfit = previousProfits[pos.ticket];
+        let flashClass = '';
+        if (prevProfit !== undefined && pos.profit !== prevProfit) {
+          flashClass = pos.profit > prevProfit ? 'flash-up' : 'flash-down';
+        }
+        previousProfits[pos.ticket] = pos.profit;
+
+        const isBuy = (pos.type || 'BUY').toUpperCase() === 'BUY';
+        const sideClass = isBuy ? 'buy' : 'sell';
+        const profitClass = pos.profit >= 0 ? 'profit' : 'loss';
+        const profitSign = pos.profit >= 0 ? '+' : '';
+
+        html += `
+          <div class="position-card ${sideClass}">
+            <div class="card-row-top">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="side-pill ${sideClass}">${pos.type}</span>
+                <span class="symbol-name">${pos.symbol}</span>
+                <span class="lot-badge">${pos.volume} Lots</span>
+              </div>
+              <div class="profit-badge ${profitClass} ${flashClass}">
+                ${profitSign}$${Number(pos.profit).toFixed(2)}
+              </div>
+            </div>
+
+            <div class="ticket-badge">#${pos.ticket} • Open: ${pos.open_time ? pos.open_time.split('T')[1].substring(0,8) : ''}</div>
+
+            <div class="card-row-prices">
+              <div>Entry: <strong>${pos.open_price}</strong></div>
+              <div>Current: <strong style="color: var(--accent);">${pos.current_price || pos.open_price}</strong></div>
+            </div>
+
+            <div class="sltp-track">
+              <div class="sltp-item sl"><span>SL:</span> <strong>${pos.sl > 0 ? pos.sl : 'None'}</strong></div>
+              <div class="sltp-item tp"><span>TP:</span> <strong>${pos.tp > 0 ? pos.tp : 'None'}</strong></div>
+            </div>
+
+            <div class="card-actions">
+              <button class="btn-card btn-modify" onclick="modifySLTP(${pos.ticket}, ${pos.open_price}, ${pos.sl}, ${pos.tp})">
+                ⚙️ Sửa SL/TP
+              </button>
+              <button class="btn-card btn-close-pos" onclick="closePosition(${pos.ticket})">
+                ✕ Đóng Lệnh
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // Close Single Position
+    async function closePosition(ticket) {
+      if (!confirm(`Bạn có chắc muốn đóng lệnh #${ticket}?`)) return;
+      try {
+        const resp = await fetch(`/api/close/${ticket}`, {
+          method: 'POST',
+          headers: getHeaders()
+        });
+        if (resp.ok) {
+          showToast(`Đã đóng lệnh #${ticket}`);
+        } else {
+          showToast(`Lỗi đóng lệnh: ${resp.statusText}`);
+        }
+      } catch (e) {
+        showToast('Lỗi mạng khi đóng lệnh');
+      }
+    }
+
+    // Close All Positions
+    async function closeAllPositions() {
+      if (!confirm('🚨 BẠN CÓ CHẮC MUỐN ĐÓNG TOÀN BỘ CÁC LỆNH ĐANG CHẠY?')) return;
+      try {
+        const resp = await fetch('/api/close-all', {
+          method: 'POST',
+          headers: getHeaders()
+        });
+        if (resp.ok) {
+          showToast('Đã gửi yêu cầu ĐÓNG TOÀN BỘ LỆNH!');
+        } else {
+          showToast('Lỗi đóng tất cả lệnh');
+        }
+      } catch (e) {
+        showToast('Lỗi mạng');
+      }
+    }
+
+    // Modify SL/TP
+    async function modifySLTP(ticket, openPrice, currentSl, currentTp) {
+      const newSl = prompt(`Nhập SL mới cho lệnh #${ticket} (Hiện tại: ${currentSl}):`, currentSl);
+      if (newSl === null) return;
+      const newTp = prompt(`Nhập TP mới cho lệnh #${ticket} (Hiện tại: ${currentTp}):`, currentTp);
+      if (newTp === null) return;
+
+      try {
+        const resp = await fetch(`/api/modify-sltp/${ticket}`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({
+            sl: parseFloat(newSl) || 0,
+            tp: parseFloat(newTp) || 0
+          })
+        });
+        if (resp.ok) {
+          showToast(`Đã cập nhật SL/TP lệnh #${ticket}`);
+        } else {
+          showToast('Lỗi cập nhật SL/TP');
+        }
+      } catch (e) {
+        showToast('Lỗi mạng');
+      }
+    }
+
+    // Toggle Soft Lock
+    async function toggleSoftLock() {
+      try {
+        const resp = await fetch('/api/lock', {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ state: 'soft_locked' })
+        });
+        if (resp.ok) {
+          showToast('Đã kích hoạt SOFT LOCK (ngừng vào lệnh mới)');
+        }
+      } catch (e) {
+        showToast('Lỗi');
+      }
+    }
+
+    // Init
+    window.addEventListener('DOMContentLoaded', () => {
+      connectWebSocket();
+    });
+  </script>
+</body>
+</html>

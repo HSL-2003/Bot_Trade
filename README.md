@@ -135,7 +135,8 @@ pip install MetaTrader5
 The project includes `supabase/schema.sql`, which creates the tables required for persistent accounts, user sessions, and trade history:
 
 - `user_profiles`: application profile and soft-delete status for each Supabase Auth user.
-- `trading_accounts`: account scope, settings, owner, and active/archive status.
+- `bot_types`: reusable bot configuration templates with risk levels and trading parameters.
+- `trading_accounts`: account scope, settings, owner, bot type assignment, and active/archive status.
 - `user_sessions`: persistent sessions with expiry and revoke status. Only a hash of the bearer token is stored.
 - `trade_orders`: order and trade history. Rows are retained and transitioned through statuses instead of being deleted.
 - `trade_order_events`: optional audit trail for broker events and status changes.
@@ -198,6 +199,31 @@ docker run --env-file .env -p 8000:8000 confluence-algo-bot
 | GET | `/api/analytics` | Retrieve trading statistics |
 | POST | `/api/close-all` | Close all open positions |
 | WS | `/ws` | Stream real-time system state |
+
+### Admin Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/admin/overview` | Admin dashboard with KPIs and account list |
+| GET | `/api/admin/accounts` | List all trading accounts |
+| GET | `/api/admin/accounts/{id}` | Get account details |
+| POST | `/api/admin/accounts/{id}/status` | Update account status |
+| POST | `/api/admin/accounts/{id}/lock` | Lock/unlock account |
+| POST | `/api/admin/accounts/{id}/bot-type` | Assign bot type to account |
+| GET | `/api/admin/trades` | List all trades across accounts |
+
+### Bot Types Management (NEW)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/admin/bot-types` | List all bot configuration templates |
+| GET | `/api/admin/bot-types/{id}` | Get bot type details with usage stats |
+| POST | `/api/admin/bot-types` | Create new bot type |
+| PUT | `/api/admin/bot-types/{id}` | Update bot type configuration |
+| PATCH | `/api/admin/bot-types/{id}` | Partial update bot type |
+| DELETE | `/api/admin/bot-types/{id}` | Delete bot type (soft/hard) |
+
+See [Bot Types API Documentation](docs/API_BOT_TYPES.md) for detailed usage and examples.
 
 The complete request and response schemas are available through Swagger UI at http://127.0.0.1:8000/docs.
 

@@ -195,6 +195,9 @@ class InMemoryAccountRepository:
             })
         return accounts
 
+    def list_user_profiles(self) -> list[dict[str, Any]]:
+        return list(self._profiles.values())
+
     def get_all_trades(self, limit: int = 5000) -> list[dict[str, Any]]:
         return list(self._trades)[:limit]
 
@@ -208,8 +211,16 @@ class InMemoryAccountRepository:
         owner = self.profile(owner_id) if owner_id else {}
         trades = [t for t in self._trades if t.get("account_id") == account_id]
         closed = [t for t in trades if t.get("status") == "closed"]
-        wins = [t for t in closed if t.get("profit", 0) > 0]
-        losses = [t for t in closed if t.get("profit", 0) < 0]
+        wins = [t for t in closed if (t.get("profit") or 0) > 0]
+        losses = [t for t in closed if (t.get("profit") or 0) < 0]
+        gross_profit = sum(float(t.get("profit") or 0) for t in wins)
+        gross_loss = sum(abs(float(t.get("profit") or 0)) for t in losses)
+        total_p = round(sum(float(t.get("profit") or 0) for t in closed), 2)
+        total_v = round(sum(float(t.get("quantity") or 0) for t in closed), 2)
+        win_rate = round((len(wins) / len(closed)) * 100, 1) if closed else 0.0
+        profit_factor = round(gross_profit / gross_loss, 2) if gross_loss > 0 else (999.0 if gross_profit > 0 else 0.0)
+        avg_trade = round(total_p / len(closed), 2) if closed else 0.0
+
         return {
             **acc,
             "display_name": owner.get("display_name") or owner_id or account_id,
@@ -219,9 +230,15 @@ class InMemoryAccountRepository:
             "total_trades": len(closed),
             "winning_trades": len(wins),
             "losing_trades": len(losses),
-            "total_profit": round(sum(t.get("profit", 0) for t in closed), 2),
-            "total_volume": round(sum(t.get("quantity", 0) for t in closed), 2),
-            "recent_trades": sorted(trades, key=lambda x: x.get("submitted_at", ""), reverse=True)[:20],
+            "break_even_trades": len(closed) - len(wins) - len(losses),
+            "win_rate": win_rate,
+            "profit_factor": profit_factor,
+            "gross_profit": round(gross_profit, 2),
+            "gross_loss": round(gross_loss, 2),
+            "average_trade": avg_trade,
+            "total_profit": total_p,
+            "total_volume": total_v,
+            "recent_trades": sorted(trades, key=lambda x: x.get("submitted_at", ""), reverse=True)[:50],
         }
 
     def set_account_status(self, account_id: str, status: str, reason: Optional[str] = None) -> None:
@@ -241,7 +258,10 @@ class InMemoryAccountRepository:
             acc["unblocked_at"] = datetime.now(timezone.utc).isoformat()
 
     def update_user_roles(self, user_id: str, roles: list[str]) -> dict[str, Any]:
-        clean = sorted({r.strip() for r in roles if r.strip()} or ["trader"])
+        clean_set = {r.strip() for r in roles if r.strip()}
+        if "admin" in clean_set and "trader" in clean_set:
+            raise AccountScopeError("Một tài khoản không thể đồng thời là Admin và Trader (dùng bot). Vai trò mang tính loại trừ lẫn nhau.")
+        clean = ["admin"] if "admin" in clean_set else ["trader"]
         profile = self._profiles.setdefault(user_id, {"user_id": user_id, "roles": ["trader"]})
         profile["roles"] = clean
         return {"user_id": user_id, "roles": clean}
@@ -254,3 +274,136 @@ class InMemoryAccountRepository:
                 self._sessions.pop(token, None)
                 removed += 1
         return removed
+
+    def get_account_daily_performance(self, account_id: str) -> list[dict[str, Any]]:
+        account_id = self._check(account_id)
+        trades = [t for t in self._trades if t.get("account_id") == account_id]
+        closed = [t for t in trades if t.get("status") == "closed"]
+        daily_map: dict[str, dict[str, Any]] = {}
+
+        for t in closed:
+            raw_time = str(t.get("closed_at") or t.get("submitted_at") or t.get("created_at") or "")
+            day_str = raw_time[:10] if len(raw_time) >= 10 else "N/A"
+            if day_str not in daily_map:
+                daily_map[day_str] = {
+                    "date": day_str,
+                    "total_trades": 0,
+                    "winning_trades": 0,
+                    "losing_trades": 0,
+                    "break_even_trades": 0,
+                    "net_profit": 0.0,
+                    "gross_profit": 0.0,
+                    "gross_loss": 0.0,
+                    "total_volume": 0.0,
+                    "win_rate": 0.0,
+                    "profit_factor": 0.0,
+                }
+            d = daily_map[day_str]
+            d["total_trades"] += 1
+            p = float(t.get("profit") or 0.0)
+            v = float(t.get("quantity") or 0.0)
+            d["net_profit"] += p
+            d["total_volume"] += v
+            if p > 0:
+                d["winning_trades"] += 1
+                d["gross_profit"] += p
+            elif p < 0:
+                d["losing_trades"] += 1
+                d["gross_loss"] += abs(p)
+            else:
+                d["break_even_trades"] += 1
+
+        result = []
+        for day_str in sorted(daily_map.keys(), reverse=True):
+            d = daily_map[day_str]
+            d["net_profit"] = round(d["net_profit"], 2)
+            d["gross_profit"] = round(d["gross_profit"], 2)
+            d["gross_loss"] = round(d["gross_loss"], 2)
+            d["total_volume"] = round(d["total_volume"], 2)
+            if d["total_trades"] > 0:
+                d["win_rate"] = round((d["winning_trades"] / d["total_trades"]) * 100, 1)
+            d["profit_factor"] = round(d["gross_profit"] / d["gross_loss"], 2) if d["gross_loss"] > 0 else (999.0 if d["gross_profit"] > 0 else 0.0)
+            result.append(d)
+        return result
+
+    def create_user_admin(self, email: str, password: str, display_name: str, role: str = "trader", bot_type_id: Optional[str] = None) -> dict[str, Any]:
+        import uuid
+        email = (email or "").strip().lower()
+        display_name = (display_name or "").strip() or email
+        role_clean = role.strip().lower()
+        if role_clean not in ("admin", "trader"):
+            raise AccountScopeError("Vai trò không hợp lệ. Chỉ chấp nhận 'admin' hoặc 'trader'.")
+
+        user_id = str(uuid.uuid4())
+        profile = {
+            "user_id": user_id,
+            "email": email,
+            "display_name": display_name,
+            "roles": [role_clean],
+            "status": "active",
+            "is_active": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        self._profiles[user_id] = profile
+
+        account_id = None
+        if role_clean == "trader":
+            account_id = f"acct-{user_id}"
+            self._accounts[account_id] = {
+                "id": account_id,
+                "owner_user_id": user_id,
+                "name": f"Account {display_name}",
+                "bot_type_id": bot_type_id or "308b6e56-d024-4831-950c-e2cefd241c1b",
+                "status": "active",
+                "is_active": True,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+        return {
+            "user_id": user_id,
+            "email": email,
+            "display_name": display_name,
+            "roles": [role_clean],
+            "status": "active",
+            "account_id": account_id,
+        }
+
+    def update_user_profile_admin(self, user_id: str, *, display_name: Optional[str] = None, password: Optional[str] = None, role: Optional[str] = None, status: Optional[str] = None) -> dict[str, Any]:
+        user_id = self._check(user_id)
+        profile = self._profiles.get(user_id)
+        if not profile:
+            raise AccountScopeError("User not found")
+
+        if display_name is not None:
+            profile["display_name"] = display_name.strip()
+        if role is not None:
+            role_clean = role.strip().lower()
+            if role_clean not in ("admin", "trader"):
+                raise AccountScopeError("Một tài khoản không thể đồng thời là Admin và Trader (dùng bot). Vai trò mang tính loại trừ lẫn nhau.")
+            profile["roles"] = [role_clean]
+        if status is not None:
+            status_clean = status.strip().lower()
+            profile["status"] = status_clean
+            profile["is_active"] = (status_clean == "active")
+
+        if role == "trader":
+            acc_id = f"acct-{user_id}"
+            if acc_id not in self._accounts:
+                self._accounts[acc_id] = {
+                    "id": acc_id,
+                    "owner_user_id": user_id,
+                    "name": f"Account {profile.get('display_name') or user_id[:8]}",
+                    "bot_type_id": "308b6e56-d024-4831-950c-e2cefd241c1b",
+                    "status": "active",
+                }
+
+        return {"user_id": user_id, **profile}
+
+    def delete_user_admin(self, user_id: str) -> bool:
+        user_id = self._check(user_id)
+        if user_id in self._profiles:
+            del self._profiles[user_id]
+        acc_id = f"acct-{user_id}"
+        if acc_id in self._accounts:
+            del self._accounts[acc_id]
+        return True

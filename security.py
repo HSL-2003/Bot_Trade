@@ -60,9 +60,11 @@ def log_security_event(
     correlation_id: str | None = None,
     client_ip: str | None = None,
     detail: str = "",
+    severity: str = "warning",
+    details: dict | None = None,
 ) -> None:
     """Emit a structured security log line for auditability."""
-    parts = [f"event={event}"]
+    parts = [f"event={event}", f"severity={severity}"]
     if account_id:
         parts.append(f"account={account_id}")
     if user_id:
@@ -71,6 +73,9 @@ def log_security_event(
         parts.append(f"correlation={correlation_id}")
     if client_ip:
         parts.append(f"ip={client_ip}")
+    if details:
+        # Serialize the structured details dict into the audit line.
+        parts.append("details=" + ",".join(f"{k}={v}" for k, v in details.items() if v is not None))
     if detail:
         parts.append(f"detail={detail}")
     security_logger.warning(" ".join(parts))

@@ -1,0 +1,4756 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+	<title>Confluence Mobile — Algorithmic Trading Terminal</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+	<style>
+
+		@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap');
+
+		*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+		html, body {
+			width: 100%;
+			min-height: 100%;
+			background: #000;
+			overflow-x: hidden;
+			font-family: 'Inter', system-ui, sans-serif;
+			color: #e8ece4;
+		}
+
+		canvas {
+			position: fixed;
+			top: 0; left: 0;
+			width: 100vw; height: 100vh;
+			z-index: 0;
+		}
+
+		#scroll-container {
+			position: relative;
+			z-index: 1;
+			pointer-events: none;
+			will-change: transform;
+		}
+
+		.section {
+			position: relative;
+			min-height: 100vh;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 80px 40px;
+			pointer-events: none;
+		}
+
+		.section * { pointer-events: auto; }
+
+		.hero {
+			min-height: 110vh;
+			flex-direction: column;
+			gap: 20px;
+			text-align: center;
+			justify-content: flex-start;
+			padding-top: 6vh;
+		}
+
+		.hero-tag {
+			font-size: 11px;
+			letter-spacing: 4px;
+			text-transform: uppercase;
+			opacity: 0;
+			transform: translateY(30px);
+			color: var(--color-label, rgba(210, 230, 160, 0.85));
+			font-weight: 500;
+			text-shadow: 0 1px 16px rgba(0,0,0,0.5);
+		}
+
+		.hero h1 {
+			font-family: 'Playfair Display', serif;
+			font-size: clamp(48px, 8vw, 110px);
+			font-weight: 400;
+			line-height: 1.05;
+			letter-spacing: -1px;
+			opacity: 0;
+			transform: translateY(40px);
+			color: var(--color-heading, #f8fcf0);
+			text-shadow: 0 2px 30px rgba(0,0,0,0.6), 0 0px 80px rgba(0,0,0,0.4);
+		}
+
+		.hero h1 em {
+			font-style: italic;
+			color: var(--color-accent, rgba(230, 245, 120, 0.95));
+			text-shadow: 0 0 30px rgba(230, 245, 120, 0.25), 0 0 60px rgba(230, 245, 120, 0.1);
+		}
+
+		.hero-sub {
+			font-size: clamp(14px, 1.5vw, 18px);
+			line-height: 1.7;
+			max-width: 520px;
+			opacity: 0;
+			transform: translateY(30px);
+			color: var(--color-body, rgba(215, 230, 190, 0.7));
+			font-weight: 300;
+		}
+
+		.wind-btn {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			padding: 10px 24px;
+			border: 1px solid rgba(180, 210, 140, 0.25);
+			border-radius: 32px;
+			background: rgba(15, 25, 15, 0.35);
+			backdrop-filter: blur(12px);
+			color: var(--color-accent, rgba(230, 245, 120, 0.9));
+			font-size: 12px;
+			font-weight: 500;
+			letter-spacing: 1.5px;
+			text-transform: uppercase;
+			cursor: pointer;
+			transition: all 0.4s;
+			opacity: 0;
+			transform: translateY(20px);
+		}
+
+		.wind-btn:hover {
+			background: rgba(40, 65, 40, 0.5);
+			border-color: rgba(180, 210, 140, 0.5);
+			transform: translateY(-2px) !important;
+		}
+
+		.wind-btn svg {
+			width: 18px;
+			height: 18px;
+			fill: none;
+			stroke: currentColor;
+			stroke-width: 1.5;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+		}
+
+		.scroll-hint {
+			position: relative;
+			margin-top: auto;
+			margin-bottom: 12vh;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 8px;
+			opacity: 0;
+			transform: translateY(0);
+		}
+
+		/* Scroll snapping */
+		html {
+			scroll-snap-type: y proximity;
+		}
+
+		.section {
+			scroll-snap-align: start;
+		}
+
+		.scroll-hint span {
+			font-size: 10px;
+			letter-spacing: 3px;
+			text-transform: uppercase;
+			color: var(--color-label, rgba(230, 245, 160, 0.9));
+			text-shadow: 0 1px 12px rgba(0,0,0,0.7), 0 0 24px rgba(0,0,0,0.5);
+		}
+
+		.scroll-line {
+			width: 1px;
+			height: 40px;
+			background: linear-gradient(to bottom, rgba(180, 210, 160, 0.5), transparent);
+			animation: scrollPulse 2s ease-in-out infinite;
+		}
+
+		@keyframes scrollPulse {
+			0%, 100% { opacity: 0.3; transform: scaleY(0.6); }
+			50% { opacity: 1; transform: scaleY(1); }
+		}
+
+				.manifesto {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			text-align: center;
+		}
+
+		.manifesto-inner {
+			max-width: 1140px;
+			width: 100%;
+			margin: 0 auto;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			text-align: center;
+		}
+
+		.manifesto-label {
+			display: inline-block !important;
+			margin: 0 auto 20px auto !important;
+			font-size: 11px;
+			letter-spacing: 3px;
+			text-transform: uppercase;
+			color: var(--color-gold, #c8b840);
+			text-align: center !important;
+			opacity: 0;
+			transform: translateY(20px);
+			text-shadow: 0 1px 12px rgba(0,0,0,0.5);
+		}
+
+		.manifesto h2 {
+			font-family: 'Playfair Display', Georgia, serif;
+			font-size: clamp(28px, 3.8vw, 50px);
+			font-weight: 500;
+			line-height: 1.35;
+			max-width: 960px;
+			width: 100%;
+			margin: 0 auto 36px auto !important;
+			text-align: center !important;
+			display: block !important;
+			opacity: 0;
+			transform: translateY(40px);
+			color: var(--color-heading, rgba(245, 250, 235, 0.97));
+			text-shadow: 0 2px 30px rgba(0,0,0,0.7), 0 0 60px rgba(0,0,0,0.4);
+		}
+
+		.manifesto h2 em {
+			font-style: italic;
+			color: var(--color-accent, rgba(230, 245, 120, 0.95));
+			text-shadow: 0 0 25px rgba(230, 245, 120, 0.2), 0 0 50px rgba(230, 245, 120, 0.08);
+		}
+
+		.pillars {
+			flex-direction: column;
+			gap: 60px;
+		}
+
+		.pillars-header {
+			text-align: center;
+			opacity: 0;
+			transform: translateY(20px);
+		}
+
+		.pillars-header span {
+			font-size: 10px;
+			letter-spacing: 4px;
+			text-transform: uppercase;
+			color: var(--color-label, rgba(210, 230, 160, 0.55));
+		}
+
+		.pillar-grid {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 30px;
+			max-width: 960px;
+			width: 100%;
+		}
+
+		@media (max-width: 768px) {
+			.pillar-grid { grid-template-columns: 1fr; max-width: 400px; }
+		}
+
+		.pillar-card {
+			border: 1px solid rgba(140, 180, 120, 0.12);
+			border-radius: 16px;
+			padding: 36px 28px;
+			background: rgba(10, 18, 10, 0.55);
+			backdrop-filter: blur(16px);
+			opacity: 0;
+			transform: translateY(40px);
+			transition: border-color 0.4s, background 0.4s;
+			box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+		}
+
+		.pillar-card:hover {
+			border-color: rgba(140, 180, 120, 0.3);
+			background: rgba(20, 35, 20, 0.45);
+		}
+
+		.pillar-num {
+			font-size: 11px;
+			letter-spacing: 2px;
+			color: var(--color-accent, rgba(230, 245, 120, 0.65));
+			margin-bottom: 16px;
+			font-weight: 500;
+		}
+
+		.pillar-card h3 {
+			font-family: 'Playfair Display', serif;
+			font-size: 22px;
+			font-weight: 400;
+			margin-bottom: 12px;
+			color: var(--color-heading, #f8fcf2);
+			text-shadow: 0 1px 12px rgba(0,0,0,0.4);
+		}
+
+		.pillar-card p {
+			font-size: 13px;
+			line-height: 1.7;
+			color: var(--color-body, rgba(215, 230, 190, 0.6));
+			font-weight: 300;
+		}
+
+		.stats-section {
+			flex-direction: column;
+			gap: 50px;
+			text-align: center;
+		}
+
+		.stats-label {
+			font-size: 10px;
+			letter-spacing: 4px;
+			text-transform: uppercase;
+			color: var(--color-label, rgba(210, 230, 160, 0.55));
+			opacity: 0;
+			transform: translateY(20px);
+			text-shadow: 0 1px 12px rgba(0,0,0,0.5);
+		}
+
+		.stats-grid {
+			display: flex;
+			gap: 60px;
+			flex-wrap: wrap;
+			justify-content: center;
+		}
+
+		.stat-item {
+			opacity: 0;
+			transform: translateY(30px);
+			text-align: center;
+		}
+
+		.stat-num {
+			font-family: 'Playfair Display', serif;
+			font-size: clamp(40px, 5vw, 64px);
+			font-weight: 400;
+			color: var(--color-accent, rgba(235, 250, 130, 1));
+			line-height: 1;
+			text-shadow: 0 2px 24px rgba(0,0,0,0.6), 0 0 40px rgba(230, 245, 120, 0.15);
+		}
+
+		.stat-unit {
+			font-size: 14px;
+			letter-spacing: 1px;
+			color: var(--color-body, rgba(215, 230, 190, 0.55));
+			margin-top: 8px;
+			font-weight: 300;
+		}
+
+		.quote-section {
+			flex-direction: column;
+			gap: 20px;
+			text-align: center;
+			min-height: 80vh;
+		}
+
+		.quote-section blockquote {
+			font-family: 'Playfair Display', serif;
+			font-size: clamp(22px, 3.5vw, 42px);
+			font-weight: 400;
+			font-style: italic;
+			line-height: 1.4;
+			max-width: 720px;
+			color: var(--color-heading, rgba(250, 255, 240, 0.95));
+			opacity: 0;
+			transform: translateY(40px);
+			text-shadow: 0 2px 30px rgba(0,0,0,0.7), 0 0 60px rgba(0,0,0,0.4);
+		}
+
+		.quote-attr {
+			font-size: 12px;
+			letter-spacing: 2px;
+			text-transform: uppercase;
+			color: var(--color-label, rgba(210, 230, 160, 0.45));
+			opacity: 0;
+			transform: translateY(20px);
+		}
+
+		.cta-section {
+			flex-direction: column;
+			gap: 30px;
+			text-align: center;
+			align-items: center;
+			justify-content: center;
+			min-height: 100vh;
+			padding: 0 40px;
+			margin-bottom: 0;
+		}
+
+		.cta-section h2 {
+			font-family: 'Playfair Display', serif;
+			font-size: clamp(32px, 5vw, 60px);
+			font-weight: 400;
+			line-height: 1.2;
+			opacity: 0;
+			transform: translateY(30px);
+			text-align: center;
+		}
+
+		.cta-section h2 em {
+			font-style: italic;
+			color: var(--color-accent, rgba(235, 250, 130, 1));
+			text-shadow: 0 0 30px rgba(230, 245, 120, 0.3), 0 0 60px rgba(230, 245, 120, 0.12);
+		}
+
+		.cta-sub {
+			font-size: 15px;
+			color: var(--color-body, rgba(215, 230, 190, 0.6));
+			max-width: 420px;
+			line-height: 1.7;
+			font-weight: 300;
+			opacity: 0;
+			transform: translateY(20px);
+		}
+
+		.cta-btn {
+			display: inline-flex;
+			align-items: center;
+			gap: 10px;
+			padding: 14px 36px;
+			border: 1px solid rgba(180, 210, 140, 0.35);
+			border-radius: 40px;
+			background: rgba(30, 50, 30, 0.4);
+			color: var(--color-accent, rgba(230, 245, 120, 0.95));
+			font-size: 13px;
+			font-weight: 500;
+			letter-spacing: 1.5px;
+			text-transform: uppercase;
+			text-decoration: none;
+			cursor: pointer;
+			transition: all 0.4s;
+			opacity: 0;
+			transform: translateY(20px);
+			backdrop-filter: blur(10px);
+		}
+
+		.cta-btn:hover {
+			background: rgba(50, 80, 50, 0.5);
+			border-color: rgba(180, 210, 140, 0.6);
+			transform: translateY(-2px) !important;
+		}
+
+		.footer {
+			min-height: 0;
+			padding: 0;
+			display: none;
+		}
+
+		.site-footer {
+			position: relative;
+			z-index: 2;
+			border-top: 1px solid rgba(140, 180, 120, 0.08);
+			background: #000000;
+			padding: 60px 40px 40px;
+			margin-top: 0;
+			/* Footer is outside scroll-container, in normal document flow,
+			   so it naturally pushes below all sections */
+		}
+
+		.site-footer-inner {
+			max-width: 1100px;
+			margin: 0 auto;
+			display: grid;
+			grid-template-columns: 1.5fr 1fr 1fr 1fr;
+			gap: 40px;
+		}
+
+		@media (max-width: 768px) {
+			.site-footer-inner { grid-template-columns: 1fr 1fr; gap: 30px; }
+		}
+
+		@media (max-width: 480px) {
+			.site-footer-inner { grid-template-columns: 1fr; }
+		}
+
+		.sf-brand {
+			display: flex;
+			flex-direction: column;
+			gap: 14px;
+		}
+
+		.sf-brand-name {
+			font-family: 'Playfair Display', serif;
+			font-size: 22px;
+			color: var(--color-heading, rgba(240, 250, 220, 0.7));
+			letter-spacing: 1px;
+		}
+
+		.sf-brand-desc {
+			font-size: 12px;
+			line-height: 1.7;
+			color: var(--color-body, rgba(215, 230, 190, 0.4));
+			font-weight: 300;
+			max-width: 260px;
+		}
+
+		.sf-col-title {
+			font-size: 10px;
+			letter-spacing: 3px;
+			text-transform: uppercase;
+			color: var(--color-label, rgba(210, 230, 160, 0.45));
+			margin-bottom: 16px;
+			font-weight: 500;
+		}
+
+		.sf-col a {
+			display: block;
+			font-size: 12px;
+			color: var(--color-body, rgba(215, 230, 190, 0.5));
+			text-decoration: none;
+			margin-bottom: 10px;
+			transition: color 0.3s;
+			font-weight: 300;
+		}
+
+		.sf-col a:hover { color: var(--color-accent, rgba(230, 245, 120, 0.9)); }
+
+		.sf-bottom {
+			max-width: 1100px;
+			margin: 40px auto 0;
+			padding-top: 24px;
+			border-top: 1px solid rgba(140, 180, 120, 0.06);
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: 12px;
+		}
+
+		.sf-copy {
+			font-size: 11px;
+			color: var(--color-body, rgba(215, 230, 190, 0.25));
+			letter-spacing: 0.5px;
+		}
+
+		.sf-socials {
+			display: flex;
+			gap: 18px;
+		}
+
+		.sf-socials a {
+			font-size: 11px;
+			color: var(--color-body, rgba(215, 230, 190, 0.35));
+			text-decoration: none;
+			letter-spacing: 1px;
+			text-transform: uppercase;
+			transition: color 0.3s;
+		}
+
+		.sf-socials a:hover { color: var(--color-accent, rgba(230, 245, 120, 0.9)); }
+
+		/* ── Settings Panel ── */
+		.settings-panel {
+			position: fixed;
+			top: 50%;
+			right: 24px;
+			transform: translateY(-50%) translateX(12px) scale(0.95);
+			width: 340px;
+			max-height: 85vh;
+			overflow-y: auto;
+			background: rgba(8, 16, 8, 0.88);
+			backdrop-filter: blur(20px);
+			border: 1px solid rgba(140, 180, 120, 0.15);
+			border-radius: 16px;
+			padding: 24px 22px;
+			z-index: 300;
+			pointer-events: auto;
+			opacity: 0;
+			visibility: hidden;
+			transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+		}
+		.settings-panel.open {
+			opacity: 1;
+			transform: translateY(-50%) translateX(0) scale(1);
+			visibility: visible;
+		}
+		.settings-panel::-webkit-scrollbar { width: 4px; }
+		.settings-panel::-webkit-scrollbar-track { background: transparent; }
+		.settings-panel::-webkit-scrollbar-thumb { background: rgba(140, 180, 120, 0.2); border-radius: 2px; }
+
+		.sp-section { margin-bottom: 18px; }
+		.sp-section-title {
+			font-size: 9px;
+			letter-spacing: 3px;
+			text-transform: uppercase;
+			color: rgba(180, 210, 140, 0.4);
+			margin-bottom: 12px;
+			padding-bottom: 6px;
+			border-bottom: 1px solid rgba(140, 180, 120, 0.08);
+		}
+		.sp-row {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 2px;
+		}
+		.sp-label {
+			font-size: 11px;
+			color: rgba(200, 215, 185, 0.55);
+			font-weight: 400;
+		}
+		.sp-val {
+			font-size: 10px;
+			color: rgba(200, 220, 140, 0.5);
+			min-width: 32px;
+			text-align: right;
+			font-variant-numeric: tabular-nums;
+		}
+		.sp-slider {
+			width: 100%;
+			margin-top: 0;
+			margin-bottom: 12px;
+			-webkit-appearance: none;
+			appearance: none;
+			height: 3px;
+			border-radius: 2px;
+			background: rgba(140, 180, 120, 0.12);
+			outline: none;
+		}
+		.sp-slider::-webkit-slider-thumb {
+			-webkit-appearance: none;
+			width: 12px;
+			height: 12px;
+			border-radius: 50%;
+			background: rgba(180, 210, 140, 0.6);
+			cursor: pointer;
+			transition: background 0.2s;
+		}
+		.sp-slider::-webkit-slider-thumb:hover {
+			background: rgba(200, 220, 140, 0.9);
+		}
+		.sp-toggle-row {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 10px;
+		}
+		.sp-toggle {
+			position: relative;
+			width: 36px;
+			height: 20px;
+			border-radius: 10px;
+			background: rgba(140, 180, 120, 0.15);
+			cursor: pointer;
+			transition: background 0.3s;
+		}
+		.sp-toggle.active { background: rgba(120, 180, 80, 0.5); }
+		.sp-toggle::after {
+			content: '';
+			position: absolute;
+			top: 3px;
+			left: 3px;
+			width: 14px;
+			height: 14px;
+			border-radius: 50%;
+			background: rgba(200, 220, 160, 0.7);
+			transition: transform 0.3s;
+		}
+		.sp-toggle.active::after { transform: translateX(16px); }
+
+		.sp-color-row {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 10px;
+		}
+		.sp-color-input {
+			-webkit-appearance: none;
+			appearance: none;
+			width: 32px;
+			height: 20px;
+			border: 1px solid rgba(140, 180, 120, 0.2);
+			border-radius: 4px;
+			background: none;
+			cursor: pointer;
+			padding: 0;
+		}
+		.sp-color-input::-webkit-color-swatch-wrapper { padding: 0; }
+		.sp-color-input::-webkit-color-swatch { border: none; border-radius: 3px; }
+
+		/* Hamburger button */
+		.nav-hamburger {
+			display: none;
+			pointer-events: auto;
+			width: 36px;
+			height: 36px;
+			background: rgba(15, 25, 15, 0.4);
+			backdrop-filter: blur(12px);
+			border: 1px solid rgba(140, 180, 120, 0.15);
+			border-radius: 8px;
+			cursor: pointer;
+			position: relative;
+			flex-shrink: 0;
+			transition: background 0.3s, border-color 0.3s;
+		}
+
+		.nav-hamburger:hover {
+			background: rgba(40, 65, 40, 0.5);
+			border-color: rgba(140, 180, 120, 0.3);
+		}
+
+		.nav-hamburger span {
+			position: absolute;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 16px;
+			height: 1.5px;
+			background: var(--color-body, rgba(215, 230, 190, 0.7));
+			border-radius: 1px;
+			transition: transform 0.3s, opacity 0.3s;
+		}
+
+		.nav-hamburger span:nth-child(1) { top: 10px; }
+		.nav-hamburger span:nth-child(2) { top: 17px; }
+		.nav-hamburger span:nth-child(3) { top: 24px; }
+
+		.nav-hamburger.open span:nth-child(1) {
+			transform: translateX(-50%) translateY(7px) rotate(45deg);
+		}
+		.nav-hamburger.open span:nth-child(2) {
+			opacity: 0;
+			transform: translateX(-50%);
+		}
+		.nav-hamburger.open span:nth-child(3) {
+			transform: translateX(-50%) translateY(-7px) rotate(-45deg);
+		}
+
+		/* Settings gear button */
+		.settings-gear {
+			position: fixed;
+			bottom: 20px;
+			right: 20px;
+			z-index: 200;
+			width: 32px;
+			height: 32px;
+			border-radius: 50%;
+			background: rgba(15, 25, 15, 0.45);
+			backdrop-filter: blur(12px);
+			border: 1px solid rgba(140, 180, 120, 0.15);
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: background 0.3s, border-color 0.3s, transform 0.3s;
+			pointer-events: auto;
+			opacity: 0.5;
+		}
+		.settings-gear:hover {
+			opacity: 1;
+			background: rgba(40, 65, 40, 0.5);
+			border-color: rgba(140, 180, 120, 0.3);
+			transform: rotate(30deg);
+		}
+		.settings-gear.active {
+			opacity: 1;
+			border-color: rgba(180, 210, 140, 0.4);
+		}
+		.settings-gear svg {
+			width: 16px;
+			height: 16px;
+			fill: none;
+			stroke: rgba(200, 220, 160, 0.6);
+			stroke-width: 1.5;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+		}
+
+		/* Mobile overlay menu */
+		.nav-mobile-overlay {
+			position: fixed;
+			top: 0;
+			right: 0;
+			width: 100%;
+			height: 100vh;
+			background: rgba(0, 0, 0, 0.85);
+			backdrop-filter: blur(24px);
+			z-index: 99;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 32px;
+			opacity: 0;
+			visibility: hidden;
+			transition: opacity 0.35s ease, visibility 0.35s;
+			pointer-events: none;
+		}
+
+		.nav-mobile-overlay.open {
+			opacity: 1;
+			visibility: visible;
+			pointer-events: auto;
+		}
+
+		.nav-mobile-overlay a {
+			font-size: 14px;
+			letter-spacing: 3px;
+			text-transform: uppercase;
+			color: var(--color-body, rgba(215, 230, 190, 0.65));
+			text-decoration: none;
+			transition: color 0.3s, transform 0.3s;
+			font-weight: 500;
+			transform: translateY(10px);
+			opacity: 0;
+		}
+
+		.nav-mobile-overlay.open a {
+			opacity: 1;
+			transform: translateY(0);
+		}
+
+		.nav-mobile-overlay.open a:nth-child(1) { transition-delay: 0.06s; }
+		.nav-mobile-overlay.open a:nth-child(2) { transition-delay: 0.12s; }
+		.nav-mobile-overlay.open a:nth-child(3) { transition-delay: 0.18s; }
+		.nav-mobile-overlay.open a:nth-child(4) { transition-delay: 0.24s; }
+
+		.nav-mobile-overlay a:hover {
+			color: var(--color-accent, rgba(230, 245, 120, 0.95));
+		}
+
+		@media (max-width: 768px) {
+			.nav-links { display: none; }
+			.nav-hamburger { display: block; }
+			.nav-float { padding: 0 24px; }
+		}
+
+		.progress-bar {
+			position: fixed;
+			top: 0; left: 0;
+			height: 2px;
+			background: rgba(230, 245, 120, 0.6);
+			z-index: 200;
+			width: 0;
+			transition: width 0.1s linear;
+		}
+
+		.revealed {
+			opacity: 1 !important;
+			transform: translateY(0) !important;
+			transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+						transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+		}
+
+		.delay-1 { transition-delay: 0.1s !important; }
+		.delay-2 { transition-delay: 0.25s !important; }
+		.delay-3 { transition-delay: 0.4s !important; }
+		.delay-4 { transition-delay: 0.55s !important; }
+	
+
+
+/* ==========================================================================
+   CONFLUENCE MOBILE ELEVATED UI & NAVBAR DESIGN
+   ========================================================================== */
+:root {
+  --color-gold: #c8b840;
+  --color-gold-bright: #f5d442;
+  --color-gold-dim: rgba(200, 184, 64, 0.15);
+  --color-green: #10b981;
+  --color-green-dim: rgba(16, 185, 129, 0.12);
+  --color-red: #ef4444;
+  --color-red-dim: rgba(239, 68, 68, 0.12);
+  --color-cyan: #38bdf8;
+  --border-glass: rgba(255, 255, 255, 0.10);
+  --border-glass-hi: rgba(200, 184, 64, 0.35);
+  --bg-glass: rgba(8, 14, 8, 0.65);
+  --bg-glass-card: rgba(12, 20, 12, 0.72);
+  --bg-glass-card-hover: rgba(18, 30, 18, 0.88);
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Typography refinements (anti-stretch) */
+h1, h2, h3, .brand-title, .hero h1 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+
+code, .tech-data, .metric-val, .ticker, .stat-num {
+  font-family: var(--font-mono);
+}
+
+/* SECTION SAFE CLEARANCE (SEPARATES CONTENT FROM NAVBAR) */
+.section {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 140px 40px 90px !important;
+  pointer-events: none;
+}
+
+.section.hero {
+  padding-top: 150px !important;
+}
+
+.section * {
+  pointer-events: auto;
+}
+
+/* ==========================================================================
+   ELEVATED FLOATING NAVBAR (HIGH-END GLASSMORPHISM CAPSULE)
+   ========================================================================== */
+.nav-float {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 1140px;
+  width: calc(100% - 44px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px 8px 20px;
+  border-radius: 50px;
+  background: rgba(6, 12, 6, 0.85);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.7), 0 1px 2px rgba(255, 255, 255, 0.08);
+  z-index: 999;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-float.scrolled {
+  top: 12px;
+  background: rgba(4, 9, 4, 0.94);
+  border-color: rgba(200, 184, 64, 0.35);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.85), 0 0 20px rgba(200, 184, 64, 0.1);
+}
+
+/* Zone 1: Brand Group */
+.nav-brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  flex-shrink: 0;
+  padding-right: 18px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-green);
+  box-shadow: 0 0 10px var(--color-green);
+  animation: pulse-dot 2.2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.nav-brand-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f0f4ec;
+  letter-spacing: 0.5px;
+}
+
+.nav-brand-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-gold);
+  background: rgba(200, 184, 64, 0.14);
+  border: 1px solid rgba(200, 184, 64, 0.35);
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+/* Zone 2: Nav Links */
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+  margin: 0 8px;
+  pointer-events: auto;
+}
+
+.nav-links a {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(232, 236, 228, 0.65);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 20px;
+  transition: all 0.22s ease;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.nav-links a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-links a.active {
+  color: var(--color-gold);
+  background: rgba(200, 184, 64, 0.16);
+  font-weight: 600;
+}
+
+.nav-links a.nav-link-terminal {
+  color: rgba(232, 236, 228, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-left: 4px;
+}
+
+.nav-links a.nav-link-terminal:hover {
+  border-color: rgba(200, 184, 64, 0.4);
+  color: var(--color-gold);
+  background: rgba(200, 184, 64, 0.08);
+}
+
+/* Zone 3: Controls Group */
+.nav-right-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  padding-left: 16px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lang-switch-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 5px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #e8ece4;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.25s;
+}
+
+.lang-switch-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(200, 184, 64, 0.35);
+}
+
+.lang-code {
+  opacity: 0.45;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.lang-code.active {
+  opacity: 1;
+  color: var(--color-gold);
+  font-weight: 700;
+}
+
+.lang-divider {
+  opacity: 0.25;
+}
+
+.nav-cta-btn {
+  background: linear-gradient(135deg, #f5d442, #c8b840);
+  color: #040804;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: 24px;
+  transition: all 0.25s;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(200, 184, 64, 0.25);
+}
+
+.nav-cta-btn:hover {
+  background: #fff;
+  box-shadow: 0 6px 20px rgba(200, 184, 64, 0.45);
+  transform: translateY(-1px);
+}
+
+/* HERO SECTION 2-COLUMN GRID */
+.hero-container {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  align-items: center;
+  gap: 60px;
+  max-width: 1240px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.hero-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.hero-left .hero-tag {
+  margin-bottom: 20px;
+}
+
+.hero-left h1 {
+  font-size: clamp(40px, 5vw, 70px);
+  line-height: 1.08;
+  margin-bottom: 24px;
+}
+
+.hero-left .hero-sub {
+  font-size: 16px;
+  line-height: 1.7;
+  max-width: 520px;
+  color: rgba(232, 236, 228, 0.75);
+  margin-bottom: 32px;
+}
+
+.hero-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+}
+
+.btn-pill-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-gold);
+  color: #050a05;
+  padding: 13px 28px;
+  border-radius: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s;
+  box-shadow: 0 4px 20px rgba(200, 184, 64, 0.25);
+  cursor: pointer;
+}
+
+.btn-pill-primary:hover {
+  background: var(--color-gold-bright);
+  box-shadow: 0 6px 28px rgba(200, 184, 64, 0.45);
+  transform: translateY(-2px);
+}
+
+.btn-pill-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e8ece4;
+  border: 1px solid var(--border-glass);
+  padding: 12px 24px;
+  border-radius: 40px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  backdrop-filter: blur(12px);
+  transition: all 0.3s;
+}
+
+.btn-pill-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+.hero-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-glass);
+  width: 100%;
+}
+
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-box-val {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: #e8ece4;
+}
+
+.stat-box-val span {
+  color: var(--color-gold);
+}
+
+.stat-box-lbl {
+  font-size: 11px;
+  color: rgba(232, 236, 228, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+/* SMARTPHONE SHELL MOCKUP */
+.hero-right-phone {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.phone-shell-wrapper {
+  position: relative;
+  width: 290px;
+  animation: float-phone 6s ease-in-out infinite;
+}
+
+@keyframes float-phone {
+  0%, 100% { transform: translateY(0) rotate(-0.5deg); }
+  50% { transform: translateY(-14px) rotate(0.5deg); }
+}
+
+.phone-glow-ambient {
+  position: absolute;
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(circle, rgba(200, 184, 64, 0.12) 0%, transparent 70%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.phone-case {
+  position: relative;
+  z-index: 1;
+  width: 290px;
+  height: 590px;
+  background: linear-gradient(160deg, #152215, #081008);
+  border-radius: 46px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.8), 0 30px 70px rgba(0, 0, 0, 0.9), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.phone-notch {
+  width: 100px;
+  height: 22px;
+  background: #000;
+  border-radius: 0 0 16px 16px;
+  margin: -16px auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.notch-camera {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #0a120a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.phone-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 11px;
+}
+
+.phone-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+  color: rgba(232, 236, 228, 0.6);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.phone-card-chart {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chart-title {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  color: #fff;
+}
+
+.chart-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--color-green-dim);
+  color: var(--color-green);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.phone-chart-svg {
+  width: 100%;
+  height: 120px;
+  border-radius: 8px;
+  background: rgba(10, 18, 10, 0.5);
+  overflow: hidden;
+}
+
+.phone-order-ticket {
+  background: rgba(16, 30, 16, 0.7);
+  border: 1px solid rgba(200, 184, 64, 0.3);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.order-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.order-dir-buy {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-green);
+  background: var(--color-green-dim);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.order-star-rating {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--color-gold);
+  letter-spacing: 1px;
+}
+
+.order-price {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.order-pnl {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-green);
+}
+
+.phone-metrics-mini {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.phone-metric-item {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.pmi-lbl {
+  font-size: 9px;
+  color: rgba(232, 236, 228, 0.45);
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.pmi-val {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: #e8ece4;
+  margin-top: 2px;
+}
+
+.phone-bottom-nav {
+  margin-top: auto;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 20px;
+  padding: 8px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--border-glass);
+}
+
+.pbn-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+  cursor: pointer;
+}
+
+.pbn-icon.active {
+  opacity: 1;
+  filter: drop-shadow(0 0 6px var(--color-gold));
+}
+
+/* Floating Badges next to Phone */
+.float-badge {
+  position: absolute;
+  background: rgba(10, 20, 10, 0.88);
+  border: 1px solid var(--border-glass-hi);
+  backdrop-filter: blur(16px);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  z-index: 2;
+}
+
+.float-badge-1 {
+  top: 60px;
+  left: -90px;
+  animation: float-badge-left 5s ease-in-out infinite;
+}
+
+.float-badge-2 {
+  bottom: 80px;
+  right: -90px;
+  animation: float-badge-right 6s ease-in-out infinite;
+}
+
+@keyframes float-badge-left {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes float-badge-right {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
+.fb-title {
+  font-size: 9px;
+  color: rgba(232, 236, 228, 0.5);
+  text-transform: uppercase;
+}
+
+.fb-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 2px;
+}
+
+.fb-sub {
+  font-size: 10px;
+  color: var(--color-green);
+  font-weight: 600;
+}
+
+/* STAGE 1: PHILOSOPHY & ADVANTAGE */
+.philosophy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  max-width: 1140px;
+  width: 100%;
+  margin: 40px auto 0;
+}
+
+.phil-card {
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  padding: 32px 28px;
+  backdrop-filter: blur(16px);
+  transition: all 0.3s;
+}
+
+.phil-card:hover {
+  background: var(--bg-glass-card-hover);
+  border-color: var(--border-glass-hi);
+  transform: translateY(-4px);
+}
+
+.phil-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--color-gold-dim);
+  border: 1px solid rgba(200, 184, 64, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.phil-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: var(--color-gold);
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.phil-card h3 {
+  font-size: 20px;
+  margin-bottom: 12px;
+  color: #fff;
+}
+
+.phil-card p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(232, 236, 228, 0.7);
+}
+
+/* STAGE 2: 4 PILLARS */
+.pillars-4-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 40px auto 0;
+}
+
+.pillar-4-card {
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  padding: 28px 22px;
+  backdrop-filter: blur(14px);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s;
+}
+
+.pillar-4-card:hover {
+  background: var(--bg-glass-card-hover);
+  border-color: var(--border-glass-hi);
+  transform: translateY(-4px);
+}
+
+.p4-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-gold);
+  margin-bottom: 14px;
+  letter-spacing: 1px;
+}
+
+.pillar-4-card h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+  color: #fff;
+}
+
+.pillar-4-card p {
+  font-size: 13px;
+  line-height: 1.65;
+  color: rgba(232, 236, 228, 0.65);
+}
+
+/* STAGE 3: INTERACTIVE SCREEN SHOWCASE */
+.screens-showcase-wrap {
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+
+.screen-tabs-bar {
+  display: flex;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-glass);
+  border-radius: 40px;
+  padding: 6px;
+  backdrop-filter: blur(16px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.screen-tab-btn {
+  background: transparent;
+  border: none;
+  color: rgba(232, 236, 228, 0.6);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 8px 18px;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.screen-tab-btn.active, .screen-tab-btn:hover {
+  background: rgba(200, 184, 64, 0.18);
+  color: var(--color-gold);
+}
+
+.screen-display-card {
+  width: 100%;
+  max-width: 900px;
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-glass-hi);
+  border-radius: 20px;
+  padding: 36px;
+  backdrop-filter: blur(20px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+  align-items: center;
+}
+
+.sd-info {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+
+.sd-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-gold);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.sd-info h3 {
+  font-size: 26px;
+  color: #fff;
+}
+
+.sd-desc {
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(232, 236, 228, 0.75);
+}
+
+.sd-bullets {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.sd-bullets li {
+  font-size: 13px;
+  color: rgba(232, 236, 228, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sd-bullets li::before {
+  content: '✓';
+  color: var(--color-gold);
+  font-weight: 700;
+}
+
+.sd-preview-visual {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  padding: 20px;
+  font-family: var(--font-mono);
+}
+
+/* STAGE 4: BOT FLEET & 3-TIER PRICING */
+.pricing-stage-wrap {
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pricing-currency-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-glass);
+  border-radius: 30px;
+  padding: 4px;
+  margin-bottom: 36px;
+  backdrop-filter: blur(12px);
+}
+
+.curr-btn {
+  background: transparent;
+  border: none;
+  color: rgba(232, 236, 228, 0.6);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.curr-btn.active {
+  background: var(--color-gold);
+  color: #000;
+}
+
+.pricing-cards-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  width: 100%;
+}
+
+.price-card {
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 18px;
+  padding: 36px 30px;
+  backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: all 0.3s;
+}
+
+.price-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.price-card.featured {
+  background: rgba(14, 26, 14, 0.85);
+  border: 1px solid var(--border-glass-hi);
+  box-shadow: 0 0 35px rgba(200, 184, 64, 0.12);
+}
+
+.price-badge-pop {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-gold);
+  color: #040804;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 4px 14px;
+  border-radius: 20px;
+}
+
+.pc-tier-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.pc-tier-desc {
+  font-size: 13px;
+  color: rgba(232, 236, 228, 0.6);
+  margin-bottom: 24px;
+  min-height: 38px;
+}
+
+.pc-fee-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border-glass);
+  margin-bottom: 24px;
+}
+
+.fee-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fee-lbl {
+  font-size: 12px;
+  color: rgba(232, 236, 228, 0.6);
+}
+
+.fee-val {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.fee-val.highlight {
+  color: var(--color-gold);
+  font-size: 18px;
+}
+
+.pc-features-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 30px;
+  flex: 1;
+}
+
+.pc-features-list li {
+  font-size: 13px;
+  color: rgba(232, 236, 228, 0.8);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.pc-features-list li::before {
+  content: '✓';
+  color: var(--color-gold);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.btn-tier-action {
+  width: 100%;
+  text-align: center;
+  padding: 13px;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.btn-tier-outline {
+  background: transparent;
+  color: #e8ece4;
+  border: 1px solid var(--border-glass);
+}
+
+.btn-tier-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.btn-tier-filled {
+  background: var(--color-gold);
+  color: #040804;
+  border: 1px solid var(--color-gold);
+}
+
+.btn-tier-filled:hover {
+  background: var(--color-gold-bright);
+  box-shadow: 0 4px 20px rgba(200, 184, 64, 0.35);
+}
+
+.pricing-transparency-note {
+  margin-top: 32px;
+  padding: 16px 24px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  font-size: 13px;
+  color: rgba(232, 236, 228, 0.7);
+  text-align: center;
+  max-width: 840px;
+}
+
+/* STAGE 5: FAQ ACCORDION (EXACT INTER TYPOGRAPHY & LEFT-ALIGNED ANSWERS) */
+.faq-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.faq-wrap {
+  max-width: 880px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.faq-header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.faq-header h2 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(32px, 4vw, 50px);
+  color: #fff;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.faq-header p {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  color: rgba(232, 236, 228, 0.65);
+  max-width: 620px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 36px;
+  width: 100%;
+  text-align: left !important;
+}
+
+.faq-card {
+  background: var(--bg-glass-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+  transition: border-color 0.25s;
+  text-align: left !important;
+}
+
+.faq-card.open {
+  border-color: var(--border-glass-hi);
+}
+
+.faq-question-btn {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: none;
+  border: none;
+  color: #f0f4ec;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  text-align: left !important;
+  cursor: pointer;
+  gap: 16px;
+}
+
+.faq-question-btn span {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  text-align: left !important;
+  color: #f0f4ec;
+  flex: 1;
+  transition: color 0.2s;
+}
+
+.faq-question-btn:hover span {
+  color: var(--color-gold);
+}
+
+.faq-icon-chevron {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.3s;
+  flex-shrink: 0;
+  opacity: 0.7;
+  fill: none;
+  stroke: var(--color-gold);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.faq-card.open .faq-icon-chevron {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease;
+  text-align: left !important;
+}
+
+.faq-card.open .faq-answer {
+  max-height: 350px;
+}
+
+.faq-answer-inner {
+  padding: 0 24px 22px;
+  font-size: 14.5px;
+  line-height: 1.75;
+  color: rgba(232, 236, 228, 0.75);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  text-align: left !important;
+}
+
+.faq-answer-inner strong {
+  color: #fff;
+  font-weight: 600;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+}
+
+/* STAGE 6: DOWNLOAD CTA */
+.download-cta-wrap {
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.download-buttons-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 36px 0 24px;
+}
+
+.btn-store-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: rgba(16, 26, 16, 0.85);
+  border: 1px solid var(--border-glass-hi);
+  border-radius: 14px;
+  color: #fff;
+  text-decoration: none;
+  backdrop-filter: blur(16px);
+  transition: all 0.25s;
+}
+
+.btn-store-download:hover {
+  background: rgba(24, 38, 24, 0.95);
+  border-color: var(--color-gold);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.btn-store-download svg {
+  width: 24px;
+  height: 24px;
+  fill: var(--color-gold);
+}
+
+.bsd-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.bsd-sub {
+  font-size: 10px;
+  color: rgba(232, 236, 228, 0.5);
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.bsd-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* RESPONSIVE LAYOUT */
+@media (max-width: 1040px) {
+  .nav-links {
+    display: none !important;
+  }
+  .nav-hamburger {
+    display: flex !important;
+  }
+  .nav-brand-wrap {
+    border-right: none;
+    padding-right: 0;
+  }
+  .nav-right-controls {
+    border-left: none;
+    padding-left: 0;
+  }
+  .hero-container {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+  .hero-left {
+    align-items: center;
+    text-align: center;
+  }
+  .hero-actions-group {
+    justify-content: center;
+  }
+  .hero-stats-row {
+    justify-content: center;
+  }
+  .float-badge-1, .float-badge-2 {
+    display: none;
+  }
+  .philosophy-grid {
+    grid-template-columns: 1fr;
+  }
+  .pillars-4-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .screen-display-card {
+    grid-template-columns: 1fr;
+  }
+  .pricing-cards-3 {
+    grid-template-columns: 1fr;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .pillars-4-grid {
+    grid-template-columns: 1fr;
+  }
+  .download-buttons-row {
+    flex-direction: column;
+    width: 100%;
+    max-width: 320px;
+  }
+  .btn-store-download {
+    width: 100%;
+    justify-content: center;
+  }
+  .nav-float {
+    width: calc(100% - 24px);
+    padding: 6px 12px 6px 16px;
+    top: 12px;
+  }
+  .nav-brand-title {
+    font-size: 14px;
+  }
+  .nav-cta-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+}
+
+	
+	</style>
+	<script type="importmap">
+		{
+			"imports": {
+				"three": "https://unpkg.com/three@0.183.0/build/three.webgpu.js",
+				"three/webgpu": "https://unpkg.com/three@0.183.0/build/three.webgpu.js",
+				"three/tsl": "https://unpkg.com/three@0.183.0/build/three.tsl.js",
+				"three/addons/": "https://unpkg.com/three@0.183.0/examples/jsm/"
+			}
+		}
+	</script>
+</head>
+<body>
+	<div class="progress-bar" id="progressBar"></div>
+
+	<!-- TOP FLOATING NAVBAR -->
+	<nav class="nav-float" id="navFloat">
+		<!-- Zone 1: Brand Identity -->
+		<a href="/" class="nav-brand-wrap">
+			<div class="nav-status-dot"></div>
+			<div class="nav-brand-title">Confluence</div>
+			<span class="nav-brand-badge">Mobile</span>
+		</a>
+
+		<!-- Zone 2: Navigation Links Pill -->
+		<div class="nav-links">
+			<a href="javascript:void(0)" data-nav="0" class="active" data-i18n="nav_overview">Tổng quan</a>
+			<a href="javascript:void(0)" data-nav="1" data-i18n="nav_advantage">Ưu thế</a>
+			<a href="javascript:void(0)" data-nav="2" data-i18n="nav_features">Tính năng</a>
+			<a href="javascript:void(0)" data-nav="3" data-i18n="nav_screens">Giao diện</a>
+			<a href="javascript:void(0)" data-nav="4" data-i18n="nav_pricing">Bảng giá</a>
+			<a href="javascript:void(0)" data-nav="5" data-i18n="nav_faq">Giải đáp</a>
+			<a href="/" class="nav-link-terminal" data-i18n="nav_terminal">Web Terminal &rarr;</a>
+		</div>
+
+		<!-- Zone 3: Controls & CTA Button -->
+		<div class="nav-right-controls">
+			<!-- Language switcher button -->
+			<button class="lang-switch-btn" id="langSwitchBtn" title="Chuyển đổi ngôn ngữ / Switch Language" aria-label="Toggle language">
+				<span class="lang-code active" id="langVi">VI</span>
+				<span class="lang-divider">/</span>
+				<span class="lang-code" id="langEn">EN</span>
+			</button>
+			<a href="javascript:void(0)" data-nav="6" class="nav-cta-btn" data-i18n="nav_get_app">Tải App</a>
+			<button class="nav-hamburger" id="navHamburger" aria-label="Menu">
+				<span></span><span></span><span></span>
+			</button>
+		</div>
+	</nav>
+
+	<!-- MOBILE NAV OVERLAY -->
+	<div class="nav-mobile-overlay" id="navMobileOverlay">
+		<a href="javascript:void(0)" data-nav-mobile="0" data-i18n="nav_overview">Tổng quan</a>
+		<a href="javascript:void(0)" data-nav-mobile="1" data-i18n="nav_advantage">Ưu thế</a>
+		<a href="javascript:void(0)" data-nav-mobile="2" data-i18n="nav_features">Tính năng</a>
+		<a href="javascript:void(0)" data-nav-mobile="3" data-i18n="nav_screens">Giao diện</a>
+		<a href="javascript:void(0)" data-nav-mobile="4" data-i18n="nav_pricing">Bảng giá</a>
+		<a href="javascript:void(0)" data-nav-mobile="5" data-i18n="nav_faq">Giải đáp</a>
+		<a href="/" data-i18n="nav_terminal">Web Terminal</a>
+	</div>
+
+	<!-- SETTINGS GEAR & PANEL (LIVE ENGINE TWEAKER) -->
+	<button class="settings-gear" id="settingsGear" aria-label="Settings">
+		<svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+	</button>
+	<div class="settings-panel" id="settingsPanel"></div>
+
+	<!-- SCROLL CONTAINER (7 CAMERA STAGES) -->
+	<div id="scroll-container">
+
+		<!-- ====================================================================
+		     STAGE 0: HERO (CAMERA 0.00)
+		     ==================================================================== -->
+		<section class="section hero" id="heroSection" data-stage="0">
+			<div class="hero-container">
+				<!-- Left Text & Actions -->
+				<div class="hero-left">
+					<span class="hero-tag" data-reveal data-delay="1" data-i18n="hero_tag">Giao Dịch Định Lượng Trên Di Động</span>
+					<h1 data-reveal data-delay="2" data-i18n="hero_title">Lợi Thế Thuật Toán.<br><em>Trong Tầm Tay Bạn.</em></h1>
+					<p class="hero-sub" data-reveal data-delay="3" data-i18n="hero_sub">Confluence Mobile mang kỷ luật thuật toán cấp định chế trực tiếp vào điện thoại của bạn. Khớp lệnh MT5 tức thời, chấm điểm hợp lưu đa chỉ báo và bảo vệ rủi ro tự động 24/7 trên nền tảng đám mây.</p>
+					
+					<div class="hero-actions-group" data-reveal data-delay="4">
+						<a href="javascript:void(0)" data-nav="6" class="btn-pill-primary" data-i18n="hero_cta_download">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+							<span>Tải Ứng Dụng Ngay</span>
+						</a>
+						<a href="/" class="btn-pill-outline" data-i18n="hero_cta_terminal">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+							<span>Web Terminal</span>
+						</a>
+					</div>
+
+					<div class="hero-stats-row" data-reveal data-delay="5">
+						<div class="stat-box">
+							<div class="stat-box-val"><span>50</span>ms</div>
+							<div class="stat-box-lbl" data-i18n="stat_latency">Độ trễ tín hiệu</div>
+						</div>
+						<div class="stat-box">
+							<div class="stat-box-val">1:<span>3</span></div>
+							<div class="stat-box-lbl" data-i18n="stat_rr">Tỷ lệ R:R chuẩn</div>
+						</div>
+						<div class="stat-box">
+							<div class="stat-box-val"><span>24</span>/7</div>
+							<div class="stat-box-lbl" data-i18n="stat_vps">Máy chủ VPS MT5</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Right Smartphone Preview -->
+				<div class="hero-right-phone" data-reveal data-delay="3">
+					<div class="phone-glow-ambient"></div>
+					<div class="float-badge float-badge-1">
+						<div class="fb-title">XAU/USD M15</div>
+						<div class="fb-val">2,341.50</div>
+						<div class="fb-sub">+18.4% Tuần này</div>
+					</div>
+
+					<div class="phone-shell-wrapper">
+						<div class="phone-case">
+							<div class="phone-notch">
+								<div class="notch-camera"></div>
+							</div>
+							<div class="phone-screen">
+								<div class="phone-top-bar">
+									<span>09:41</span>
+									<span>MT5: 42ms ●</span>
+								</div>
+
+								<!-- Chart Card -->
+								<div class="phone-card-chart">
+									<div class="chart-header">
+										<span class="chart-title">XAU/USD &mdash; 4-STAR</span>
+										<span class="chart-badge">LIVE M15</span>
+									</div>
+									<div class="phone-chart-svg">
+										<svg viewBox="0 0 250 120" style="width:100%;height:100%;">
+											<defs>
+												<linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+													<stop offset="0%" stop-color="#c8b840" stop-opacity="0.35"/>
+													<stop offset="100%" stop-color="#c8b840" stop-opacity="0.0"/>
+												</linearGradient>
+											</defs>
+											<line x1="0" y1="30" x2="250" y2="30" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+											<line x1="0" y1="60" x2="250" y2="60" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+											<line x1="0" y1="90" x2="250" y2="90" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+											<polygon fill="url(#chartGrad)" points="0,105 25,95 50,82 75,70 100,78 125,55 150,62 175,40 200,48 225,28 250,32 250,120 0,120"/>
+											<path d="M0,105 L25,95 L50,82 L75,70 L100,78 L125,55 L150,62 L175,40 L200,48 L225,28 L250,32" fill="none" stroke="#c8b840" stroke-width="2" stroke-linecap="round"/>
+											<circle cx="250" cy="32" r="3.5" fill="#f5d442"/>
+										</svg>
+									</div>
+								</div>
+
+								<!-- Live Order Ticket -->
+								<div class="phone-order-ticket">
+									<div class="order-row">
+										<span class="order-dir-buy">BUY 0.02 LOT</span>
+										<span class="order-star-rating">★ ★ ★ ★</span>
+									</div>
+									<div class="order-row">
+										<span class="order-price">2,341.50</span>
+										<span class="order-pnl">+$148.60 (TP 1500pt)</span>
+									</div>
+								</div>
+
+								<!-- 4 Mini Metrics -->
+								<div class="phone-metrics-mini">
+									<div class="phone-metric-item">
+										<div class="pmi-lbl">Lợi nhuận ngày</div>
+										<div class="pmi-val" style="color:var(--color-green)">+$284.50</div>
+									</div>
+									<div class="phone-metric-item">
+										<div class="pmi-lbl">Tỷ lệ thắng</div>
+										<div class="pmi-val">74.2%</div>
+									</div>
+									<div class="phone-metric-item">
+										<div class="pmi-lbl">Lệnh mở</div>
+										<div class="pmi-val">2 vị thế</div>
+									</div>
+									<div class="phone-metric-item">
+										<div class="pmi-lbl">Max Drawdown</div>
+										<div class="pmi-val" style="color:var(--color-cyan)">-1.4%</div>
+									</div>
+								</div>
+
+								<!-- Bottom Navigation Mockup -->
+								<div class="phone-bottom-nav">
+									<svg class="pbn-icon active" viewBox="0 0 24 24" fill="none" stroke="#c8b840" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+									<svg class="pbn-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+									<svg class="pbn-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+									<svg class="pbn-icon" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="float-badge float-badge-2">
+						<div class="fb-title">Breakeven Guard</div>
+						<div class="fb-val">+500 points</div>
+						<div class="fb-sub">Trailing Stop Tự Động</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="scroll-hint" data-reveal data-delay="5">
+				<span data-i18n="scroll_explore">Cuộn để khám phá</span>
+				<div class="scroll-line"></div>
+			</div>
+		</section>
+
+		<!-- ====================================================================
+		     STAGE 1: PHILOSOPHY & MOBILE ADVANTAGE (CAMERA 0.14)
+		     ==================================================================== -->
+		<section class="section manifesto" data-stage="1">
+			<div class="manifesto-inner">
+				<span class="manifesto-label" data-reveal data-i18n="phil_label">// 01 — TRIẾT LÝ KIẾN TRÚC DI ĐỘNG</span>
+				<h2 data-reveal data-delay="1" data-i18n="phil_quote">Giao dịch thuật toán không nên trói buộc bạn trước 6 màn hình máy tính. Thị trường vận hành 24 giờ — chiến lược của bạn cần hoạt động tự chủ với <em>kỷ luật cấp định chế</em>, mang lại sự tự do đích thực.</h2>
+
+				<div class="philosophy-grid">
+					<div class="phil-card" data-reveal data-delay="2">
+						<div class="phil-icon">
+							<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+						</div>
+						<h3 data-i18n="phil_card1_title">Kỷ Luật Toán Học 100%</h3>
+						<p data-i18n="phil_card1_desc">Loại bỏ hoàn toàn tâm lý FOMO, tham lam hay gồng lỗ vô kỷ luật. Mọi lệnh vào và thoát đều tuân theo ma trận xác suất hợp lưu đã kiểm định.</p>
+					</div>
+
+					<div class="phil-card" data-reveal data-delay="3">
+						<div class="phil-icon">
+							<svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+						</div>
+						<h3 data-i18n="phil_card2_title">Đồng Bộ Cloud VPS 24/7</h3>
+						<p data-i18n="phil_card2_desc">Bot chạy liên tục trên máy chủ đám mây Windows với IP tĩnh. Điện thoại của bạn chỉ dùng để theo dõi và điều khiển, tắt máy bot vẫn chốt lời bình thường.</p>
+					</div>
+
+					<div class="phil-card" data-reveal data-delay="4">
+						<div class="phil-icon">
+							<svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+						</div>
+						<h3 data-i18n="phil_card3_title">Giám Sát & Báo Động Tức Thời</h3>
+						<p data-i18n="phil_card3_desc">Nhận thông báo đẩy ngay khi có tín hiệu khớp, lệnh chạm mốc Breakeven hoặc Trailing Stop kích hoạt. Nút dừng khẩn cấp khóa hệ thống chỉ bằng 1 chạm.</p>
+					</div>
+								
+			</div>
+		</section>
+
+		<!-- ====================================================================
+		     STAGE 2: FOUR CONFLUENCE PILLARS (CAMERA 0.28)
+		     ==================================================================== -->
+		<section class="section pillars" data-stage="2">
+			<div style="max-width:1200px;width:100%;margin:0 auto;text-align:center;">
+				<div class="pillars-header" data-reveal>
+					<span data-i18n="pillars_label">// 02 — BỐN TRỤ CỘT CÔNG NGHỆ CONFLUENCE</span>
+				</div>
+				<h2 data-reveal data-delay="1" style="font-size:clamp(32px,4vw,50px);margin-bottom:12px;" data-i18n="pillars_heading">Được Thiết Kế Cho Độ Chuẩn Xác Tuyệt Đối</h2>
+				
+				<div class="pillars-4-grid">
+					<div class="pillar-4-card" data-reveal data-delay="1">
+						<div class="p4-num">01 / ENGINE</div>
+						<h3 data-i18n="p4_card1_title">Confluence Engine</h3>
+						<p data-i18n="p4_card1_desc">Chấm điểm hợp lưu đa khung thời gian từ 1 đến 4 sao. Kết hợp ngưỡng RSI thông minh (BUY &lt; 42, SELL &gt; 58) và vùng quét kích hoạt 300 points.</p>
+					</div>
+
+					<div class="pillar-4-card" data-reveal data-delay="2">
+						<div class="p4-num">02 / RISK</div>
+						<h3 data-i18n="p4_card1_title2">Bảo Vệ Rủi Ro R:R 1:3</h3>
+						<p data-i18n="p4_card2_desc">Cố định tỷ lệ vàng R:R 1:3 (SL 500pt / TP 1500pt trên Vàng). Tự động kích hoạt dời SL về hòa vốn tại 500pt để bảo toàn vốn nguyên vẹn.</p>
+					</div>
+
+					<div class="pillar-4-card" data-reveal data-delay="3">
+						<div class="p4-num">03 / STACKING</div>
+						<h3 data-i18n="p4_card3_title">Nhồi Lệnh Thông Minh</h3>
+						<p data-i18n="p4_card3_desc">Hỗ trợ gia tăng vị thế khi xu hướng xác nhận mạnh mà không bị hạn chế khoảng cách cứng, giúp tối đa hóa biên độ lợi nhuận trong con sóng dài.</p>
+					</div>
+
+					<div class="pillar-4-card" data-reveal data-delay="4">
+						<div class="p4-num">04 / LOT SIZING</div>
+						<h3 data-i18n="p4_card4_title">Tối Ưu Vốn Linh Hoạt</h3>
+						<p data-i18n="p4_card4_desc">Thuật toán Dynamic Recovery Lot Sizing tự động cân đối từ tài khoản nhỏ $50 - $200 USD cho đến tài khoản quỹ lớn, kiểm soát sụt giảm tài khoản tối đa.</p>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ====================================================================
+		     STAGE 3: INTERACTIVE SCREEN SHOWCASE (CAMERA 0.43)
+		     ==================================================================== -->
+		<section class="section stats-section" data-stage="3">
+			<div class="screens-showcase-wrap">
+				<span class="stats-label" data-reveal data-i18n="screens_label">// 03 — TRẢI NGHIỆM GIAO DIỆN CONFLUENCE MOBILE</span>
+				<h2 data-reveal data-delay="1" style="font-size:clamp(30px,3.8vw,48px);color:#fff;" data-i18n="screens_heading">Khám Phá Các Màn Hình Chức Năng</h2>
+
+				<!-- Screen Switcher Tabs -->
+				<div class="screen-tabs-bar" data-reveal data-delay="2">
+					<button class="screen-tab-btn active" onclick="switchScreen(0)" id="stab_0" data-i18n="stab_0">Radar Tín Hiệu</button>
+					<button class="screen-tab-btn" onclick="switchScreen(1)" id="stab_1" data-i18n="stab_1">Khớp Lệnh MT5</button>
+					<button class="screen-tab-btn" onclick="switchScreen(2)" id="stab_2" data-i18n="stab_2">Bảo Vệ Vị Thế</button>
+					<button class="screen-tab-btn" onclick="switchScreen(3)" id="stab_3" data-i18n="stab_3">Phân Tích Đội Bot</button>
+				</div>
+
+				<!-- Interactive Screen Card -->
+				<div class="screen-display-card" data-reveal data-delay="3" id="screenDisplayCard">
+					<div class="sd-info">
+						<span class="sd-tag" id="sdTag">RADAR QUÉT ĐA KHUNG THỜI GIAN</span>
+						<h3 id="sdTitle">Bảng Tín Hiệu Hợp Lưu Trực Tiếp</h3>
+						<p class="sd-desc" id="sdDesc">Mọi cơ hội giao dịch trên Vàng (XAU/USD), Dầu và Forex được quét liên tục từ TradingView, phân cấp từ 1 sao đến 4 sao với điểm vào, SL và TP tính toán sẵn.</p>
+						<ul class="sd-bullets" id="sdBullets">
+							<li>Tự động lọc nhiễu phiên Á, Âu, Mỹ</li>
+							<li>Bộ đệm giãn spread tới 100 points cho Vàng</li>
+							<li>Kích hoạt tức thì về điện thoại dưới 50ms</li>
+						</ul>
+					</div>
+
+					<div class="sd-preview-visual" id="sdVisual">
+						<!-- Simulated Telemetry Terminal -->
+						<div style="display:flex;justify-content:space-between;color:rgba(232,236,228,0.5);font-size:11px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;">
+							<span>SIGNAL_FEED_V4</span>
+							<span style="color:var(--color-green)">STREAMING ●</span>
+						</div>
+						<div style="display:flex;flex-direction:column;gap:10px;font-size:12px;">
+							<div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:6px;">
+								<span style="color:var(--color-green);font-weight:700;">BUY XAUUSD</span>
+								<span>2,341.50</span>
+								<span style="color:var(--color-gold);">★★★★</span>
+							</div>
+							<div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:6px;">
+								<span style="color:var(--color-red);font-weight:700;">SELL EURUSD</span>
+								<span>1.0862</span>
+								<span style="color:var(--color-gold);">★★★☆</span>
+							</div>
+							<div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:6px;">
+								<span style="color:var(--color-green);font-weight:700;">BUY WTIUSD</span>
+								<span>77.40</span>
+								<span style="color:var(--color-gold);">★★☆☆</span>
+							</div>
+						</div>
+						<div style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;font-size:11px;color:rgba(232,236,228,0.6);">
+							<span>GATEWAY: MT5 PYTHON API</span>
+							<span style="color:var(--color-gold)">SL 500 / TP 1500</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Stats Ribbon Under Screens -->
+				<div class="stats-grid" data-reveal data-delay="4" style="margin-top:20px;width:100%;">
+					<div class="stat-item">
+						<div class="stat-num">1:3</div>
+						<div class="stat-unit" data-i18n="srib_1">Tỷ lệ R:R Cố Định</div>
+					</div>
+					<div class="stat-item">
+						<div class="stat-num">50ms</div>
+						<div class="stat-unit" data-i18n="srib_2">Độ trễ WebSocket 20 FPS</div>
+					</div>
+					<div class="stat-item">
+						<div class="stat-num">100pt</div>
+						<div class="stat-unit" data-i18n="srib_3">Dung sai Spread Vàng</div>
+					</div>
+					<div class="stat-item">
+						<div class="stat-num">24/7</div>
+						<div class="stat-unit" data-i18n="srib_4">Thời gian chạy Cloud VPS</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ====================================================================
+		     STAGE 4: BOT FLEET & 3-TIER PRICING (CAMERA 0.57)
+		     ==================================================================== -->
+		<section class="section quote-section" data-stage="4">
+			<div class="pricing-stage-wrap">
+				<span class="manifesto-label" data-reveal data-i18n="pricing_label">// 04 — PHÂN CẤP BOT & BIỂU PHÍ MINH BẠCH</span>
+				<h2 data-reveal data-delay="1" style="font-size:clamp(32px,4vw,52px);color:#fff;margin-bottom:16px;" data-i18n="pricing_heading">Lựa Chọn Chiến Lược Phù Hợp</h2>
+
+				<!-- Currency Switcher Toggle -->
+				<div class="pricing-currency-toggle" data-reveal data-delay="2">
+					<button class="curr-btn active" id="currVnd" onclick="setCurrency('VND')">VND (Việt Nam Đồng)</button>
+					<button class="curr-btn" id="currUsd" onclick="setCurrency('USD')">USD (US Dollar)</button>
+				</div>
+
+				<!-- 3 PRICING TIERS -->
+				<div class="pricing-cards-3" data-reveal data-delay="3">
+
+					<!-- TIER 1: BOT MẠO HIỂM -->
+					<div class="price-card">
+						<div class="pc-tier-name" data-i18n="tier1_name">Bot Mạo Hiểm</div>
+						<div class="pc-tier-desc" data-i18n="tier1_desc">Tần suất vào lệnh cao theo con sóng ngắn, chấp nhận setup từ 1-sao để tối đa hóa biên độ lợi nhuận.</div>
+						
+						<div class="pc-fee-breakdown">
+							<div class="fee-row">
+								<span class="fee-lbl" data-i18n="fee_vps_lbl">Phí VPS:</span>
+								<span class="fee-val" id="p_vps_1">260.000 VND / tháng</span>
+							</div>
+							<div class="fee-row">
+								<span class="fee-lbl" data-i18n="fee_bot_lbl">Phí thuê bot:</span>
+								<span class="fee-val" id="p_rent_1">159.000 VND / tháng</span>
+							</div>
+							<div class="fee-row">
+								<span class="fee-lbl" data-i18n="fee_srv_lbl">Phí dịch vụ:</span>
+								<span class="fee-val highlight" id="p_srv_1">8% / lợi nhuận</span>
+							</div>
+						</div>
+
+						<ul class="pc-features-list">
+							<li data-i18n="t1_f1">Giao dịch sóng 2 chiều (Wave Trading)</li>
+							<li data-i18n="t1_f2">Setup kích hoạt từ 1-sao confluence</li>
+							<li data-i18n="t1_f3">Order Stacking không giới hạn cự ly</li>
+							<li data-i18n="t1_f4">Khớp lệnh trực tiếp MT5 dưới 50ms</li>
+							<li data-i18n="t1_f5">Chỉ thu phí dịch vụ khi có lợi nhuận ròng</li>
+						</ul>
+
+						<a href="javascript:void(0)" data-nav="6" class="btn-tier-action btn-tier-outline" data-i18n="btn_choose_tier">Chọn Bot Mạo Hiểm</a>
+					</div>
+
+					<!-- TIER 2: BOT TRUNG BÌNH (FEATURED) -->
+					<div class="price-card featured">
+						<div class="price-badge-pop" data-i18n="badge_popular">Phổ biến nhất</div>
+						<div class="pc-tier-name" data-i18n="tier2_name">Bot Trung Bình</div>
+						<div class="pc-tier-desc" data-i18n="tier2_desc">Cân bằng hoàn hảo giữa tỷ lệ an toàn và lợi nhuận. Phù hợp nhất cho nhà giao dịch Vàng (XAU/USD).</div>
+						
+						<div class="pc-fee-breakdown">
+							<div class="fee-row">
+								<span class="fee-lbl" data-i18n="fee_vps_lbl">Phí VPS:</span>
+								<span class="fee-val" id="p_vps_2">260.000 VND / tháng</span>
+							</div>
+							<div class="fee-row">
+								<span class="fee-lbl" data-i18n="fee_bot_lbl">Phí thuê bot:</span>
+								<span class="fee-val" id="p_rent_2">199.000 VND / tháng</span>
+							</div>
+							<div class="fee-row">
+								<span class="fee-lbl" data-i18n="fee_srv_lbl">Phí dịch vụ:</span>
+								<span class="fee-val highlight" id="p_srv_2">7% / lợi nhuận</span>
+							</div>
+						</div>
+
+						<ul class="pc-features-list">
+							<li data-i18n="t2_f1">Tối ưu cho Vàng (XAU/USD) & Forex chính</li>
+							<li data-i18n="t2_f2">Setup kích hoạt từ 2-sao và 3-sao</li>
+							<li data-i18n="t2_f3">Tự động dời Breakeven hòa vốn tại 500pt</li>
+							<li data-i18n="t2_f4">Trailing Stop 500pt khóa chặt lợi nhuận</li>
+							<li data-i18n="t2_f5">Phí dịch vụ tối ưu 7% trên lợi nhuận ròng</li>
+						</ul>
+
+						<a href="javascript:void(0)" data-nav="6" class="btn-tier-action btn-tier-filled" data-i18n="btn_choose_tier_feat">Chọn Bot Trung Bình</a>
+					</div>
+
+					<!-- TIER 3: BOT AN TOÀN -->
+					<div class="price-card">
+						<div class="pc-tier-name" data-i18n="tier3_name">Bot An Toàn</div>
+						<div class="pc-tier-desc" data-i18n="tier3_desc">Bộ lọc tín hiệu khắt khe nhất, ưu tiên bảo toàn vốn tuyệt đối. Chỉ vào lệnh khi đạt hợp lưu 4-sao hoàn hảo.</div>
+						
+						<div class="pc-fee-breakdown">
+							<div class="fee-row">
+								<span class="fee-lbl" data-i18n="fee_vps_lbl">Phí VPS:</span>
+								<span class="fee-val" id="p_vps_3">260.000 VND / tháng</span>
+							</div>
+							<div class="fee-row">
+								<span class="fee-lbl" data-i18n="fee_bot_lbl">Phí thuê bot:</span>
+								<span class="fee-val" id="p_rent_3">219.000 VND / tháng</span>
+							</div>
+							<div class="fee-row">
+								<span class="fee-lbl" data-i18n="fee_srv_lbl">Phí dịch vụ:</span>
+								<span class="fee-val highlight" id="p_srv_3">5% / lợi nhuận</span>
+							</div>
+						</div>
+
+						<ul class="pc-features-list">
+							<li data-i18n="t3_f1">Ưu tiên bảo toàn vốn và quản lý rủi ro</li>
+							<li data-i18n="t3_f2">Chỉ vào lệnh khi đạt 3-sao và 4-sao</li>
+							<li data-i18n="t3_f3">Dynamic Lot Sizing siêu bảo thủ (0.01)</li>
+							<li data-i18n="t3_f4">Bộ ngắt mạch Circuit Breaker tự động</li>
+							<li data-i18n="t3_f5">Phí dịch vụ thấp nhất: chỉ 5% lợi nhuận</li>
+						</ul>
+
+						<a href="javascript:void(0)" data-nav="6" class="btn-tier-action btn-tier-outline" data-i18n="btn_choose_tier_safe">Chọn Bot An Toàn</a>
+					</div>
+				</div>
+
+				<div class="pricing-transparency-note" data-reveal data-delay="4" data-i18n="pricing_note">
+					<strong>Cam kết minh bạch:</strong> Confluence Bot kết nối qua API tới tài khoản MT5 cá nhân của bạn. Chúng tôi <strong>không nhận ủy thác và không giữ vốn</strong> của khách hàng. Phí dịch vụ chỉ tính trên tổng lợi nhuận ròng thực nhận.
+				</div>
+			</div>
+		</section>
+
+		<!-- ====================================================================
+		     STAGE 5: Q&A / FAQ (CAMERA 0.78)
+		     ==================================================================== -->
+		<section class="section faq-section" data-stage="5">
+			<div class="faq-wrap">
+				<div class="faq-header">
+					<span class="manifesto-label" data-reveal data-i18n="faq_label">// 05 — CÂU HỎI THƯỜNG GẶP</span>
+					<h2 data-reveal data-delay="1" data-i18n="faq_heading">Giải Đáp Mọi Thắc Mắc</h2>
+					<p data-reveal data-delay="2" data-i18n="faq_sub">Tất cả những gì bạn cần biết về chi phí VPS, cơ chế chia sẻ lợi nhuận và cách đồng bộ ứng dụng trên điện thoại.</p>
+				</div>
+
+				<div class="faq-list">
+					<!-- Q1 -->
+					<div class="faq-card open" data-reveal data-delay="3">
+						<button class="faq-question-btn" onclick="toggleFaq(this)">
+							<span data-i18n="q1_q">1. Chi phí VPS 260.000 VND / tháng (10 USD) dùng để làm gì?</span>
+							<svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+						</button>
+						<div class="faq-answer">
+							<div class="faq-answer-inner" data-i18n="q1_a">
+								VPS (Virtual Private Server) là máy chủ đám mây Windows cấu hình cao hoạt động 24/7 với đường truyền cáp quang tốc độ cao và IP tĩnh. Máy chủ này đảm bảo bot giao dịch MT5 của bạn luôn trực tuyến để quét tín hiệu và dời lệnh bảo vệ lợi nhuận ngay cả khi bạn tắt điện thoại, máy hết pin hoặc mất mạng 4G.
+							</div>
+						</div>
+					</div>
+
+					<!-- Q2 -->
+					<div class="faq-card" data-reveal data-delay="4">
+						<button class="faq-question-btn" onclick="toggleFaq(this)">
+							<span data-i18n="q2_q">2. Phí dịch vụ 5% - 8% tính như thế nào?</span>
+							<svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+						</button>
+						<div class="faq-answer">
+							<div class="faq-answer-inner" data-i18n="q2_a">
+								Phí dịch vụ được tính dựa trên <strong>tổng lợi nhuận ròng thực tế</strong> sau khi trừ các lệnh lỗ. Nếu trong chu kỳ giao dịch tài khoản của bạn hòa vốn hoặc không có lãi, bạn <strong>hoàn toàn không phải trả bất kỳ đồng phí dịch vụ nào</strong>. Chúng tôi chỉ có lợi nhuận khi bạn kiếm được lợi nhuận.
+							</div>
+						</div>
+					</div>
+
+					<!-- Q3 -->
+					<div class="faq-card" data-reveal data-delay="5">
+						<button class="faq-question-btn" onclick="toggleFaq(this)">
+							<span data-i18n="q3_q">3. Tôi có cần nạp tiền vào Confluence Bot không?</span>
+							<svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+						</button>
+						<div class="faq-answer">
+							<div class="faq-answer-inner" data-i18n="q3_a">
+								Tuyệt đối không! Bạn tự mở tài khoản đứng tên chính bạn tại bất kỳ sàn giao dịch hỗ trợ MT5 uy tín nào (như Exness, IC Markets, XM,...). Bot chỉ kết nối thông qua thông tin đăng nhập MT5 cá nhân để thực thi lệnh giao dịch, hoàn toàn không có quyền rút tiền hay can thiệp số dư.
+							</div>
+						</div>
+					</div>
+
+					<!-- Q4 -->
+					<div class="faq-card" data-reveal data-delay="6">
+						<button class="faq-question-btn" onclick="toggleFaq(this)">
+							<span data-i18n="q4_q">4. Vốn tối thiểu để bắt đầu là bao nhiêu?</span>
+							<svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+						</button>
+						<div class="faq-answer">
+							<div class="faq-answer-inner" data-i18n="q4_a">
+								Hệ thống được thiết kế đặc biệt với thuật toán Dynamic Lot Sizing linh hoạt, hỗ trợ các tài khoản vốn nhỏ từ <strong>$50 - $200 USD</strong> với khối lượng micro-lot (0.01) an toàn. Đối với tài khoản lớn, bot sẽ tự động nâng quy mô lot tương ứng với tỷ lệ rủi ro cố định.
+							</div>
+						</div>
+					</div>
+
+					<!-- Q5 -->
+					<div class="faq-card" data-reveal data-delay="7">
+						<button class="faq-question-btn" onclick="toggleFaq(this)">
+							<span data-i18n="q5_q">5. Cài đặt và kết nối app trên điện thoại mất bao lâu?</span>
+							<svg class="faq-icon-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+						</button>
+						<div class="faq-answer">
+							<div class="faq-answer-inner" data-i18n="q5_a">
+								Quá trình cài đặt chỉ mất dưới 60 giây. Sau khi tải app Confluence Mobile, bạn chỉ cần quét mã QR liên kết từ bảng điều khiển web hoặc nhập tài khoản MT5, hệ thống sẽ tự động kích hoạt bot trên VPS và bắt đầu đồng bộ dữ liệu thời gian thực.
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ====================================================================
+		     STAGE 6: DOWNLOAD MOBILE APP CTA (CAMERA 1.00)
+		     ==================================================================== -->
+		<section class="section download" data-stage="6">
+			<div class="download-cta-wrap">
+				<span class="manifesto-label" data-reveal data-i18n="dl_label">// 06 — SẴN SÀNG GIAO DỊCH</span>
+				<h2 data-reveal data-delay="1" style="font-size:clamp(34px,4.5vw,56px);color:#fff;" data-i18n="dl_heading">Trải Nghiệm Confluence Mobile.<br><em>Bắt Đầu Ngay Hôm Nay.</em></h2>
+				<p class="cta-sub" data-reveal data-delay="2" style="max-width:580px;margin-top:12px;" data-i18n="dl_sub">Ứng dụng đã sẵn sàng trên cả hai nền tảng iOS và Android. Tải ngay để kiểm soát danh mục đầu tư bằng sức mạnh thuật toán định lượng.</p>
+
+				<div class="download-buttons-row" data-reveal data-delay="3">
+					<!-- iOS Store -->
+					<a href="#" class="btn-store-download">
+						<svg viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.92-2.85-.9.04-1.99.6-2.61 1.34-.55.63-1.03 1.68-.9 2.7.99.08 2.01-.5 2.59-1.19Z"/></svg>
+						<div class="bsd-text">
+							<span class="bsd-sub" data-i18n="bsd_ios_sub">Dành cho iOS</span>
+							<span class="bsd-title">Apple App Store</span>
+						</div>
+					</a>
+
+					<!-- Google Play -->
+					<a href="#" class="btn-store-download">
+						<svg viewBox="0 0 24 24"><path d="M3 20.5V3.5C3 2.91 3.34 2.39 3.84 2.15L13.69 12L3.84 21.85C3.34 21.6 3 21.09 3 20.5ZM16.81 15.12L15.11 13.42L5.27 23.26C5.5 23.36 5.75 23.41 6 23.41C6.54 23.41 7.08 23.2 7.5 22.79L16.81 15.12ZM16.81 8.88L7.5 1.21C7.08 0.8 6.54 0.59 6 0.59C5.75 0.59 5.5 0.64 5.27 0.74L15.11 10.58L16.81 8.88ZM20.16 10.74L17.7 9.32L15.82 11.2L17.7 13.08L20.16 11.66C20.68 11.36 21 10.82 21 10.2C21 9.58 20.68 10.04 20.16 10.74Z"/></svg>
+						<div class="bsd-text">
+							<span class="bsd-sub" data-i18n="bsd_android_sub">Dành cho Android</span>
+							<span class="bsd-title">Google Play Store</span>
+						</div>
+					</a>
+
+					<!-- Direct APK -->
+					<a href="#" class="btn-store-download">
+						<svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h4.07v6h5.2v-6h4.07L12 2z"/></svg>
+						<div class="bsd-text">
+							<span class="bsd-sub" data-i18n="bsd_apk_sub">Tải trực tiếp</span>
+							<span class="bsd-title">Android APK File</span>
+						</div>
+					</a>
+				</div>
+
+				<div data-reveal data-delay="4" style="margin-top:10px;">
+					<a href="/" class="btn-pill-outline" data-i18n="dl_terminal_btn">
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+						<span>Hoặc Mở Trực Tiếp Web Terminal</span>
+					</a>
+				</div>
+			</div>
+		</section>
+
+		<!-- Stage 6 spacer for camera path lerp to 1.00 -->
+		<section class="section footer" data-stage="6" style="min-height:20vh;"></section>
+
+	</div>
+
+	<!-- ====================================================================
+	     SITE FOOTER (4-COLUMN HIGH TASTE)
+	     ==================================================================== -->
+	<footer class="site-footer">
+		<div class="site-footer-inner">
+			<div class="sf-brand">
+				<div class="sf-brand-name">Confluence Mobile</div>
+				<p class="sf-brand-desc" data-i18n="footer_desc">Hệ thống giao dịch thuật toán định lượng trên nền tảng di động kết nối MT5. Kỷ luật cấp định chế, tự động hóa 24/7 và kiểm soát rủi ro tuyệt đối.</p>
+			</div>
+			<div class="sf-col">
+				<div class="sf-col-title" data-i18n="fc_col1_title">Sản Phẩm</div>
+				<a href="javascript:void(0)" data-nav="0" data-i18n="fc_c1_1">Tổng quan Mobile</a>
+				<a href="javascript:void(0)" data-nav="2" data-i18n="fc_c1_2">Tính năng Confluence</a>
+				<a href="javascript:void(0)" data-nav="3" data-i18n="fc_c1_3">Giao diện ứng dụng</a>
+				<a href="javascript:void(0)" data-nav="4" data-i18n="fc_c1_4">Biểu phí 3 gói Bot</a>
+			</div>
+			<div class="sf-col">
+				<div class="sf-col-title" data-i18n="fc_col2_title">Công Nghệ</div>
+				<a href="javascript:void(0)" data-nav="1" data-i18n="fc_c2_1">Đám mây Windows VPS</a>
+				<a href="javascript:void(0)" data-nav="2" data-i18n="fc_c2_2">Thuật toán R:R 1:3</a>
+				<a href="javascript:void(0)" data-nav="2" data-i18n="fc_c2_3">Trailing Stop 500pt</a>
+				<a href="/" data-i18n="fc_c2_4">Web Trading Terminal</a>
+			</div>
+			<div class="sf-col">
+				<div class="sf-col-title" data-i18n="fc_col3_title">Pháp Lý & Hỗ Trợ</div>
+				<a href="javascript:void(0)" data-nav="5" data-i18n="fc_c3_1">Câu hỏi thường gặp</a>
+				<a href="/pricing" data-i18n="fc_c3_2">Chính sách phí</a>
+				<a href="/about" data-i18n="fc_c3_3">Về chúng tôi</a>
+				<a href="#" data-i18n="fc_c3_4">Cộng đồng Telegram</a>
+			</div>
+		</div>
+		<div class="sf-bottom">
+			<span class="sf-copy" data-i18n="footer_copy">&copy; 2026 Confluence Trading Technologies. Tất cả các quyền được bảo lưu. Cảnh báo rủi ro: Giao dịch đòn bẩy trên thị trường tài chính có mức độ rủi ro vốn nhất định.</span>
+			<div class="sf-socials">
+				<a href="#">Telegram</a>
+				<a href="#">Discord</a>
+				<a href="#">TradingView</a>
+			</div>
+		</div>
+	</footer>
+
+	<!-- THREE.JS WEBGPU EXACT SIMULATION SCRIPT + INTERACTIVE CLIENT LOGIC -->
+	<script type="module">
+
+		import * as THREE from 'three/webgpu';
+		import {
+			Fn, uniform, float, vec3, instancedArray, instanceIndex, uv,
+			positionGeometry, positionWorld, sin, cos, pow, smoothstep, mix,
+			sqrt, select, hash, time, deltaTime, PI, mx_noise_float,
+			pass, mrt, output, transformedNormalView,
+		} from 'three/tsl';
+		import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
+
+		const BLADE_COUNT = 120000;
+		const FIELD_SIZE = 30;
+		const BACKGROUND_HEX = '#000000';
+		const GROUND_HEX = '#000000';
+		const BLADE_BASE_HEX = '#0e1e04';
+		const BLADE_TIP_HEX = '#c8b840';
+
+		// ─── Sky Gradient ──────────────────────────────────────────────────
+		const skyColors = {
+			top:     new THREE.Color('#000000'),
+			midHigh: new THREE.Color('#000000'),
+			midLow:  new THREE.Color('#000000'),
+			horizon: new THREE.Color('#000000'),
+		};
+
+		function buildSkyTexture() {
+			const w = 2, h = 512;
+			const canvas = document.createElement('canvas');
+			canvas.width = w;
+			canvas.height = h;
+			const ctx = canvas.getContext('2d');
+			const grad = ctx.createLinearGradient(0, 0, 0, h);
+			grad.addColorStop(0.0,  '#' + skyColors.top.getHexString());
+			grad.addColorStop(0.35, '#' + skyColors.midHigh.getHexString());
+			grad.addColorStop(0.65, '#' + skyColors.midLow.getHexString());
+			grad.addColorStop(1.0,  '#' + skyColors.horizon.getHexString());
+			ctx.fillStyle = grad;
+			ctx.fillRect(0, 0, w, h);
+			const tex = new THREE.CanvasTexture(canvas);
+			tex.mapping = THREE.EquirectangularReflectionMapping;
+			tex.colorSpace = THREE.SRGBColorSpace;
+			tex.needsUpdate = true;
+			return tex;
+		}
+
+		// ─── Scene ─────────────────────────────────────────────────────────
+		const scene = new THREE.Scene();
+		scene.background = buildSkyTexture();
+		scene.fog = new THREE.FogExp2('#000000', 0.035);
+
+		const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 100);
+		camera.position.set(0, 8, 18);
+		camera.lookAt(0, 0, 0);
+
+		const renderer = new THREE.WebGPURenderer({ antialias: true });
+		const isMobile = window.innerWidth < 768;
+		const maxDPR = window.innerWidth < 1200 ? 1.5 : Math.min(devicePixelRatio, 2);
+		renderer.setPixelRatio(maxDPR);
+		renderer.setSize(innerWidth, innerHeight);
+		renderer.toneMapping = THREE.ACESFilmicToneMapping;
+		renderer.toneMappingExposure = 1.0;
+		document.body.appendChild(renderer.domElement);
+		await renderer.init();
+
+		// ─── GPU Buffers ────────────────────────────────────────────────────
+		const bladeData = instancedArray(BLADE_COUNT, 'vec4');
+		const bendState = instancedArray(BLADE_COUNT, 'vec4');
+		const bladeBound = instancedArray(BLADE_COUNT, 'float');
+
+		// ─── Uniforms ───────────────────────────────────────────────────────
+		const mouseWorld = uniform(new THREE.Vector3(99999, 0, 99999));
+		const mouseRadius = uniform(6.1);
+		const mouseStrength = uniform(4.0);
+		const outerRadius = uniform(9.4);
+		const outerStrength = uniform(1.45);
+		const camSphereWorld = uniform(new THREE.Vector3(99999, 0, 99999));
+		const camSphereRadius = uniform(15.0);
+		const camSphereStrength = uniform(5.9);
+
+		const grassDensity = uniform(1.0);
+		const windSpeed = uniform(1.3);
+		const windAmplitude = uniform(0.21);
+		const bladeWidth = uniform(4.0);
+		const bladeTipWidth = uniform(0.19);
+		const bladeHeight = uniform(1.6);
+		const bladeHeightVariation = uniform(0.5);
+		const bladeLean = uniform(1.1);
+		const noiseAmplitude = uniform(1.85);
+		const noiseFrequency = uniform(0.3);
+		const noise2Amplitude = uniform(0.2);
+		const noise2Frequency = uniform(15);
+		const bladeColorVariation = uniform(0.93);
+		const groundRadius = uniform(13.8);
+		const groundFalloff = uniform(2.4);
+		const bladeBaseColor = uniform(new THREE.Color(BLADE_BASE_HEX));
+		const bladeTipColor = uniform(new THREE.Color(BLADE_TIP_HEX));
+		const backgroundColor = uniform(new THREE.Color(BACKGROUND_HEX));
+		const groundColor = uniform(new THREE.Color(GROUND_HEX));
+		const fogStart = uniform(6.5);
+		const fogEnd = uniform(12.0);
+		const fogIntensity = uniform(1.0);
+		const fogColor = uniform(new THREE.Color('#000000'));
+		let fogEnabled = true;
+		const goldenTipColor = uniform(new THREE.Color('#d4b838'));
+		const greenTipColor = uniform(new THREE.Color('#4a7a14'));
+		const midColor = uniform(new THREE.Color('#2d4e0e'));
+
+		// ─── DoF Uniforms ──────────────────────────────────────────────────
+		const focusDistanceU = uniform(31.83);
+		const focalLengthU = uniform(10.0);
+		const bokehScaleU = uniform(12.5);
+		let dofEnabled = true;
+
+		// Mouse-world distance for auto-focus
+		let mouseFocusDist = 10.0;
+		let autoFocusSmoothed = 10.0;
+
+		const noise2D = Fn(([x, z]) => mx_noise_float(vec3(x, float(0), z)).mul(0.5).add(0.5));
+
+		// ─── Compute Init ──────────────────────────────────────────────────
+		const computeInit = Fn(() => {
+			const blade = bladeData.element(instanceIndex);
+			const col = instanceIndex.mod(283);
+			const row = instanceIndex.div(283);
+			const jx = hash(instanceIndex).sub(0.5);
+			const jz = hash(instanceIndex.add(7919)).sub(0.5);
+			const wx = col.toFloat().add(jx).div(float(283)).sub(0.5).mul(FIELD_SIZE);
+			const wz = row.toFloat().add(jz).div(float(283)).sub(0.5).mul(FIELD_SIZE);
+			blade.x.assign(wx);
+			blade.y.assign(wz);
+			blade.z.assign(hash(instanceIndex.add(1337)).mul(PI.mul(2)));
+			const n1 = noise2D(wx.mul(noiseFrequency), wz.mul(noiseFrequency));
+			const n2 = noise2D(wx.mul(noiseFrequency.mul(noise2Frequency)).add(50), wz.mul(noiseFrequency.mul(noise2Frequency)).add(50));
+			const clump = n1.mul(noiseAmplitude).sub(noise2Amplitude).add(n2.mul(noise2Amplitude).mul(2)).max(0);
+			blade.w.assign(clump);
+			const dist = sqrt(wx.mul(wx).add(wz.mul(wz)));
+			const edgeNoise = noise2D(wx.mul(0.25).add(100), wz.mul(0.25).add(100));
+			const maxR = float(12.0).add(edgeNoise.sub(0.5).mul(6.0));
+			const boundary = float(1).sub(smoothstep(maxR.sub(1.5), maxR, dist));
+			bladeBound.element(instanceIndex).assign(select(boundary.lessThan(0.05), float(0), boundary));
+		})().compute(BLADE_COUNT);
+
+		// ─── Compute Update ────────────────────────────────────────────────
+		const computeUpdate = Fn(() => {
+			const blade = bladeData.element(instanceIndex);
+			const bend = bendState.element(instanceIndex);
+			const bx = blade.x;
+			const bz = blade.y;
+
+			const w1 = sin(bx.mul(0.35).add(bz.mul(0.12)).add(time.mul(windSpeed)));
+			const w2 = sin(bx.mul(0.18).add(bz.mul(0.28)).add(time.mul(windSpeed.mul(0.67))).add(1.7));
+			const windX = w1.add(w2).mul(windAmplitude);
+			const windZ = w1.sub(w2).mul(windAmplitude.mul(0.55));
+
+			const lw = deltaTime.mul(4.0).saturate();
+			bend.x.assign(mix(bend.x, windX, lw));
+			bend.y.assign(mix(bend.y, windZ, lw));
+
+			// Mouse push
+			const dx = bx.sub(mouseWorld.x);
+			const dz = bz.sub(mouseWorld.z);
+			const dist = sqrt(dx.mul(dx).add(dz.mul(dz))).add(0.0001);
+			const falloff = float(1).sub(dist.div(mouseRadius).saturate());
+			const influence = falloff.mul(falloff).mul(mouseStrength);
+			const pushX = dx.div(dist).mul(influence);
+			const pushZ = dz.div(dist).mul(influence);
+
+			// Outer mouse sphere
+			const odx = bx.sub(mouseWorld.x);
+			const odz = bz.sub(mouseWorld.z);
+			const odist = sqrt(odx.mul(odx).add(odz.mul(odz))).add(0.0001);
+			const ofalloff = float(1).sub(odist.div(outerRadius).saturate());
+			const oinfluence = ofalloff.mul(ofalloff).mul(outerStrength);
+			const opushX = odx.div(odist).mul(oinfluence);
+			const opushZ = odz.div(odist).mul(oinfluence);
+
+			// Camera sphere push
+			const cdx = bx.sub(camSphereWorld.x);
+			const cdz = bz.sub(camSphereWorld.z);
+			const cdist = sqrt(cdx.mul(cdx).add(cdz.mul(cdz))).add(0.0001);
+			const cfalloff = float(1).sub(cdist.div(camSphereRadius).saturate());
+			const cinfluence = cfalloff.mul(cfalloff).mul(camSphereStrength);
+			const cpushX = cdx.div(cdist).mul(cinfluence);
+			const cpushZ = cdz.div(cdist).mul(cinfluence);
+
+			const totalPushX = pushX.add(opushX).add(cpushX);
+			const totalPushZ = pushZ.add(opushZ).add(cpushZ);
+
+			const targetMag = sqrt(totalPushX.mul(totalPushX).add(totalPushZ.mul(totalPushZ)));
+			const currentMag = sqrt(bend.z.mul(bend.z).add(bend.w.mul(bend.w)));
+			const lm = select(targetMag.greaterThan(currentMag), deltaTime.mul(12.0), deltaTime.mul(1)).saturate();
+			bend.z.assign(mix(bend.z, totalPushX, lm));
+			bend.w.assign(mix(bend.w, totalPushZ, lm));
+		})().compute(BLADE_COUNT);
+
+		// ─── Blade Geometry ────────────────────────────────────────────────
+		function createBladeGeometry() {
+			const segs = 5, W = 0.055, H = 1.0;
+			const verts = [], norms = [], uvArr = [], idx = [];
+			for (let i = 0; i <= segs; i++) {
+				const t = i / segs, y = t * H, hw = W * 0.5 * (1.0 - t * 0.82);
+				verts.push(-hw, y, 0, hw, y, 0);
+				norms.push(0, 0, 1, 0, 0, 1);
+				uvArr.push(0, t, 1, t);
+			}
+			for (let i = 0; i < segs; i++) { const b = i * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }
+			const geo = new THREE.BufferGeometry();
+			geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+			geo.setAttribute('normal', new THREE.Float32BufferAttribute(norms, 3));
+			geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvArr, 2));
+			geo.setIndex(idx);
+			return geo;
+		}
+
+		// ─── Grass Material ────────────────────────────────────────────────
+		const grassMat = new THREE.MeshBasicNodeMaterial({ side: THREE.DoubleSide, fog: true });
+
+		grassMat.positionNode = Fn(() => {
+			const blade = bladeData.element(instanceIndex);
+			const bend = bendState.element(instanceIndex);
+			const worldX = blade.x, worldZ = blade.y, rotY = blade.z;
+			const boundary = bladeBound.element(instanceIndex);
+			const visible = select(hash(instanceIndex.add(9999)).lessThan(grassDensity.mul(0.5)), float(1), float(0));
+			const hVar = hash(instanceIndex.add(5555)).mul(bladeHeightVariation);
+			const heightScale = float(0.35).add(blade.w).add(hVar).mul(boundary).mul(visible);
+			const taper = float(1).sub(uv().y.mul(float(1).sub(bladeTipWidth)));
+			const lx = positionGeometry.x.mul(bladeWidth).mul(taper).mul(heightScale.sign());
+			const ly = positionGeometry.y.mul(heightScale).mul(bladeHeight);
+			const cY = cos(rotY), sY = sin(rotY);
+			const rx = lx.mul(cY), rz = lx.mul(sY);
+			const t = uv().y;
+			const bendFactor = pow(t, 1.8);
+			const staticBendX = hash(instanceIndex.add(7777)).sub(0.5).mul(bladeLean);
+			const staticBendZ = hash(instanceIndex.add(8888)).sub(0.5).mul(bladeLean);
+			const bendX = staticBendX.add(bend.x).add(bend.z);
+			const bendZ = staticBendZ.add(bend.y).add(bend.w);
+			const relX = rx.add(bendX.mul(bendFactor).mul(bladeHeight));
+			const relY = ly;
+			const relZ = rz.add(bendZ.mul(bendFactor).mul(bladeHeight));
+			const origLen = sqrt(rx.mul(rx).add(ly.mul(ly)).add(rz.mul(rz)));
+			const newLen = sqrt(relX.mul(relX).add(relY.mul(relY)).add(relZ.mul(relZ)));
+			const scale = origLen.div(newLen.max(0.0001));
+			return vec3(worldX.add(relX.mul(scale)), relY.mul(scale), worldZ.add(relZ.mul(scale)));
+		})();
+
+		grassMat.colorNode = Fn(() => {
+			const t = uv().y;
+			const clump = bladeData.element(instanceIndex).w.saturate();
+			const bladeHash = hash(instanceIndex.add(4242));
+			const isGolden = bladeHash.lessThan(0.4);
+			const lowerGrad = smoothstep(float(0.0), float(0.45), t);
+			const upperGrad = smoothstep(float(0.4), float(0.85), t);
+			const tipMix = float(1).sub(bladeColorVariation).add(clump.mul(bladeColorVariation));
+			const greenTip = mix(greenTipColor, bladeTipColor, tipMix);
+			const warmTip = mix(greenTipColor, goldenTipColor, tipMix);
+			const tipFinal = mix(greenTip, warmTip, select(isGolden, float(1), float(0)));
+			const lowerColor = mix(bladeBaseColor, midColor, lowerGrad);
+			const grassColor = mix(lowerColor, tipFinal, upperGrad);
+			const blade = bladeData.element(instanceIndex);
+			const dist = sqrt(blade.x.mul(blade.x).add(blade.y.mul(blade.y)));
+			const fogFactor = smoothstep(fogStart, fogEnd, dist).mul(fogIntensity);
+			return mix(grassColor, fogColor, fogFactor);
+		})();
+
+		grassMat.opacityNode = Fn(() => {
+			const blade = bladeData.element(instanceIndex);
+			const dist = sqrt(blade.x.mul(blade.x).add(blade.y.mul(blade.y)));
+			const fadeEnd = select(fogIntensity.greaterThan(0.01), fogEnd.add(2.0), float(15.0));
+			const fadeFactor = float(1).sub(smoothstep(fadeEnd.sub(5.0), fadeEnd, dist));
+			return smoothstep(float(0.0), float(0.1), uv().y).mul(fadeFactor);
+		})();
+		grassMat.transparent = true;
+
+		// ─── Instances ─────────────────────────────────────────────────────
+		const bladeGeo = createBladeGeometry();
+		const grass = new THREE.InstancedMesh(bladeGeo, grassMat, BLADE_COUNT);
+		grass.frustumCulled = false;
+		scene.add(grass);
+		const dummy = new THREE.Object3D();
+		for (let i = 0; i < BLADE_COUNT; i++) grass.setMatrixAt(i, dummy.matrix);
+		grass.instanceMatrix.needsUpdate = true;
+
+		// ─── Ground ────────────────────────────────────────────────────────
+		const groundMat = new THREE.MeshBasicNodeMaterial();
+		groundMat.colorNode = Fn(() => {
+			const wx = positionWorld.x, wz = positionWorld.z;
+			const dist = sqrt(wx.mul(wx).add(wz.mul(wz)));
+			const edgeNoise = noise2D(wx.mul(0.25).add(100), wz.mul(0.25).add(100));
+			const maxR = groundRadius.add(edgeNoise.sub(0.5).mul(4.0));
+			const t = smoothstep(maxR.sub(groundFalloff), maxR, dist);
+			return mix(groundColor, backgroundColor, t);
+		})();
+		const ground = new THREE.Mesh(new THREE.PlaneGeometry(FIELD_SIZE * 5, FIELD_SIZE * 5), groundMat);
+		ground.rotation.x = -Math.PI / 2;
+		scene.add(ground);
+
+		// ─── Lighting ──────────────────────────────────────────────────────
+		scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+		const dirLight = new THREE.DirectionalLight(0xfff4e0, 1.5);
+		dirLight.position.set(5, 10, 7);
+		scene.add(dirLight);
+
+		// ─── Post Processing (DoF) ─────────────────────────────────────────
+		const postProcessing = new THREE.PostProcessing(renderer);
+		const scenePass = pass(scene, camera);
+		scenePass.setMRT(mrt({
+			output: output,
+			normal: transformedNormalView,
+		}));
+		const sceneColor = scenePass.getTextureNode('output');
+		const sceneViewZ = scenePass.getViewZNode();
+		const dofOutput = dof(sceneColor, sceneViewZ, focusDistanceU, focalLengthU, bokehScaleU);
+
+		// Start with DoF ON (except mobile)
+		postProcessing.outputNode = isMobile ? sceneColor : dofOutput;
+		if (isMobile) dofEnabled = false;
+		postProcessing.needsUpdate = true;
+
+		function rebuildPipeline() {
+			if (dofEnabled) {
+				postProcessing.outputNode = dofOutput;
+			} else {
+				postProcessing.outputNode = sceneColor;
+			}
+			postProcessing.needsUpdate = true;
+		}
+
+		// ─── Mouse ─────────────────────────────────────────────────────────
+		const raycaster = new THREE.Raycaster();
+		const mouseNDC = new THREE.Vector2();
+		const grassPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+		const hitPoint = new THREE.Vector3();
+
+		window.addEventListener('mousemove', (e) => {
+			mouseNDC.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+			raycaster.setFromCamera(mouseNDC, camera);
+			if (raycaster.ray.intersectPlane(grassPlane, hitPoint)) {
+				mouseWorld.value.copy(hitPoint);
+				// Compute distance from camera to mouse hit for auto-focus
+				mouseFocusDist = camera.position.distanceTo(hitPoint);
+			}
+		});
+		window.addEventListener('mouseleave', () => mouseWorld.value.set(99999, 0, 99999));
+
+		let resizeTimeout;
+		window.addEventListener('resize', () => {
+			clearTimeout(resizeTimeout);
+			resizeTimeout = setTimeout(() => {
+				camera.aspect = innerWidth / innerHeight;
+				camera.updateProjectionMatrix();
+				const dpr = window.innerWidth < 1200 ? 1.5 : Math.min(devicePixelRatio, 2);
+				renderer.setPixelRatio(dpr);
+				renderer.setSize(innerWidth, innerHeight);
+			}, 100);
+		});
+
+		// ─── Settings Panel (keyboard S) ───────────────────────────────────
+		const settingsPanel = document.getElementById('settingsPanel');
+		let settingsOpen = false;
+
+		const settingsGear = document.getElementById('settingsGear');
+
+		function toggleSettings() {
+			settingsOpen = !settingsOpen;
+			settingsPanel.classList.toggle('open', settingsOpen);
+			settingsGear.classList.toggle('active', settingsOpen);
+		}
+
+		settingsGear.addEventListener('click', toggleSettings);
+
+		window.addEventListener('keydown', (e) => {
+			if (e.key === 's' || e.key === 'S') {
+				// Don't toggle if user is typing in an input
+				if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+				toggleSettings();
+			}
+		});
+
+		function buildSettings() {
+				// Color pickers (global scene colors not driven per-stage)
+			const colorControls = [
+				{ label: 'Background', u: backgroundColor, extra: (hex) => {
+					scene.background.set(hex);
+				}},
+				{ label: 'Ground', u: groundColor },
+			];
+
+			let html = '';
+
+			// Scene colors (global, not per-stage)
+			html += `<div class="sp-section"><div class="sp-section-title">Global Colors</div>`;
+			colorControls.forEach((c, idx) => {
+				const id = `sp_color_${idx}`;
+				const hex = '#' + c.u.value.getHexString();
+				html += `<div class="sp-color-row"><span class="sp-label">${c.label}</span><input type="color" class="sp-color-input" id="${id}" value="${hex}"></div>`;
+			});
+			html += `</div>`;
+
+			// Sky Gradient
+			html += `<div class="sp-section"><div class="sp-section-title">Sky Gradient</div>`;
+			const skyControls = [
+				{ label: 'Top (Zenith)', key: 'top' },
+				{ label: 'Mid High', key: 'midHigh' },
+				{ label: 'Mid Low', key: 'midLow' },
+				{ label: 'Horizon', key: 'horizon' },
+			];
+			skyControls.forEach((c, idx) => {
+				const id = `sp_sky_${idx}`;
+				const hex = '#' + skyColors[c.key].getHexString();
+				html += `<div class="sp-color-row"><span class="sp-label">${c.label}</span><input type="color" class="sp-color-input" id="${id}" value="${hex}"></div>`;
+			});
+			html += `</div>`;
+
+			// Camera Path Editor — one stage per section
+			html += `<div class="sp-section"><div class="sp-section-title">Camera Path</div>`;
+			// Mode toggle: Scroll / Edit
+			html += `<div style="display:flex;gap:6px;margin-bottom:12px;">`;
+			html += `<button id="modeScrollBtn" style="flex:1;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:7px 0;border:1px solid rgba(140,180,120,0.3);border-radius:6px;background:rgba(120,180,80,0.25);color:rgba(200,220,140,0.9);cursor:pointer;transition:all 0.3s;font-weight:500;">⏵ Scroll</button>`;
+			html += `<button id="modeEditBtn" style="flex:1;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:7px 0;border:1px solid rgba(140,180,120,0.12);border-radius:6px;background:rgba(140,180,120,0.06);color:rgba(180,210,140,0.4);cursor:pointer;transition:all 0.3s;font-weight:500;">✎ Edit</button>`;
+			html += `</div>`;
+			html += `<div id="modeHint" style="font-size:10px;color:rgba(180,210,140,0.3);margin-bottom:10px;line-height:1.5;">Scroll mode — camera follows scroll position naturally.</div>`;
+			html += `<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><button id="copyPathBtn" style="font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border:1px solid rgba(140,180,120,0.2);border-radius:4px;background:rgba(140,180,120,0.08);color:rgba(180,210,140,0.5);cursor:pointer;transition:all 0.3s;white-space:nowrap;">Copy JSON</button></div>`;
+			cameraPath.forEach((kf, i) => {
+				const name = stageNames[i] || `Stage ${i}`;
+				html += `<div class="cp-stage" id="cp_stage_${i}" data-stage="${i}" style="margin-bottom:8px;border:1px solid rgba(140,180,120,0.08);border-radius:8px;overflow:hidden;cursor:pointer;transition:opacity 0.3s;">`;
+				html += `<div class="cp-header" data-stage="${i}" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(140,180,120,0.04);transition:background 0.2s;">`;
+				html += `<span class="sp-label" style="color:rgba(180,210,140,0.5);font-weight:500;pointer-events:none;">${name}</span>`;
+				html += `<span style="font-size:9px;color:rgba(180,210,140,0.25);pointer-events:none;" id="cp_${i}_arrow">▸</span>`;
+				html += `</div>`;
+				html += `<div class="cp-controls" id="cp_${i}_controls" style="display:none;padding:6px 10px 10px;">`;
+				// Camera position/look
+				html += `<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(180,210,140,0.3);margin-bottom:8px;">Camera</div>`;
+				html += `<div class="sp-row"><span class="sp-label">Pos X</span><span class="sp-val" id="cp_${i}_px_v">${kf[1].toFixed(1)}</span></div>`;
+				html += `<input type="range" class="sp-slider" id="cp_${i}_px" min="-10" max="10" step="0.1" value="${kf[1]}">`;
+				html += `<div class="sp-row"><span class="sp-label">Pos Y</span><span class="sp-val" id="cp_${i}_py_v">${kf[2].toFixed(1)}</span></div>`;
+				html += `<input type="range" class="sp-slider" id="cp_${i}_py" min="0.1" max="15" step="0.1" value="${kf[2]}">`;
+				html += `<div class="sp-row"><span class="sp-label">Pos Z</span><span class="sp-val" id="cp_${i}_pz_v">${kf[3].toFixed(1)}</span></div>`;
+				html += `<input type="range" class="sp-slider" id="cp_${i}_pz" min="0" max="25" step="0.1" value="${kf[3]}">`;
+				html += `<div class="sp-row"><span class="sp-label">Look X</span><span class="sp-val" id="cp_${i}_lx_v">${kf[4].toFixed(1)}</span></div>`;
+				html += `<input type="range" class="sp-slider" id="cp_${i}_lx" min="-5" max="5" step="0.1" value="${kf[4]}">`;
+				html += `<div class="sp-row"><span class="sp-label">Look Y</span><span class="sp-val" id="cp_${i}_ly_v">${kf[5].toFixed(1)}</span></div>`;
+				html += `<input type="range" class="sp-slider" id="cp_${i}_ly" min="-2" max="3" step="0.1" value="${kf[5]}">`;
+				html += `<div class="sp-row"><span class="sp-label">Look Z</span><span class="sp-val" id="cp_${i}_lz_v">${kf[6].toFixed(1)}</span></div>`;
+				html += `<input type="range" class="sp-slider" id="cp_${i}_lz" min="-10" max="10" step="0.1" value="${kf[6]}">`;
+				html += `<div style="height:1px;background:rgba(140,180,120,0.08);margin:8px 0;"></div>`;
+				// DoF
+				html += `<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(180,210,140,0.3);margin-bottom:8px;">Depth of Field</div>`;
+				html += `<div class="sp-toggle-row"><span class="sp-label">DoF Enabled</span><div class="sp-toggle ${kf[9] ? 'active' : ''}" id="cp_${i}_dof"></div></div>`;
+				html += `<div id="cp_${i}_dof_controls" style="${kf[9] ? '' : 'opacity:0.3;pointer-events:none;'}">`;
+				html += `<div class="sp-toggle-row"><span class="sp-label">Auto Focus</span><div class="sp-toggle ${kf[8] ? 'active' : ''}" id="cp_${i}_af"></div></div>`;
+				html += `<div id="cp_${i}_manual_focus" style="${kf[8] ? 'opacity:0.3;pointer-events:none;' : ''}">`;
+				html += `<div class="sp-row"><span class="sp-label">Focus Dist</span><span class="sp-val" id="cp_${i}_fd_v">${kf[7].toFixed(1)}</span></div>`;
+				html += `<input type="range" class="sp-slider" id="cp_${i}_fd" min="0.3" max="40" step="0.1" value="${kf[7]}">`;
+				html += `</div>`;
+				html += `<div id="cp_${i}_af_settings" style="${kf[8] ? '' : 'opacity:0.3;pointer-events:none;'}">`;
+				html += `<div class="sp-row"><span class="sp-label">AF Speed</span><span class="sp-val" id="cp_${i}_afspd_v">${kf[12].toFixed(1)}</span></div>`;
+				html += `<input type="range" class="sp-slider" id="cp_${i}_afspd" min="0.5" max="20" step="0.5" value="${kf[12]}">`;
+				html += `<div class="sp-row"><span class="sp-label">AF Min</span><span class="sp-val" id="cp_${i}_afmin_v">${kf[13].toFixed(1)}</span></div>`;
+				html += `<input type="range" class="sp-slider" id="cp_${i}_afmin" min="0.1" max="10" step="0.1" value="${kf[13]}">`;
+				html += `<div class="sp-row"><span class="sp-label">AF Max</span><span class="sp-val" id="cp_${i}_afmax_v">${kf[14].toFixed(1)}</span></div>`;
+				html += `<input type="range" class="sp-slider" id="cp_${i}_afmax" min="1" max="50" step="0.5" value="${kf[14]}">`;
+				html += `</div>`;
+				html += `<div class="sp-row"><span class="sp-label">Focal Length</span><span class="sp-val" id="cp_${i}_fl_v">${kf[10].toFixed(1)}</span></div>`;
+				html += `<input type="range" class="sp-slider" id="cp_${i}_fl" min="0.1" max="20" step="0.1" value="${kf[10]}">`;
+				html += `<div class="sp-row"><span class="sp-label">Bokeh Scale</span><span class="sp-val" id="cp_${i}_bk_v">${kf[11].toFixed(1)}</span></div>`;
+				html += `<input type="range" class="sp-slider" id="cp_${i}_bk" min="0" max="40" step="0.5" value="${kf[11]}">`;
+				html += `</div>`;
+				html += `<div style="height:1px;background:rgba(140,180,120,0.08);margin:8px 0;"></div>`;
+				// Per-stage params grouped
+				const sp = stageParams[i];
+				const groups = {};
+				stageParamKeys.forEach(k => {
+					const d = stageParamDefs[k];
+					if (!groups[d.group]) groups[d.group] = [];
+					groups[d.group].push({ key: k, ...d, val: sp[k] });
+				});
+				// Group color channels into combined color pickers + individual sliders
+				Object.keys(groups).forEach(grp => {
+					html += `<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(180,210,140,0.3);margin:8px 0 6px;">Stage ${grp}</div>`;
+					// Find color groups for combined pickers
+					const colorGroupsMap = {};
+					groups[grp].forEach(c => {
+						if (c.isColor) {
+							if (!colorGroupsMap[c.isColor]) colorGroupsMap[c.isColor] = [];
+							colorGroupsMap[c.isColor].push(c);
+						}
+					});
+					// Render combined color pickers first
+					const renderedColorKeys = new Set();
+					Object.keys(colorGroupsMap).forEach(colorName => {
+						const channels = colorGroupsMap[colorName];
+						const rCh = channels.find(c => c.ch === 'r');
+						const gCh = channels.find(c => c.ch === 'g');
+						const bCh = channels.find(c => c.ch === 'b');
+						if (rCh && gCh && bCh) {
+							const r = Math.round(rCh.val * 255), g = Math.round(gCh.val * 255), b = Math.round(bCh.val * 255);
+							const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+							const cpId = `sp_stage_${i}_cpick_${colorName}`;
+							const shortLabel = colorName.replace('Color','').replace(/([A-Z])/g,' $1').trim();
+							html += `<div class="sp-color-row"><span class="sp-label">${shortLabel}</span><input type="color" class="sp-color-input" id="${cpId}" value="${hex}"></div>`;
+							channels.forEach(c => renderedColorKeys.add(c.key));
+						}
+					});
+					// Now render all sliders (including color channel sliders for fine-tuning)
+					groups[grp].forEach(c => {
+						const sid = `sp_stage_${i}_${c.key}`;
+						html += `<div class="sp-row"><span class="sp-label">${c.label}</span><span class="sp-val" id="${sid}_v">${c.val.toFixed(2)}</span></div>`;
+						html += `<input type="range" class="sp-slider" id="${sid}" min="${c.min}" max="${c.max}" step="${c.step}" value="${c.val}">`;
+					});
+				});
+				html += `</div>`;
+				html += `</div>`;
+			});
+			html += `</div>`;
+
+			// Typography Colors
+			html += `<div class="sp-section"><div class="sp-section-title">Typography Colors</div>`;
+			const typoColors = [
+				{ label: 'Heading', cssVar: '--color-heading', defaultVal: '#f8fcf0' },
+				{ label: 'Accent / Emphasis', cssVar: '--color-accent', defaultVal: '#e6f578' },
+				{ label: 'Body Text', cssVar: '--color-body', defaultVal: '#d7e6be' },
+				{ label: 'Labels / Caps', cssVar: '--color-label', defaultVal: '#d2e6a0' },
+			];
+			typoColors.forEach((tc, idx) => {
+				const id = `sp_typo_${idx}`;
+				// Read current computed value or use default
+				const current = getComputedStyle(document.documentElement).getPropertyValue(tc.cssVar).trim() || tc.defaultVal;
+				html += `<div class="sp-color-row"><span class="sp-label">${tc.label}</span><input type="color" class="sp-color-input" id="${id}" value="${tc.defaultVal}"></div>`;
+			});
+			html += `</div>`;
+
+			// Global Rendering
+			html += `<div class="sp-section"><div class="sp-section-title">Rendering</div>`;
+			html += `<div class="sp-toggle-row"><span class="sp-label">Depth of Field</span><div class="sp-toggle ${globalDofEnabled ? 'active' : ''}" id="globalDofToggle"></div></div>`;
+			html += `</div>`;
+
+			// Debug
+			html += `<div class="sp-section"><div class="sp-section-title">Debug</div>`;
+			html += `<div class="sp-toggle-row"><span class="sp-label">FPS Counter</span><div class="sp-toggle" id="fpsToggle"></div></div>`;
+			html += `</div>`;
+
+			settingsPanel.innerHTML = html;
+
+			// Wire sky gradient pickers
+			skyControls.forEach((c, idx) => {
+				const id = `sp_sky_${idx}`;
+				const input = document.getElementById(id);
+				input.addEventListener('input', () => {
+					skyColors[c.key].set(input.value);
+					scene.background = buildSkyTexture();
+				});
+			});
+
+			// Wire color pickers
+			colorControls.forEach((c, idx) => {
+				const id = `sp_color_${idx}`;
+				const input = document.getElementById(id);
+				input.addEventListener('input', () => {
+					c.u.value.set(input.value);
+					if (c.extra) c.extra(input.value);
+				});
+			});
+
+			// Camera path editor wiring
+			let activeStage = -1;
+			let cameraOverride = -1;
+			let editorMode = 'scroll'; // 'scroll' or 'edit'
+
+			const modeScrollBtn = document.getElementById('modeScrollBtn');
+			const modeEditBtn = document.getElementById('modeEditBtn');
+			const modeHint = document.getElementById('modeHint');
+
+			function setMode(mode) {
+				editorMode = mode;
+				if (mode === 'scroll') {
+					modeScrollBtn.style.background = 'rgba(120,180,80,0.25)';
+					modeScrollBtn.style.borderColor = 'rgba(140,180,120,0.3)';
+					modeScrollBtn.style.color = 'rgba(200,220,140,0.9)';
+					modeEditBtn.style.background = 'rgba(140,180,120,0.06)';
+					modeEditBtn.style.borderColor = 'rgba(140,180,120,0.12)';
+					modeEditBtn.style.color = 'rgba(180,210,140,0.4)';
+					modeHint.textContent = 'Scroll mode — camera follows scroll position naturally.';
+					// Collapse any open stage and release override
+					if (activeStage >= 0) {
+						const prevControls = document.getElementById(`cp_${activeStage}_controls`);
+						const prevArrow = document.getElementById(`cp_${activeStage}_arrow`);
+						const prevStage = document.getElementById(`cp_stage_${activeStage}`);
+						if (prevControls) prevControls.style.display = 'none';
+						if (prevArrow) prevArrow.textContent = '▸';
+						if (prevStage) prevStage.style.borderColor = 'rgba(140,180,120,0.08)';
+					}
+					activeStage = -1;
+					cameraOverride = -1;
+					// Dim all stage headers
+					cameraPath.forEach((_, j) => {
+						const el = document.getElementById(`cp_stage_${j}`);
+						if (el) { el.style.opacity = '0.5'; el.style.pointerEvents = 'none'; }
+					});
+				} else {
+					modeEditBtn.style.background = 'rgba(120,180,80,0.25)';
+					modeEditBtn.style.borderColor = 'rgba(140,180,120,0.3)';
+					modeEditBtn.style.color = 'rgba(200,220,140,0.9)';
+					modeScrollBtn.style.background = 'rgba(140,180,120,0.06)';
+					modeScrollBtn.style.borderColor = 'rgba(140,180,120,0.12)';
+					modeScrollBtn.style.color = 'rgba(180,210,140,0.4)';
+					modeHint.textContent = 'Edit mode — click a stage to lock camera & tweak values. Switch to Scroll to preview transitions.';
+					// Enable all stage headers
+					cameraPath.forEach((_, j) => {
+						const el = document.getElementById(`cp_stage_${j}`);
+						if (el) { el.style.opacity = '1'; el.style.pointerEvents = 'auto'; }
+					});
+					// Auto-select first stage (or re-select previously active)
+					const startStage = activeStage >= 0 ? activeStage : 0;
+					selectStage(startStage);
+				}
+			}
+
+			modeScrollBtn.addEventListener('click', () => setMode('scroll'));
+			modeEditBtn.addEventListener('click', () => setMode('edit'));
+
+			let expandedStage = -1;
+
+			function selectStage(i) {
+				// Deselect previous highlight
+				if (activeStage >= 0 && activeStage !== i) {
+					const prevStage = document.getElementById(`cp_stage_${activeStage}`);
+					if (prevStage) prevStage.style.borderColor = 'rgba(140,180,120,0.08)';
+					// Collapse previous if it was expanded
+					if (expandedStage === activeStage) {
+						const prevControls = document.getElementById(`cp_${activeStage}_controls`);
+						const prevArrow = document.getElementById(`cp_${activeStage}_arrow`);
+						if (prevControls) prevControls.style.display = 'none';
+						if (prevArrow) prevArrow.textContent = '▸';
+						expandedStage = -1;
+					}
+				}
+				// Highlight selected (but don't expand)
+				const stageEl = document.getElementById(`cp_stage_${i}`);
+				if (stageEl) stageEl.style.borderColor = 'rgba(180,210,140,0.35)';
+				activeStage = i;
+				cameraOverride = i;
+				modeHint.textContent = `Editing: ${stageNames[i]} — click again to expand controls.`;
+				scrollToStage(i);
+				// Force scroll position to match keyframe so scroll and edit mode are consistent
+				currentScrollT = cameraPath[i][0];
+				targetScrollT = cameraPath[i][0];
+
+				// Force-apply this stage's params to uniforms immediately so preview is correct
+				const kf = cameraPath[i];
+				const sp = stageParams[i];
+				camera.position.set(kf[1], kf[2], kf[3]);
+				lookTarget.set(kf[4], kf[5], kf[6]);
+				camera.lookAt(lookTarget);
+				// Apply all per-stage params to uniforms right now
+				fogStart.value = sp.fogStart;
+				fogEnd.value = sp.fogEnd;
+				fogIntensity.value = sp.fogIntensity;
+				fogColor.value.setRGB(sp.fogR, sp.fogG, sp.fogB);
+				if (scene.fog) scene.fog.color.setRGB(sp.fogR, sp.fogG, sp.fogB);
+				grassDensity.value = sp.grassDensity;
+				bladeWidth.value = sp.bladeWidth;
+				bladeTipWidth.value = sp.bladeTipWidth;
+				bladeHeight.value = sp.bladeHeight;
+				bladeHeightVariation.value = sp.bladeHeightVar;
+				bladeLean.value = sp.bladeLean;
+				_baseWindSpeed = sp.windSpeed;
+				_baseWindAmp = sp.windAmplitude;
+				windSpeed.value = sp.windSpeed;
+				windAmplitude.value = sp.windAmplitude;
+				noiseAmplitude.value = sp.noiseAmp;
+				noiseFrequency.value = sp.noiseFreq;
+				noise2Amplitude.value = sp.noise2Amp;
+				noise2Frequency.value = sp.noise2Freq;
+				mouseRadius.value = sp.mouseRadius;
+				mouseStrength.value = sp.mouseStrength;
+				outerRadius.value = sp.outerRadius;
+				outerStrength.value = sp.outerStrength;
+				bladeBaseColor.value.setRGB(sp.bladeBaseR, sp.bladeBaseG, sp.bladeBaseB);
+				bladeTipColor.value.setRGB(sp.bladeTipR, sp.bladeTipG, sp.bladeTipB);
+				goldenTipColor.value.setRGB(sp.goldenTipR, sp.goldenTipG, sp.goldenTipB);
+				greenTipColor.value.setRGB(sp.greenTipR, sp.greenTipG, sp.greenTipB);
+				midColor.value.setRGB(sp.midR, sp.midG, sp.midB);
+				bladeColorVariation.value = sp.colorVar;
+				camSphereRadius.value = sp.camSphereRadius;
+				camSphereStrength.value = sp.camSphereStrength;
+				// DoF
+				const shouldDof = !!kf[9];
+				if (shouldDof !== dofEnabled) {
+					dofEnabled = shouldDof;
+					rebuildPipeline();
+				}
+				if (dofEnabled) {
+					focusDistanceU.value = kf[7];
+					focalLengthU.value = kf[10];
+					bokehScaleU.value = kf[11];
+				}
+			}
+
+			// Initialize — start in scroll mode, stages dimmed
+			setMode('scroll');
+
+			function scrollToStage(stageIndex) {
+				const section = document.querySelector(`.section[data-stage="${stageIndex}"]`);
+				if (section) {
+					section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				}
+			}
+
+			cameraPath.forEach((kf, i) => {
+				const header = document.querySelector(`#cp_stage_${i} .cp-header`);
+				const controls = document.getElementById(`cp_${i}_controls`);
+				const arrow = document.getElementById(`cp_${i}_arrow`);
+				const stageEl = document.getElementById(`cp_stage_${i}`);
+
+				header.addEventListener('click', () => {
+					// Only respond in edit mode
+					if (editorMode !== 'edit') return;
+
+					if (activeStage === i) {
+						// Already selected — toggle expand/collapse
+						const controls = document.getElementById(`cp_${i}_controls`);
+						const arrow = document.getElementById(`cp_${i}_arrow`);
+						if (expandedStage === i) {
+							// Collapse
+							if (controls) controls.style.display = 'none';
+							if (arrow) arrow.textContent = '▸';
+							expandedStage = -1;
+							modeHint.textContent = `Editing: ${stageNames[i]} — click again to expand controls.`;
+						} else {
+							// Expand
+							if (controls) controls.style.display = 'block';
+							if (arrow) arrow.textContent = '▾';
+							expandedStage = i;
+							modeHint.textContent = `Editing: ${stageNames[i]} — changes apply in real-time.`;
+						}
+						return;
+					}
+
+					selectStage(i);
+				});
+
+				// Wire all 6 sliders (posX, posY, posZ, lookX, lookY, lookZ)
+				const fields = [
+					{ key: 'px', idx: 1 },
+					{ key: 'py', idx: 2 },
+					{ key: 'pz', idx: 3 },
+					{ key: 'lx', idx: 4 },
+					{ key: 'ly', idx: 5 },
+					{ key: 'lz', idx: 6 },
+				];
+
+				fields.forEach(f => {
+					const slider = document.getElementById(`cp_${i}_${f.key}`);
+					const valEl = document.getElementById(`cp_${i}_${f.key}_v`);
+					slider.addEventListener('input', () => {
+						kf[f.idx] = parseFloat(slider.value);
+						valEl.textContent = kf[f.idx].toFixed(1);
+					});
+				});
+
+				// DoF enabled toggle per stage
+				const dofToggleEl = document.getElementById(`cp_${i}_dof`);
+				const dofControlsEl = document.getElementById(`cp_${i}_dof_controls`);
+				dofToggleEl.addEventListener('click', () => {
+					kf[9] = kf[9] ? 0 : 1;
+					dofToggleEl.classList.toggle('active', !!kf[9]);
+					dofControlsEl.style.opacity = kf[9] ? '1' : '0.3';
+					dofControlsEl.style.pointerEvents = kf[9] ? 'auto' : 'none';
+				});
+
+				// Focus distance slider
+				const fdSlider = document.getElementById(`cp_${i}_fd`);
+				const fdVal = document.getElementById(`cp_${i}_fd_v`);
+				fdSlider.addEventListener('input', () => {
+					kf[7] = parseFloat(fdSlider.value);
+					fdVal.textContent = kf[7].toFixed(1);
+				});
+
+				// Auto focus toggle per stage
+				const afToggle = document.getElementById(`cp_${i}_af`);
+				const manualFocusEl = document.getElementById(`cp_${i}_manual_focus`);
+				const afSettingsEl = document.getElementById(`cp_${i}_af_settings`);
+				afToggle.addEventListener('click', () => {
+					kf[8] = kf[8] ? 0 : 1;
+					afToggle.classList.toggle('active', !!kf[8]);
+					manualFocusEl.style.opacity = kf[8] ? '0.3' : '1';
+					manualFocusEl.style.pointerEvents = kf[8] ? 'none' : 'auto';
+					afSettingsEl.style.opacity = kf[8] ? '1' : '0.3';
+					afSettingsEl.style.pointerEvents = kf[8] ? 'auto' : 'none';
+				});
+
+				// AF Speed slider
+				const afspdSlider = document.getElementById(`cp_${i}_afspd`);
+				const afspdVal = document.getElementById(`cp_${i}_afspd_v`);
+				afspdSlider.addEventListener('input', () => {
+					kf[12] = parseFloat(afspdSlider.value);
+					afspdVal.textContent = kf[12].toFixed(1);
+				});
+
+				// AF Min slider
+				const afminSlider = document.getElementById(`cp_${i}_afmin`);
+				const afminVal = document.getElementById(`cp_${i}_afmin_v`);
+				afminSlider.addEventListener('input', () => {
+					kf[13] = parseFloat(afminSlider.value);
+					afminVal.textContent = kf[13].toFixed(1);
+				});
+
+				// AF Max slider
+				const afmaxSlider = document.getElementById(`cp_${i}_afmax`);
+				const afmaxVal = document.getElementById(`cp_${i}_afmax_v`);
+				afmaxSlider.addEventListener('input', () => {
+					kf[14] = parseFloat(afmaxSlider.value);
+					afmaxVal.textContent = kf[14].toFixed(1);
+				});
+
+				// Focal Length slider
+				const flSlider = document.getElementById(`cp_${i}_fl`);
+				const flVal = document.getElementById(`cp_${i}_fl_v`);
+				flSlider.addEventListener('input', () => {
+					kf[10] = parseFloat(flSlider.value);
+					flVal.textContent = kf[10].toFixed(1);
+				});
+
+				// Bokeh Scale slider
+				const bkSlider = document.getElementById(`cp_${i}_bk`);
+				const bkVal = document.getElementById(`cp_${i}_bk_v`);
+				bkSlider.addEventListener('input', () => {
+					kf[11] = parseFloat(bkSlider.value);
+					bkVal.textContent = kf[11].toFixed(1);
+				});
+
+				// Wire per-stage param sliders
+				stageParamKeys.forEach(k => {
+					const sid = `sp_stage_${i}_${k}`;
+					const slider = document.getElementById(sid);
+					const valEl = document.getElementById(`${sid}_v`);
+					if (slider && valEl) {
+						slider.addEventListener('input', () => {
+							const v = parseFloat(slider.value);
+							stageParams[i][k] = v;
+							valEl.textContent = v.toFixed(2);
+							// Update the combined color picker if this is a color channel
+							const d = stageParamDefs[k];
+							if (d.isColor && d.ch) {
+								updateStageColorPicker(i, d.isColor);
+							}
+						});
+					}
+				});
+
+				// Wire combined color pickers for this stage
+				const stageColorGroups = {};
+				stageParamKeys.forEach(k => {
+					const d = stageParamDefs[k];
+					if (d.isColor) {
+						if (!stageColorGroups[d.isColor]) stageColorGroups[d.isColor] = [];
+						stageColorGroups[d.isColor].push(k);
+					}
+				});
+				Object.keys(stageColorGroups).forEach(colorName => {
+					const cpId = `sp_stage_${i}_cpick_${colorName}`;
+					const cpEl = document.getElementById(cpId);
+					if (cpEl) {
+						cpEl.addEventListener('input', () => {
+							const hex = cpEl.value;
+							const r = parseInt(hex.substr(1,2),16)/255;
+							const g = parseInt(hex.substr(3,2),16)/255;
+							const b = parseInt(hex.substr(5,2),16)/255;
+							// Find the R/G/B keys for this color
+							stageColorGroups[colorName].forEach(k => {
+								const d = stageParamDefs[k];
+								if (d.ch === 'r') stageParams[i][k] = r;
+								if (d.ch === 'g') stageParams[i][k] = g;
+								if (d.ch === 'b') stageParams[i][k] = b;
+								// Update associated slider + value display
+								const sid = `sp_stage_${i}_${k}`;
+								const sl = document.getElementById(sid);
+								const vl = document.getElementById(`${sid}_v`);
+								if (sl) sl.value = stageParams[i][k];
+								if (vl) vl.textContent = stageParams[i][k].toFixed(2);
+							});
+						});
+					}
+				});
+			});
+
+			// Helper: update a combined color picker from individual channel sliders
+			function updateStageColorPicker(stageIdx, colorName) {
+				const cpId = `sp_stage_${stageIdx}_cpick_${colorName}`;
+				const cpEl = document.getElementById(cpId);
+				if (!cpEl) return;
+				// Find the R/G/B keys
+				let r = 0, g = 0, b = 0;
+				stageParamKeys.forEach(k => {
+					const d = stageParamDefs[k];
+					if (d.isColor === colorName) {
+						if (d.ch === 'r') r = stageParams[stageIdx][k];
+						if (d.ch === 'g') g = stageParams[stageIdx][k];
+						if (d.ch === 'b') b = stageParams[stageIdx][k];
+					}
+				});
+				const hex = '#' + [r,g,b].map(v => Math.round(Math.min(1,Math.max(0,v))*255).toString(16).padStart(2,'0')).join('');
+				cpEl.value = hex;
+			}
+
+			// Expose camera override for animate loop — only active in edit mode
+			window._getCameraOverride = () => (editorMode === 'edit' ? cameraOverride : -1);
+			window._getEditorMode = () => editorMode;
+
+			// Copy Path JSON button
+			const copyPathBtn = document.getElementById('copyPathBtn');
+			copyPathBtn.addEventListener('mouseenter', () => {
+				copyPathBtn.style.background = 'rgba(140,180,120,0.2)';
+				copyPathBtn.style.borderColor = 'rgba(180,210,140,0.4)';
+				copyPathBtn.style.color = 'rgba(200,220,140,0.8)';
+			});
+			copyPathBtn.addEventListener('mouseleave', () => {
+				copyPathBtn.style.background = 'rgba(140,180,120,0.08)';
+				copyPathBtn.style.borderColor = 'rgba(140,180,120,0.2)';
+				copyPathBtn.style.color = 'rgba(180,210,140,0.5)';
+			});
+			copyPathBtn.addEventListener('click', () => {
+				const json = JSON.stringify(cameraPath.map((kf, i) => ({
+					stage: stageNames[i],
+					scroll: kf[0],
+					pos: { x: kf[1], y: kf[2], z: kf[3] },
+					look: { x: kf[4], y: kf[5], z: kf[6] },
+					focusDist: kf[7],
+					autoFocus: !!kf[8],
+					dofEnabled: !!kf[9],
+					focalLength: kf[10],
+					bokehScale: kf[11],
+					afSpeed: kf[12],
+					afMin: kf[13],
+					afMax: kf[14],
+					params: stageParams[i],
+				})), null, 2);
+				navigator.clipboard.writeText(json).then(() => {
+					const orig = copyPathBtn.textContent;
+					copyPathBtn.textContent = 'Copied!';
+					copyPathBtn.style.color = 'rgba(180,220,100,0.9)';
+					setTimeout(() => {
+						copyPathBtn.textContent = orig;
+						copyPathBtn.style.color = 'rgba(180,210,140,0.5)';
+					}, 1500);
+				}).catch(() => {
+					// Fallback: select text in a textarea
+					const ta = document.createElement('textarea');
+					ta.value = json;
+					document.body.appendChild(ta);
+					ta.select();
+					document.execCommand('copy');
+					document.body.removeChild(ta);
+					const orig = copyPathBtn.textContent;
+					copyPathBtn.textContent = 'Copied!';
+					setTimeout(() => { copyPathBtn.textContent = orig; }, 1500);
+				});
+			});
+
+			// Wire typography color pickers
+			typoColors.forEach((tc, idx) => {
+				const id = `sp_typo_${idx}`;
+				const input = document.getElementById(id);
+				input.addEventListener('input', () => {
+					document.documentElement.style.setProperty(tc.cssVar, input.value);
+				});
+			});
+
+			// Global DoF toggle
+			const globalDofToggle = document.getElementById('globalDofToggle');
+			globalDofToggle.addEventListener('click', () => {
+				globalDofEnabled = !globalDofEnabled;
+				globalDofToggle.classList.toggle('active', globalDofEnabled);
+				if (!globalDofEnabled) {
+					dofEnabled = false;
+					rebuildPipeline();
+				}
+			});
+
+			// FPS toggle
+			const fpsToggle = document.getElementById('fpsToggle');
+			fpsToggle.addEventListener('click', () => {
+				fpsEnabled = !fpsEnabled;
+				fpsToggle.classList.toggle('active', fpsEnabled);
+				if (fpsOverlay) fpsOverlay.style.display = fpsEnabled ? 'block' : 'none';
+			});
+		}
+
+		// ─── FPS Overlay ───────────────────────────────────────────────────
+		let fpsEnabled = false;
+		let fpsOverlay = document.createElement('div');
+		fpsOverlay.style.cssText = 'position:fixed;top:10px;left:10px;z-index:400;font:12px/1 "Inter",monospace;color:rgba(180,210,140,0.6);background:rgba(0,0,0,0.4);padding:5px 10px;border-radius:6px;pointer-events:none;display:none;';
+		document.body.appendChild(fpsOverlay);
+		let fpsFrames = 0, fpsLast = performance.now();
+
+		// ─── Wind Button ───────────────────────────────────────────────────
+		let windBurst = 0;
+		let _baseWindSpeed = 1.3;
+		let _baseWindAmp = 0.21;
+		let globalDofEnabled = !isMobile;
+
+		// ─── Scroll-Driven Camera (one keyframe per section) ───────────────
+		// [scrollProgress, posX, posY, posZ, lookX, lookY, lookZ]
+		const stageNames = ['Hero', 'Manifesto', 'Pillars', 'Stats', 'Quote', 'CTA', 'Footer'];
+
+		// Per-stage parameter definitions with defaults
+		// Each key maps to: { uniform, default, min, max, step, label, group }
+		const stageParamDefs = {
+			// Fog
+			fogStart:    { u: fogStart,    def: 6.5,  min: 0,   max: 20, step: 0.5, label: 'Fog Start',     group: 'Fog' },
+			fogEnd:      { u: fogEnd,      def: 12.0, min: 1,   max: 30, step: 0.5, label: 'Fog End',       group: 'Fog' },
+			fogIntensity:{ u: fogIntensity, def: 1.0, min: 0,   max: 1,  step: 0.01, label: 'Fog Intensity', group: 'Fog' },
+			fogR:        { def: 0, min: 0, max: 1, step: 0.01, label: 'Fog Red',   group: 'Fog', isColor: 'fogColor', ch: 'r' },
+			fogG:        { def: 0, min: 0, max: 1, step: 0.01, label: 'Fog Green', group: 'Fog', isColor: 'fogColor', ch: 'g' },
+			fogB:        { def: 0, min: 0, max: 1, step: 0.01, label: 'Fog Blue',  group: 'Fog', isColor: 'fogColor', ch: 'b' },
+			// Grass
+			grassDensity:      { u: grassDensity,        def: 1.0,  min: 0,   max: 1,  step: 0.01, label: 'Density',        group: 'Grass' },
+			bladeWidth:        { u: bladeWidth,           def: 4.0,  min: 0.2, max: 4,  step: 0.05, label: 'Blade Width',    group: 'Grass' },
+			bladeTipWidth:     { u: bladeTipWidth,        def: 0.19, min: 0,   max: 1,  step: 0.01, label: 'Tip Width',      group: 'Grass' },
+			bladeHeight:       { u: bladeHeight,          def: 1.6,  min: 0.1, max: 2,  step: 0.05, label: 'Blade Height',   group: 'Grass' },
+			bladeHeightVar:    { u: bladeHeightVariation, def: 0.5,  min: 0,   max: 1,  step: 0.01, label: 'Height Var',     group: 'Grass' },
+			bladeLean:         { u: bladeLean,            def: 1.1,  min: 0,   max: 3,  step: 0.05, label: 'Lean',           group: 'Grass' },
+			// Wind
+			windSpeed:    { u: windSpeed,     def: 1.3,  min: 0, max: 5, step: 0.1,  label: 'Wind Speed',  group: 'Wind' },
+			windAmplitude:{ u: windAmplitude,  def: 0.21, min: 0, max: 1, step: 0.01, label: 'Wind Amp',    group: 'Wind' },
+			// Noise
+			noiseAmp:     { u: noiseAmplitude,  def: 1.85, min: 0,    max: 4,  step: 0.05, label: 'Noise Amp',    group: 'Noise' },
+			noiseFreq:    { u: noiseFrequency,  def: 0.3,  min: 0.01, max: 1,  step: 0.01, label: 'Noise Freq',   group: 'Noise' },
+			noise2Amp:    { u: noise2Amplitude, def: 0.2,  min: 0,    max: 1,  step: 0.01, label: 'Detail Amp',   group: 'Noise' },
+			noise2Freq:   { u: noise2Frequency, def: 15,   min: 1,    max: 30, step: 0.5,  label: 'Detail Freq',  group: 'Noise' },
+			// Mouse Sphere
+			mouseRadius:   { u: mouseRadius,   def: 6.1,  min: 0.5, max: 8,  step: 0.1,  label: 'Mouse Radius',   group: 'Mouse Sphere' },
+			mouseStrength: { u: mouseStrength,  def: 4.0,  min: 0,   max: 5,  step: 0.1,  label: 'Mouse Strength', group: 'Mouse Sphere' },
+			outerRadius:   { u: outerRadius,    def: 9.4,  min: 1,   max: 12, step: 0.1,  label: 'Outer Radius',   group: 'Mouse Sphere' },
+			outerStrength: { u: outerStrength,   def: 1.45, min: 0,   max: 3,  step: 0.05, label: 'Outer Strength', group: 'Mouse Sphere' },
+			// Camera Sphere
+			camSphereRadius:   { def: 15.0, min: 1,  max: 15, step: 0.1, label: 'Cam Radius',   group: 'Camera Sphere', noDirect: true },
+			camSphereStrength: { def: 5.9,  min: 0,  max: 6,  step: 0.1, label: 'Cam Strength',  group: 'Camera Sphere', noDirect: true },
+			// Scene Colors — blade base
+			bladeBaseR: { def: 0.055, min: 0, max: 1, step: 0.01, label: 'Base Red',     group: 'Scene Colors', isColor: 'bladeBaseColor', ch: 'r' },
+			bladeBaseG: { def: 0.118, min: 0, max: 1, step: 0.01, label: 'Base Green',   group: 'Scene Colors', isColor: 'bladeBaseColor', ch: 'g' },
+			bladeBaseB: { def: 0.016, min: 0, max: 1, step: 0.01, label: 'Base Blue',    group: 'Scene Colors', isColor: 'bladeBaseColor', ch: 'b' },
+			// Scene Colors — blade tip
+			bladeTipR:  { def: 0.784, min: 0, max: 1, step: 0.01, label: 'Tip Red',      group: 'Scene Colors', isColor: 'bladeTipColor', ch: 'r' },
+			bladeTipG:  { def: 0.722, min: 0, max: 1, step: 0.01, label: 'Tip Green',    group: 'Scene Colors', isColor: 'bladeTipColor', ch: 'g' },
+			bladeTipB:  { def: 0.251, min: 0, max: 1, step: 0.01, label: 'Tip Blue',     group: 'Scene Colors', isColor: 'bladeTipColor', ch: 'b' },
+			// Scene Colors — golden tip
+			goldenTipR: { def: 0.831, min: 0, max: 1, step: 0.01, label: 'Gold Tip R',   group: 'Scene Colors', isColor: 'goldenTipColor', ch: 'r' },
+			goldenTipG: { def: 0.722, min: 0, max: 1, step: 0.01, label: 'Gold Tip G',   group: 'Scene Colors', isColor: 'goldenTipColor', ch: 'g' },
+			goldenTipB: { def: 0.220, min: 0, max: 1, step: 0.01, label: 'Gold Tip B',   group: 'Scene Colors', isColor: 'goldenTipColor', ch: 'b' },
+			// Scene Colors — green tip
+			greenTipR:  { def: 0.290, min: 0, max: 1, step: 0.01, label: 'Green Tip R',  group: 'Scene Colors', isColor: 'greenTipColor', ch: 'r' },
+			greenTipG:  { def: 0.478, min: 0, max: 1, step: 0.01, label: 'Green Tip G',  group: 'Scene Colors', isColor: 'greenTipColor', ch: 'g' },
+			greenTipB:  { def: 0.078, min: 0, max: 1, step: 0.01, label: 'Green Tip B',  group: 'Scene Colors', isColor: 'greenTipColor', ch: 'b' },
+			// Scene Colors — mid tone
+			midR:       { def: 0.176, min: 0, max: 1, step: 0.01, label: 'Mid Tone R',   group: 'Scene Colors', isColor: 'midColor', ch: 'r' },
+			midG:       { def: 0.306, min: 0, max: 1, step: 0.01, label: 'Mid Tone G',   group: 'Scene Colors', isColor: 'midColor', ch: 'g' },
+			midB:       { def: 0.055, min: 0, max: 1, step: 0.01, label: 'Mid Tone B',   group: 'Scene Colors', isColor: 'midColor', ch: 'b' },
+			// Color variation
+			colorVar:   { u: bladeColorVariation, def: 0.93, min: 0, max: 1, step: 0.01, label: 'Color Var', group: 'Scene Colors' },
+		};
+
+		const stageParamKeys = Object.keys(stageParamDefs);
+
+		// Color uniform lookup for applying interpolated color channels
+		const colorUniformMap = {
+			fogColor: fogColor,
+			bladeBaseColor: bladeBaseColor,
+			bladeTipColor: bladeTipColor,
+			goldenTipColor: goldenTipColor,
+			greenTipColor: greenTipColor,
+			midColor: midColor,
+		};
+
+		// Build default params object — reads current uniform values for colors
+		function getDefaultParams() {
+			const p = {};
+			stageParamKeys.forEach(k => {
+				const d = stageParamDefs[k];
+				if (d.isColor && d.ch) {
+					// Pull actual current value from the uniform
+					const cu = colorUniformMap[d.isColor];
+					if (cu) {
+						p[k] = cu.value[d.ch];
+					} else {
+						p[k] = d.def;
+					}
+				} else {
+					p[k] = d.def;
+				}
+			});
+			return p;
+		}
+
+		// Per-stage camera path with full DoF settings
+		// [scroll, posX, posY, posZ, lookX, lookY, lookZ, focusDist, autoFocus, dofOn, focalLen, bokehScale, afSpeed, afMin, afMax]
+		//  0       1     2     3     4      5      6      7          8          9      10        11          12       13     14
+		const cameraPath = [
+			[0.00, -2.8,  7.2, 19.6,  0.5, 1.5,  0.4, 22.0, 1, 1, 10.0, 12.5, 5.0, 1.0, 40.0],  // Hero
+			[0.14,  0,    2.2, 14.0,  0,  -2.0,   0,   15.0, 1, 1,  8.0, 10.0, 5.0, 1.0, 30.0],  // Manifesto
+			[0.28,  7.5, 10.9, 15.8,  0,   0.0,   0.7, 10.0, 1, 1,  6.0,  8.0, 5.0, 0.5, 20.0],  // Pillars
+			[0.43, -8.0,  6.8, 21.6,  0,   0.2,   0,    7.0, 1, 1,  5.0, 10.0, 5.0, 0.5, 15.0],  // Stats
+			[0.57, -1.0,  5.3, 25.0, -1.2, 3.0,   0,    5.0, 1, 1,  4.0, 14.0, 6.0, 1.1, 21.5],  // Quote
+			[0.78, -1.6,  2.4,  0.0, -1.2, -2.0,   0.0, 16.4, 1, 0, 20.0, 18.0, 19.0, 2.8, 12.5],  // CTA
+			[1.00,  0,   15.0,  0.0, -5,   3.0,  -5,    9.8, 1, 1, 13.8,  0.0, 17.5, 1.2,  9.0],  // Footer
+		];
+
+		// Per-stage params (each stage gets its own copy, starts as defaults)
+		const stageParams = cameraPath.map(() => getDefaultParams());
+
+		// Apply exported per-stage overrides
+		(function applyExportedParams() {
+			const exported = [
+				// Hero (0) — colors only differ from defaults
+				{ bladeBaseR:0.004391442035325718, bladeBaseG:0.012983032338510335, bladeBaseB:0.001214107934117647, bladeTipR:0.5775804404214573, bladeTipG:0.4793201830913402, bladeTipB:0.05126945836711539, goldenTipR:0.6583748172725346, goldenTipG:0.4793201830913402, goldenTipB:0.03954623527052923, greenTipR:0.06847816983662762, greenTipG:0.19461783043107173, greenTipB:0.0069954101845983935, midR:0.026241221889696346, midG:0.07618538147321911, midB:0.004391442035325718 },
+				// Manifesto (1) — same colors
+				{ bladeBaseR:0.004391442035325718, bladeBaseG:0.012983032338510335, bladeBaseB:0.001214107934117647, bladeTipR:0.5775804404214573, bladeTipG:0.4793201830913402, bladeTipB:0.05126945836711539, goldenTipR:0.6583748172725346, goldenTipG:0.4793201830913402, goldenTipB:0.03954623527052923, greenTipR:0.06847816983662762, greenTipG:0.19461783043107173, greenTipB:0.0069954101845983935, midR:0.026241221889696346, midG:0.07618538147321911, midB:0.004391442035325718 },
+				// Pillars (2) — warm pinkish palette
+				{ bladeBaseR:0, bladeBaseG:0.012983032338510335, bladeBaseB:0.001214107934117647, bladeTipR:0.8980392156862745, bladeTipG:0.803921568627451, bladeTipB:0.803921568627451, goldenTipR:0.6627450980392157, goldenTipG:0.28627450980392155, goldenTipB:0.0392156862745098, greenTipR:0.19215686274509805, greenTipG:0.15294117647058825, greenTipB:0.00784313725490196, midR:0.07450980392156863, midG:0.00784313725490196, midB:0.00392156862745098, colorVar:1 },
+				// Stats (3) — different grass params + colors
+				{ fogStart:0, fogEnd:12.5, bladeHeight:2, bladeHeightVar:1, bladeLean:0, windSpeed:1.3, windAmplitude:0.21, bladeBaseR:0.004391442035325718, bladeBaseG:0.012983032338510335, bladeBaseB:0.001214107934117647, bladeTipR:0.5775804404214573, bladeTipG:0.4793201830913402, bladeTipB:0.05126945836711539, goldenTipR:0.6583748172725346, goldenTipG:0.4793201830913402, goldenTipB:0.03954623527052923, greenTipR:0.06847816983662762, greenTipG:0.19461783043107173, greenTipB:0.0069954101845983935, midR:0.026241221889696346, midG:0.07618538147321911, midB:0.004391442035325718 },
+				// Quote (4) — same colors
+				{ bladeBaseR:0.004391442035325718, bladeBaseG:0.012983032338510335, bladeBaseB:0.001214107934117647, bladeTipR:0.5775804404214573, bladeTipG:0.4793201830913402, bladeTipB:0.05126945836711539, goldenTipR:0.6583748172725346, goldenTipG:0.4793201830913402, goldenTipB:0.03954623527052923, greenTipR:0.06847816983662762, greenTipG:0.19461783043107173, greenTipB:0.0069954101845983935, midR:0.026241221889696346, midG:0.07618538147321911, midB:0.004391442035325718 },
+				// CTA (5) — fogStart 7, short grass, no lean
+				{ fogStart:7, bladeTipWidth:0.27, bladeHeight:0.9, bladeHeightVar:0, bladeLean:0, bladeBaseR:0.004391442035325718, bladeBaseG:0.012983032338510335, bladeBaseB:0.001214107934117647, bladeTipR:0.5775804404214573, bladeTipG:0.4793201830913402, bladeTipB:0.05126945836711539, goldenTipR:0.6583748172725346, goldenTipG:0.4793201830913402, goldenTipB:0.03954623527052923, greenTipR:0.06847816983662762, greenTipG:0.19461783043107173, greenTipB:0.0069954101845983935, midR:0.026241221889696346, midG:0.07618538147321911, midB:0.004391442035325718 },
+				// Footer (6) — different grass, fog, colors
+				{ fogStart:2, fogEnd:10, bladeHeight:2, bladeHeightVar:0, bladeLean:0, windSpeed:1.3, windAmplitude:0.21, bladeBaseR:0, bladeBaseG:0.012983032338510335, bladeBaseB:0.001214107934117647, bladeTipR:0.32941176470588235, bladeTipG:0.3058823529411765, bladeTipB:0.050980392156862744, goldenTipR:0.6588235294117647, goldenTipG:0.47843137254901963, goldenTipB:0.0392156862745098, greenTipR:0.06666666666666667, greenTipG:0.19607843137254902, greenTipB:0.00784313725490196, midR:0, midG:0, midB:0 },
+			];
+			exported.forEach((overrides, i) => {
+				Object.keys(overrides).forEach(k => {
+					if (k in stageParams[i]) stageParams[i][k] = overrides[k];
+				});
+			});
+		})();
+
+		function lerpCam(scrollT) {
+			// Snap to nearest keyframe if very close (within 0.5% of scroll range)
+			const snapThreshold = 0.005;
+			for (let j = 0; j < cameraPath.length; j++) {
+				if (Math.abs(cameraPath[j][0] - scrollT) < snapThreshold) {
+					const kf = cameraPath[j];
+					return {
+						px: kf[1], py: kf[2], pz: kf[3],
+						lx: kf[4], ly: kf[5], lz: kf[6],
+						fd: kf[7], af: kf[8], dofOn: kf[9],
+						fl: kf[10], bk: kf[11],
+						afSpd: kf[12], afMin: kf[13], afMax: kf[14],
+						params: { ...stageParams[j] },
+					};
+				}
+			}
+
+			let i = 0;
+			for (let j = 1; j < cameraPath.length; j++) {
+				if (cameraPath[j][0] >= scrollT) { i = j - 1; break; }
+				if (j === cameraPath.length - 1) i = j - 1;
+			}
+			const a = cameraPath[i], b = cameraPath[Math.min(i + 1, cameraPath.length - 1)];
+			const range = b[0] - a[0];
+			const t = range > 0 ? Math.max(0, Math.min(1, (scrollT - a[0]) / range)) : 0;
+			const ease = t * t * (3 - 2 * t);
+
+			// Interpolate per-stage params
+			const iB = Math.min(i + 1, cameraPath.length - 1);
+			const pA = stageParams[i], pB = stageParams[iB];
+			const lerpedParams = {};
+			stageParamKeys.forEach(k => {
+				lerpedParams[k] = pA[k] + (pB[k] - pA[k]) * ease;
+			});
+
+			return {
+				px: a[1] + (b[1] - a[1]) * ease,
+				py: a[2] + (b[2] - a[2]) * ease,
+				pz: a[3] + (b[3] - a[3]) * ease,
+				lx: a[4] + (b[4] - a[4]) * ease,
+				ly: a[5] + (b[5] - a[5]) * ease,
+				lz: a[6] + (b[6] - a[6]) * ease,
+				fd: a[7] + (b[7] - a[7]) * ease,
+				af: a[8] + (b[8] - a[8]) * ease,
+				dofOn: a[9] + (b[9] - a[9]) * ease,
+				fl: a[10] + (b[10] - a[10]) * ease,
+				bk: a[11] + (b[11] - a[11]) * ease,
+				afSpd: a[12] + (b[12] - a[12]) * ease,
+				afMin: a[13] + (b[13] - a[13]) * ease,
+				afMax: a[14] + (b[14] - a[14]) * ease,
+				params: lerpedParams,
+			};
+		}
+
+		let currentScrollT = 0;
+		let targetScrollT = 0;
+
+		function getScrollProgress() {
+			const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+			const docHeight = document.documentElement.scrollHeight;
+			const winHeight = window.innerHeight;
+			const scrollable = docHeight - winHeight;
+			return scrollable > 0 ? Math.min(1, Math.max(0, scrollTop / scrollable)) : 0;
+		}
+
+		// Sync cameraPath scroll values to actual DOM section positions
+		function syncCameraPathToDOM() {
+			const docHeight = document.documentElement.scrollHeight;
+			const winHeight = window.innerHeight;
+			const scrollable = docHeight - winHeight;
+			if (scrollable <= 0) return;
+			cameraPath.forEach((kf, i) => {
+				const section = document.querySelector(`.section[data-stage="${i}"]`);
+				if (section) {
+					const sectionTop = section.offsetTop;
+					kf[0] = Math.min(1, Math.max(0, sectionTop / scrollable));
+				}
+			});
+			// Ensure footer (last) is always 1.0
+			cameraPath[cameraPath.length - 1][0] = 1.0;
+		}
+
+		// Sync on load and on resize
+		syncCameraPathToDOM();
+		window.addEventListener('resize', () => {
+			setTimeout(syncCameraPathToDOM, 100);
+		});
+		// Re-sync after fonts/images load
+		window.addEventListener('load', () => {
+			setTimeout(syncCameraPathToDOM, 200);
+			setTimeout(syncCameraPathToDOM, 1000);
+		});
+
+		let _scrollDirty = false;
+		window.addEventListener('scroll', () => { _scrollDirty = true; }, { passive: true });
+		window.addEventListener('touchmove', () => { _scrollDirty = true; }, { passive: true });
+
+		// ─── Reveal on Scroll ──────────────────────────────────────────────
+		const progressBar = document.getElementById('progressBar');
+		const navFloat = document.getElementById('navFloat');
+
+		// Use IntersectionObserver for reveals — no per-scroll layout thrashing
+		const revealObserver = new IntersectionObserver((entries) => {
+			entries.forEach(entry => {
+				if (entry.isIntersecting) {
+					const el = entry.target;
+					const delay = el.dataset.delay || '0';
+					el.classList.add('revealed', `delay-${delay}`);
+					revealObserver.unobserve(el);
+				}
+			});
+		}, { threshold: 0.1, rootMargin: '0px 0px -18% 0px' });
+
+		document.querySelectorAll('[data-reveal]').forEach(el => revealObserver.observe(el));
+
+		// Force reveal the scroll hint after a brief delay
+		setTimeout(() => {
+			const hint = document.querySelector('.scroll-hint');
+			if (hint && !hint.classList.contains('revealed')) {
+				hint.classList.add('revealed', 'delay-4');
+			}
+		}, 800);
+
+		// ─── Nav Link Click → Scroll to Section ────────────────────────────
+		document.querySelectorAll('[data-nav]').forEach(link => {
+			link.addEventListener('click', (e) => {
+				e.preventDefault();
+				const stageIdx = parseInt(link.dataset.nav);
+				const section = document.querySelector(`.section[data-stage="${stageIdx}"]`);
+				if (section) {
+					section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				}
+			});
+		});
+
+		// ─── Mobile Hamburger Menu ─────────────────────────────────────────
+		const navHamburger = document.getElementById('navHamburger');
+		const navMobileOverlay = document.getElementById('navMobileOverlay');
+
+		navHamburger.addEventListener('click', () => {
+			navHamburger.classList.toggle('open');
+			navMobileOverlay.classList.toggle('open');
+		});
+
+		document.querySelectorAll('[data-nav-mobile]').forEach(link => {
+			link.addEventListener('click', (e) => {
+				e.preventDefault();
+				const stageIdx = parseInt(link.dataset.navMobile);
+				const section = document.querySelector(`.section[data-stage="${stageIdx}"]`);
+				navHamburger.classList.remove('open');
+				navMobileOverlay.classList.remove('open');
+				if (section) {
+					section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				}
+			});
+		});
+
+		// ─── Build settings now that cameraPath is defined ─────────────────
+		buildSettings();
+
+		// ─── Boot ──────────────────────────────────────────────────────────
+		await renderer.computeAsync(computeInit);
+
+		// Pre-warm the pipeline by rendering a couple of frames before showing
+		renderer.domElement.style.opacity = '0';
+		renderer.domElement.style.transition = 'opacity 0.4s ease';
+		for (let i = 0; i < 3; i++) {
+			renderer.compute(computeUpdate);
+			postProcessing.render();
+			await new Promise(r => requestAnimationFrame(r));
+		}
+		renderer.domElement.style.opacity = '1';
+
+		const clock = new THREE.Clock();
+		const lookTarget = new THREE.Vector3();
+
+		// Cache DOM elements queried every frame
+		const _siteFooter = document.querySelector('.site-footer');
+		const _scrollHint = document.querySelector('.scroll-hint');
+
+		function animate() {
+			const dt = Math.min(clock.getDelta(), 0.05);
+
+			if (_scrollDirty) {
+				targetScrollT = getScrollProgress();
+				_scrollDirty = false;
+			}
+
+			// Smooth scroll interpolation
+			currentScrollT += (targetScrollT - currentScrollT) * Math.min(1, dt * 6);
+
+			// If a camera path stage is being edited, snap to that keyframe directly
+			const override = window._getCameraOverride ? window._getCameraOverride() : -1;
+			let cam;
+			if (override >= 0 && override < cameraPath.length) {
+				const kf = cameraPath[override];
+				cam = {
+					px: kf[1], py: kf[2], pz: kf[3],
+					lx: kf[4], ly: kf[5], lz: kf[6],
+					fd: kf[7], af: kf[8], dofOn: kf[9],
+					fl: kf[10], bk: kf[11],
+					afSpd: kf[12], afMin: kf[13], afMax: kf[14],
+					params: stageParams[override],
+				};
+			} else {
+				cam = lerpCam(currentScrollT);
+			}
+			camera.position.set(cam.px, cam.py, cam.pz);
+			lookTarget.set(cam.lx, cam.ly, cam.lz);
+			camera.lookAt(lookTarget);
+
+			// Push canvas up when footer is visible (cached element)
+			if (_siteFooter) {
+				const footerTop = _siteFooter.getBoundingClientRect().top;
+				if (footerTop < window.innerHeight) {
+					renderer.domElement.style.transform = `translateY(-${window.innerHeight - footerTop}px)`;
+				} else {
+					renderer.domElement.style.transform = '';
+				}
+			}
+
+			// Progress bar
+			progressBar.style.width = (currentScrollT * 100) + '%';
+
+		// Nav visibility
+		navFloat.classList.toggle('scrolled', currentScrollT > 0.015);
+				let activeStage = 0;
+				for (let s = 0; s < cameraPath.length; s++) {
+					if (currentScrollT >= cameraPath[s][0] - 0.06) {
+						activeStage = s;
+					}
+				}
+				document.querySelectorAll('.nav-links a[data-nav]').forEach(link => {
+					const sIdx = parseInt(link.dataset.nav);
+					link.classList.toggle('active', sIdx === activeStage);
+				});
+
+		// Fade out scroll hint on scroll (cached element)
+		if (_scrollHint) {
+			_scrollHint.style.opacity = Math.max(0, 1 - currentScrollT * 15);
+		}
+
+			// Camera sphere — always push grass away from camera base
+			camSphereWorld.value.set(camera.position.x, 0, camera.position.z);
+
+			// Apply interpolated per-stage params to uniforms
+			if (cam.params) {
+				const p = cam.params;
+				// Fog
+				fogStart.value = p.fogStart;
+				fogEnd.value = p.fogEnd;
+				fogIntensity.value = p.fogIntensity;
+				fogColor.value.setRGB(p.fogR, p.fogG, p.fogB);
+				if (scene.fog) scene.fog.color.setRGB(p.fogR, p.fogG, p.fogB);
+				// Grass
+				grassDensity.value = p.grassDensity;
+				bladeWidth.value = p.bladeWidth;
+				bladeTipWidth.value = p.bladeTipWidth;
+				bladeHeight.value = p.bladeHeight;
+				bladeHeightVariation.value = p.bladeHeightVar;
+				bladeLean.value = p.bladeLean;
+				// Wind (base values before burst)
+				_baseWindSpeed = p.windSpeed;
+				_baseWindAmp = p.windAmplitude;
+				// Noise
+				noiseAmplitude.value = p.noiseAmp;
+				noiseFrequency.value = p.noiseFreq;
+				noise2Amplitude.value = p.noise2Amp;
+				noise2Frequency.value = p.noise2Freq;
+				// Mouse
+				mouseRadius.value = p.mouseRadius;
+				mouseStrength.value = p.mouseStrength;
+				outerRadius.value = p.outerRadius;
+				outerStrength.value = p.outerStrength;
+				// Scene Colors
+				bladeBaseColor.value.setRGB(p.bladeBaseR, p.bladeBaseG, p.bladeBaseB);
+				bladeTipColor.value.setRGB(p.bladeTipR, p.bladeTipG, p.bladeTipB);
+				goldenTipColor.value.setRGB(p.goldenTipR, p.goldenTipG, p.goldenTipB);
+				greenTipColor.value.setRGB(p.greenTipR, p.greenTipG, p.greenTipB);
+				midColor.value.setRGB(p.midR, p.midG, p.midB);
+				bladeColorVariation.value = p.colorVar;
+				// Camera Sphere — blend per-stage values with proximity scaling
+				const baseCamR = p.camSphereRadius;
+				const baseCamS = p.camSphereStrength;
+				camSphereRadius.value = baseCamR;
+				camSphereStrength.value = baseCamS;
+			}
+
+			// Scale camera sphere influence additionally based on proximity to grass
+			const camHeight = camera.position.y;
+			const proximityT = Math.max(0, 1 - camHeight / 10);
+			const proxCurve = proximityT * proximityT;
+			// Add proximity boost on top of per-stage base
+			camSphereRadius.value = Math.min(15, camSphereRadius.value * (0.3 + proxCurve * 0.7));
+			camSphereStrength.value = camSphereStrength.value * (0.1 + proxCurve * 0.9);
+
+			// Always apply base wind from per-stage params, then layer burst on top
+			windSpeed.value = _baseWindSpeed;
+			windAmplitude.value = _baseWindAmp;
+
+			// Wind burst — smoothly ramp up speed & amplitude, then ease back down
+			if (windBurst > 0) {
+				windBurst -= dt * 0.6;
+				const burstT = Math.max(0, windBurst / 4.0);
+				const eased = burstT * burstT * (3 - 2 * burstT);
+				windSpeed.value += eased * 4.5;
+				windAmplitude.value += eased * 0.45;
+			}
+
+			// Per-stage DoF
+			{
+				const dofWeight = typeof cam.dofOn === 'number' ? cam.dofOn : 1;
+				const shouldDof = globalDofEnabled && dofWeight > 0.5;
+
+				// Toggle DoF pipeline if state changed
+				if (shouldDof !== dofEnabled) {
+					dofEnabled = shouldDof;
+					rebuildPipeline();
+				}
+
+				if (dofEnabled) {
+					const autoWeight = typeof cam.af === 'number' ? Math.max(0, Math.min(1, cam.af)) : 0;
+					const mouseOnField = mouseWorld.value.x < 9000;
+					const afSpeed = cam.afSpd || 5.0;
+					const afMin = cam.afMin || 0.5;
+					const afMax = cam.afMax || 40.0;
+
+					// Compute raw auto-focus distance from mouse
+					let rawAutoFocus;
+					if (mouseOnField) {
+						rawAutoFocus = mouseFocusDist;
+					} else {
+						rawAutoFocus = Math.max(0.5, Math.sqrt(cam.py * cam.py + cam.pz * cam.pz) * 0.9);
+					}
+
+					// Clamp to per-stage AF range
+					rawAutoFocus = Math.max(afMin, Math.min(afMax, rawAutoFocus));
+
+					// Smooth auto-focus with per-stage speed
+					autoFocusSmoothed += (rawAutoFocus - autoFocusSmoothed) * Math.min(1, dt * afSpeed);
+
+					// Blend between manual focus and auto-focus
+					const targetFocus = cam.fd * (1 - autoWeight) + autoFocusSmoothed * autoWeight;
+
+					focusDistanceU.value += (targetFocus - focusDistanceU.value) * Math.min(1, dt * 8);
+					focalLengthU.value += (cam.fl - focalLengthU.value) * Math.min(1, dt * 6);
+					bokehScaleU.value += (cam.bk - bokehScaleU.value) * Math.min(1, dt * 6);
+				}
+
+				// Update the active stage's focus distance display if in auto mode
+				const ovr = window._getCameraOverride ? window._getCameraOverride() : -1;
+				if (ovr >= 0 && cameraPath[ovr][8] && dofEnabled) {
+					const fdEl = document.getElementById(`cp_${ovr}_fd_v`);
+					if (fdEl) fdEl.textContent = focusDistanceU.value.toFixed(1);
+				}
+			}
+
+			// FPS counter
+			fpsFrames++;
+			const fpsNow = performance.now();
+			if (fpsNow - fpsLast >= 500) {
+				if (fpsEnabled && fpsOverlay) {
+					fpsOverlay.textContent = (fpsFrames / ((fpsNow - fpsLast) / 1000)).toFixed(0) + ' FPS';
+				}
+				fpsFrames = 0;
+				fpsLast = fpsNow;
+			}
+
+			renderer.compute(computeUpdate);
+			postProcessing.render();
+		}
+
+		renderer.setAnimationLoop(animate);
+	
+
+		// ====================================================================
+		// INTERACTIVE CLIENT-SIDE EXTENSIONS FOR CONFLUENCE MOBILE
+		// ====================================================================
+
+		// 1. SCREEN TABS SWITCHER (STAGE 3)
+		const screensData = [
+			{
+				tag_vi: "RADAR QUÉT ĐA KHUNG THỜI GIAN",
+				tag_en: "MULTI-TIMEFRAME SCANNING RADAR",
+				title_vi: "Bảng Tín Hiệu Hợp Lưu Trực Tiếp",
+				title_en: "Live Confluence Signal Radar",
+				desc_vi: "Mọi cơ hội giao dịch trên Vàng (XAU/USD), Dầu và Forex được quét liên tục từ TradingView, phân cấp từ 1 sao đến 4 sao với điểm vào, SL và TP tính toán sẵn.",
+				desc_en: "Every opportunity across Gold (XAU/USD), Oil and Forex is continuously scanned via TradingView indicators, ranked 1-star to 4-star with pre-computed entries, SL, and TP.",
+				bullets_vi: ["Tự động lọc nhiễu phiên Á, Âu, Mỹ", "Bộ đệm giãn spread tới 100 points cho Vàng", "Kích hoạt tức thì về điện thoại dưới 50ms"],
+				bullets_en: ["Automated session noise filter (Asia, London, NY)", "100-point spread tolerance on Gold", "Instant push alerts to mobile under 50ms"]
+			},
+			{
+				tag_vi: "CỔNG THỰC THI SIÊU TỐC MT5",
+				tag_en: "SUB-50MS DIRECT MT5 GATEWAY",
+				title_vi: "Khớp Lệnh Trực Tiếp & Giám Sát Lệnh",
+				title_en: "Direct Order Execution & Monitoring",
+				desc_vi: "Tự động gửi lệnh trực tiếp vào sàn MetaTrader 5 với độ trễ cực thấp. Hiển thị thông số chi tiết vé lệnh, khối lượng lot động và khoảng cách tới mục tiêu chốt lời.",
+				desc_en: "Automatically dispatches orders into MetaTrader 5 with sub-50ms latency. Shows granular ticket parameters, dynamic lots, and distance to take-profit targets.",
+				bullets_vi: ["Đồng bộ 2 chiều với tài khoản MT5 cá nhân", "Tự động phân bổ lot size an toàn theo số dư", "Hỗ trợ 2-way wave trading (giao dịch sóng 2 chiều)"],
+				bullets_en: ["Bidirectional sync with your personal MT5 account", "Dynamic risk lot sizing scaled to balance", "2-way wave trading enabled without rigid filters"]
+			},
+			{
+				tag_vi: "BẢO VỆ VỐN VÀ KHÓA LÃI",
+				tag_en: "CAPITAL PRESERVATION & PROFIT LOCK",
+				title_vi: "Cơ Chế Breakeven & Trailing Stop",
+				title_en: "Automated Breakeven & Trailing Stop",
+				desc_vi: "Khi giá đi đúng hướng đạt 500 points lợi nhuận, bot tự động dời điểm dừng lỗ về giá hòa vốn (Breakeven) và kích hoạt Trailing Stop từng nấc 500 points để khóa chặt thành quả.",
+				desc_en: "When price reaches 500 points in profit, the bot automatically steps SL to breakeven and engages a 500pt trailing stop to safeguard accrued gains.",
+				bullets_vi: ["Dời hòa vốn tự động tại mốc +500 points", "Trailing stop 500pt / step 500pt bám sát đà tăng", "Bảo vệ tài khoản an toàn tuyệt đối trước tin tức giật"],
+				bullets_en: ["Zero-risk breakeven trigger at +500 points", "500pt trailing stop / 500pt step chasing extensions", "Shields your account from sharp news spikes"]
+			},
+			{
+				tag_vi: "PHÂN TÍCH HIỆU SUẤT ĐỘI BOT",
+				tag_en: "FLEET TELEMETRY & ANALYTICS",
+				title_vi: "Báo Cáo Hiệu Suất Thời Gian Thực",
+				title_en: "Real-Time Portfolio & Win Rate Analytics",
+				desc_vi: "Biểu đồ đường cong lợi nhuận trực quan, thống kê tỷ lệ thắng theo từng phiên giao dịch và kiểm soát drawdown thời gian thực với tần số làm mới 20 FPS.",
+				desc_en: "Visual equity curves, session win rate breakdowns, and real-time drawdown tracking rendered live with a smooth 20 FPS refresh rate.",
+				bullets_vi: ["Tần số làm mới WebSocket 50ms (20 FPS)", "Chi tiết lịch sử từng lệnh và phí dịch vụ", "Chỉ số Drawdown tối đa luôn được kiểm soát chặt"],
+				bullets_en: ["50ms WebSocket telemetry interval (20 FPS)", "Granular trade audit logs and fee tracking", "Max drawdown guard constantly monitored"]
+			}
+		];
+
+		window.switchScreen = function(idx) {
+			document.querySelectorAll('.screen-tab-btn').forEach((b, i) => {
+				b.classList.toggle('active', i === idx);
+			});
+			const d = screensData[idx];
+			const isVi = currentLang === 'vi';
+			const sdTag = document.getElementById('sdTag');
+			const sdTitle = document.getElementById('sdTitle');
+			const sdDesc = document.getElementById('sdDesc');
+			const sdBullets = document.getElementById('sdBullets');
+
+			if (sdTag) sdTag.textContent = isVi ? d.tag_vi : d.tag_en;
+			if (sdTitle) sdTitle.textContent = isVi ? d.title_vi : d.title_en;
+			if (sdDesc) sdDesc.textContent = isVi ? d.desc_vi : d.desc_en;
+			if (sdBullets) {
+				const list = isVi ? d.bullets_vi : d.bullets_en;
+				sdBullets.innerHTML = list.map(item => `<li>${item}</li>`).join('');
+			}
+		};
+
+		// 2. CURRENCY SWITCHER (STAGE 4)
+		let currentCurrency = 'VND';
+		const pricingValues = {
+			VND: {
+				vps_1: "260.000 VND / tháng", rent_1: "159.000 VND / tháng", srv_1: "8% / lợi nhuận",
+				vps_2: "260.000 VND / tháng", rent_2: "199.000 VND / tháng", srv_2: "7% / lợi nhuận",
+				vps_3: "260.000 VND / tháng", rent_3: "219.000 VND / tháng", srv_3: "5% / lợi nhuận",
+			},
+			USD: {
+				vps_1: "$10.00 USD / mo", rent_1: "$6.10 USD / mo", srv_1: "8% / profit",
+				vps_2: "$10.00 USD / mo", rent_2: "$7.70 USD / mo", srv_2: "7% / profit",
+				vps_3: "$10.00 USD / mo", rent_3: "$8.50 USD / mo", srv_3: "5% / profit",
+			}
+		};
+
+		window.setCurrency = function(curr) {
+			currentCurrency = curr;
+			document.getElementById('currVnd').classList.toggle('active', curr === 'VND');
+			document.getElementById('currUsd').classList.toggle('active', curr === 'USD');
+			const v = pricingValues[curr];
+			document.getElementById('p_vps_1').textContent = v.vps_1;
+			document.getElementById('p_rent_1').textContent = v.rent_1;
+			document.getElementById('p_srv_1').textContent = v.srv_1;
+
+			document.getElementById('p_vps_2').textContent = v.vps_2;
+			document.getElementById('p_rent_2').textContent = v.rent_2;
+			document.getElementById('p_srv_2').textContent = v.srv_2;
+
+			document.getElementById('p_vps_3').textContent = v.vps_3;
+			document.getElementById('p_rent_3').textContent = v.rent_3;
+			document.getElementById('p_srv_3').textContent = v.srv_3;
+		};
+
+		// 3. FAQ ACCORDION TOGGLE (STAGE 5)
+		window.toggleFaq = function(btn) {
+			const card = btn.closest('.faq-card');
+			const isOpen = card.classList.contains('open');
+			document.querySelectorAll('.faq-card').forEach(c => c.classList.remove('open'));
+			if (!isOpen) card.classList.add('open');
+		};
+
+		// 4. BILINGUAL TRANSLATION SYSTEM (VI / EN)
+		let currentLang = localStorage.getItem('confluence_lang') || localStorage.getItem('confluence_mobile_lang') || 'vi';
+
+		const i18nDictionary = {
+			vi: {
+				nav_overview: "Tổng quan",
+				nav_advantage: "Ưu thế",
+				nav_features: "Tính năng",
+				nav_screens: "Giao diện",
+				nav_pricing: "Bảng giá",
+				nav_faq: "Giải đáp",
+				nav_terminal: "Web Terminal &rarr;",
+				nav_get_app: "Tải App",
+				hero_tag: "Giao Dịch Định Lượng Trên Di Động",
+				hero_title: "Lợi Thế Thuật Toán.<br><em>Trong Tầm Tay Bạn.</em>",
+				hero_sub: "Confluence Mobile mang kỷ luật thuật toán cấp định chế trực tiếp vào điện thoại của bạn. Khớp lệnh MT5 tức thời, chấm điểm hợp lưu đa chỉ báo và bảo vệ rủi ro tự động 24/7 trên nền tảng đám mây.",
+				hero_cta_download: "Tải Ứng Dụng Ngay",
+				hero_cta_terminal: "Web Terminal",
+				stat_latency: "Độ trễ tín hiệu",
+				stat_rr: "Tỷ lệ R:R chuẩn",
+				stat_vps: "Máy chủ VPS MT5",
+				scroll_explore: "Cuộn để khám phá",
+				phil_label: "// 01 — TRIẾT LÝ KIẾN TRÚC DI ĐỘNG",
+				phil_quote: "Giao dịch thuật toán không nên trói buộc bạn trước 6 màn hình máy tính. Thị trường vận hành 24 giờ — chiến lược của bạn cần hoạt động tự chủ với <em>kỷ luật cấp định chế</em>, mang lại sự tự do đích thực.",
+				phil_card1_title: "Kỷ Luật Toán Học 100%",
+				phil_card1_desc: "Loại bỏ hoàn toàn tâm lý FOMO, tham lam hay gồng lỗ vô kỷ luật. Mọi lệnh vào và thoát đều tuân theo ma trận xác suất hợp lưu đã kiểm định.",
+				phil_card2_title: "Đồng Bộ Cloud VPS 24/7",
+				phil_card2_desc: "Bot chạy liên tục trên máy chủ đám mây Windows với IP tĩnh. Điện thoại của bạn chỉ dùng để theo dõi và điều khiển, tắt máy bot vẫn chốt lời bình thường.",
+				phil_card3_title: "Giám Sát & Báo Động Tức Thời",
+					fsh_badge: "CÂU CHUYỆN SÁNG LẬP // 4 NĂM THỰC CHIẾN",
+				fsh_title: "Sinh ra từ cú vấp ngã sinh viên đến 4 năm thâm niên vận hành trading bot",
+				fsh_desc: "Confluence không bắt đầu từ phòng thí nghiệm xa rời. Nó được đúc kết từ bài học bị lừa vào cờ bạc Forex năm 2019, 2 năm làm tuyến đầu Support & IB chứng kiến 95% nhà đầu tư cháy tài khoản vì cảm xúc, và 4 năm bền bỉ nghiên cứu, kiểm chứng các thuật toán định lượng thực chiến.",
+				fsh_link: "Đọc Hành Trình 4 Năm &rarr;",
+					fsh_badge: "FOUNDER'S JOURNEY // 4 YEARS BATTLEFIELD EXPERIENCE",
+				fsh_title: "Born From a Student's Costly Fall to 4 Years of Seasoned Bot Engineering",
+				fsh_desc: "Confluence didn't start in an ivory tower. It was forged through being deceived into gambling and forex in 2019, 2 years on the brokerage frontlines as Support & IB witnessing 95% of retail traders blown out by emotion, and 4 relentless years designing, stress-testing, and running live algorithmic fleets.",
+				fsh_link: "Read Full 4-Year Story &rarr;",
+				phil_card3_desc: "Nhận thông báo đẩy ngay khi có tín hiệu khớp, lệnh chạm mốc Breakeven hoặc Trailing Stop kích hoạt. Nút dừng khẩn cấp khóa hệ thống chỉ bằng 1 chạm.",
+				pillars_label: "// 02 — BỐN TRỤ CỘT CÔNG NGHỆ CONFLUENCE",
+				pillars_heading: "Được Thiết Kế Cho Độ Chuẩn Xác Tuyệt Đối",
+				p4_card1_title: "Confluence Engine",
+				p4_card1_desc: "Chấm điểm hợp lưu đa khung thời gian từ 1 đến 4 sao. Kết hợp ngưỡng RSI thông minh (BUY < 42, SELL > 58) và vùng quét kích hoạt 300 points.",
+				p4_card1_title2: "Bảo Vệ Rủi Ro R:R 1:3",
+				p4_card2_desc: "Cố định tỷ lệ vàng R:R 1:3 (SL 500pt / TP 1500pt trên Vàng). Tự động kích hoạt dời SL về hòa vốn tại 500pt để bảo toàn vốn nguyên vẹn.",
+				p4_card3_title: "Nhồi Lệnh Thông Minh",
+				p4_card3_desc: "Hỗ trợ gia tăng vị thế khi xu hướng xác nhận mạnh mà không bị hạn chế khoảng cách cứng, giúp tối đa hóa biên độ lợi nhuận trong con sóng dài.",
+				p4_card4_title: "Tối Ưu Vốn Linh Hoạt",
+				p4_card4_desc: "Thuật toán Dynamic Recovery Lot Sizing tự động cân đối từ tài khoản nhỏ $50 - $200 USD cho đến tài khoản quỹ lớn, kiểm soát sụt giảm tài khoản tối đa.",
+				screens_label: "// 03 — TRẢI NGHIỆM GIAO DIỆN CONFLUENCE MOBILE",
+				screens_heading: "Khám Phá Các Màn Hình Chức Năng",
+				stab_0: "Radar Tín Hiệu",
+				stab_1: "Khớp Lệnh MT5",
+				stab_2: "Bảo Vệ Vị Thế",
+				stab_3: "Phân Tích Đội Bot",
+				srib_1: "Tỷ lệ R:R Cố Định",
+				srib_2: "Độ trễ WebSocket 20 FPS",
+				srib_3: "Dung sai Spread Vàng",
+				srib_4: "Thời gian chạy Cloud VPS",
+				pricing_label: "// 04 — PHÂN CẤP BOT & BIỂU PHÍ MINH BẠCH",
+				pricing_heading: "Lựa Chọn Chiến Lược Phù Hợp",
+				fee_vps_lbl: "Phí VPS:",
+				fee_bot_lbl: "Phí thuê bot:",
+				fee_srv_lbl: "Phí dịch vụ:",
+				badge_popular: "Phổ biến nhất",
+				tier1_name: "Bot Mạo Hiểm",
+				tier1_desc: "Tần suất vào lệnh cao theo con sóng ngắn, chấp nhận setup từ 1-sao để tối đa hóa biên độ lợi nhuận.",
+				t1_f1: "Giao dịch sóng 2 chiều (Wave Trading)",
+				t1_f2: "Setup kích hoạt từ 1-sao confluence",
+				t1_f3: "Order Stacking không giới hạn cự ly",
+				t1_f4: "Khớp lệnh trực tiếp MT5 dưới 50ms",
+				t1_f5: "Chỉ thu phí dịch vụ khi có lợi nhuận ròng",
+				btn_choose_tier: "Chọn Bot Mạo Hiểm",
+				tier2_name: "Bot Trung Bình",
+				tier2_desc: "Cân bằng hoàn hảo giữa tỷ lệ an toàn và lợi nhuận. Phù hợp nhất cho nhà giao dịch Vàng (XAU/USD).",
+				t2_f1: "Tối ưu cho Vàng (XAU/USD) & Forex chính",
+				t2_f2: "Setup kích hoạt từ 2-sao và 3-sao",
+				t2_f3: "Tự động dời Breakeven hòa vốn tại 500pt",
+				t2_f4: "Trailing Stop 500pt khóa chặt lợi nhuận",
+				t2_f5: "Phí dịch vụ tối ưu 7% trên lợi nhuận ròng",
+				btn_choose_tier_feat: "Chọn Bot Trung Bình",
+				tier3_name: "Bot An Toàn",
+				tier3_desc: "Bộ lọc tín hiệu khắt khe nhất, ưu tiên bảo toàn vốn tuyệt đối. Chỉ vào lệnh khi đạt hợp lưu 4-sao hoàn hảo.",
+				t3_f1: "Ưu tiên bảo toàn vốn và quản lý rủi ro",
+				t3_f2: "Chỉ vào lệnh khi đạt 3-sao và 4-sao",
+				t3_f3: "Dynamic Lot Sizing siêu bảo thủ (0.01)",
+				t3_f4: "Bộ ngắt mạch Circuit Breaker tự động",
+				t3_f5: "Phí dịch vụ thấp nhất: chỉ 5% lợi nhuận",
+				btn_choose_tier_safe: "Chọn Bot An Toàn",
+				pricing_note: "<strong>Cam kết minh bạch:</strong> Confluence Bot kết nối qua API tới tài khoản MT5 cá nhân của bạn. Chúng tôi <strong>không nhận ủy thác và không giữ vốn</strong> của khách hàng. Phí dịch vụ chỉ tính trên tổng lợi nhuận ròng thực nhận.",
+				faq_label: "// 05 — CÂU HỎI THƯỜNG GẶP",
+				faq_heading: "Giải Đáp Mọi Thắc Mắc",
+				faq_sub: "Tất cả những gì bạn cần biết về chi phí VPS, cơ chế chia sẻ lợi nhuận và cách đồng bộ ứng dụng trên điện thoại.",
+				q1_q: "1. Chi phí VPS 260.000 VND / tháng (10 USD) dùng để làm gì?",
+				q1_a: "VPS (Virtual Private Server) là máy chủ đám mây Windows cấu hình cao hoạt động 24/7 với đường truyền cáp quang tốc độ cao và IP tĩnh. Máy chủ này đảm bảo bot giao dịch MT5 của bạn luôn trực tuyến để quét tín hiệu và dời lệnh bảo vệ lợi nhuận ngay cả khi bạn tắt điện thoại, máy hết pin hoặc mất mạng 4G.",
+				q2_q: "2. Phí dịch vụ 5% - 8% tính như thế nào?",
+				q2_a: "Phí dịch vụ được tính dựa trên <strong>tổng lợi nhuận ròng thực tế</strong> sau khi trừ các lệnh lỗ. Nếu trong chu kỳ giao dịch tài khoản của bạn hòa vốn hoặc không có lãi, bạn <strong>hoàn toàn không phải trả bất kỳ đồng phí dịch vụ nào</strong>. Chúng tôi chỉ có lợi nhuận khi bạn kiếm được lợi nhuận.",
+				q3_q: "3. Tôi có cần nạp tiền vào Confluence Bot không?",
+				q3_a: "Tuyệt đối không! Bạn tự mở tài khoản đứng tên chính bạn tại bất kỳ sàn giao dịch hỗ trợ MT5 uy tín nào (như Exness, IC Markets, XM,...). Bot chỉ kết nối thông qua thông tin đăng nhập MT5 cá nhân để thực thi lệnh giao dịch, hoàn toàn không có quyền rút tiền hay can thiệp số dư.",
+				q4_q: "4. Vốn tối thiểu để bắt đầu là bao nhiêu?",
+				q4_a: "Hệ thống được thiết kế đặc biệt với thuật toán Dynamic Lot Sizing linh hoạt, hỗ trợ các tài khoản vốn nhỏ từ <strong>$50 - $200 USD</strong> với khối lượng micro-lot (0.01) an toàn. Đối với tài khoản lớn, bot sẽ tự động nâng quy mô lot tương ứng với tỷ lệ rủi ro cố định.",
+				q5_q: "5. Cài đặt và kết nối app trên điện thoại mất bao lâu?",
+				q5_a: "Quá trình cài đặt chỉ mất dưới 60 giây. Sau khi tải app Confluence Mobile, bạn chỉ cần quét mã QR liên kết từ bảng điều khiển web hoặc nhập tài khoản MT5, hệ thống sẽ tự động kích hoạt bot trên VPS và bắt đầu đồng bộ dữ liệu thời gian thực.",
+				dl_label: "// 06 — SẴN SÀNG GIAO DỊCH",
+				dl_heading: "Trải Nghiệm Confluence Mobile.<br><em>Bắt Đầu Ngay Hôm Nay.</em>",
+				dl_sub: "Ứng dụng đã sẵn sàng trên cả hai nền tảng iOS và Android. Tải ngay để kiểm soát danh mục đầu tư bằng sức mạnh thuật toán định lượng.",
+				bsd_ios_sub: "Dành cho iOS",
+				bsd_android_sub: "Dành cho Android",
+				bsd_apk_sub: "Tải trực tiếp",
+				dl_terminal_btn: "Hoặc Mở Trực Tiếp Web Terminal",
+				footer_desc: "Hệ thống giao dịch thuật toán định lượng trên nền tảng di động kết nối MT5. Kỷ luật cấp định chế, tự động hóa 24/7 và kiểm soát rủi ro tuyệt đối.",
+				fc_col1_title: "Sản Phẩm",
+				fc_c1_1: "Tổng quan Mobile",
+				fc_c1_2: "Tính năng Confluence",
+				fc_c1_3: "Giao diện ứng dụng",
+				fc_c1_4: "Biểu phí 3 gói Bot",
+				fc_col2_title: "Công Nghệ",
+				fc_c2_1: "Đám mây Windows VPS",
+				fc_c2_2: "Thuật toán R:R 1:3",
+				fc_c2_3: "Trailing Stop 500pt",
+				fc_c2_4: "Web Trading Terminal",
+				fc_col3_title: "Pháp Lý & Hỗ Trợ",
+				fc_c3_1: "Câu hỏi thường gặp",
+				fc_c3_2: "Chính sách phí",
+				fc_c3_3: "Về chúng tôi",
+				fc_c3_4: "Cộng đồng Telegram",
+				footer_copy: "&copy; 2026 Confluence Trading Technologies. Tất cả các quyền được bảo lưu. Cảnh báo rủi ro: Giao dịch đòn bẩy trên thị trường tài chính có mức độ rủi ro vốn nhất định."
+			},
+			en: {
+				nav_overview: "Overview",
+				nav_advantage: "Advantage",
+				nav_features: "Features",
+				nav_screens: "App UI",
+				nav_pricing: "Pricing",
+				nav_faq: "FAQ",
+				nav_terminal: "Web Terminal &rarr;",
+				nav_get_app: "Get App",
+				hero_tag: "Quantitative Mobile Trading Terminal",
+				hero_title: "Algorithmic Edge.<br><em>In Your Pocket.</em>",
+				hero_sub: "Confluence Mobile delivers institutional-grade algorithmic discipline to your smartphone. Direct sub-50ms MT5 execution, multi-indicator confluence scoring, and 24/7 automated risk protection on cloud VPS.",
+				hero_cta_download: "Download App Now",
+				hero_cta_terminal: "Web Terminal",
+				stat_latency: "Signal Latency",
+				stat_rr: "Default R:R Ratio",
+				stat_vps: "Cloud MT5 VPS",
+				scroll_explore: "Scroll to explore",
+				phil_label: "// 01 — ARCHITECTURAL PHILOSOPHY",
+				phil_quote: "Algorithmic trading shouldn't chain you to six monitors. The markets run 24 hours — your strategy must execute autonomously with <em>institutional discipline</em>, granting you true peace of mind.",
+				phil_card1_title: "100% Mathematical Discipline",
+				phil_card1_desc: "Eliminate FOMO, greed, and undisciplined loss holding. Every position entry and exit strictly adheres to verified confluence probability matrices.",
+				phil_card2_title: "24/7 Cloud VPS Sync",
+				phil_card2_desc: "The bot runs continuously on dedicated Windows VPS with static IP. Your phone is only for monitoring — trades execute seamlessly even when offline.",
+				phil_card3_title: "Instant Push Telemetry",
+					fsh_badge: "CÂU CHUYỆN SÁNG LẬP // 4 NĂM THỰC CHIẾN",
+				fsh_title: "Sinh ra từ cú vấp ngã sinh viên đến 4 năm thâm niên vận hành trading bot",
+				fsh_desc: "Confluence không bắt đầu từ phòng thí nghiệm xa rời. Nó được đúc kết từ bài học bị lừa vào cờ bạc Forex năm 2019, 2 năm làm tuyến đầu Support & IB chứng kiến 95% nhà đầu tư cháy tài khoản vì cảm xúc, và 4 năm bền bỉ nghiên cứu, kiểm chứng các thuật toán định lượng thực chiến.",
+				fsh_link: "Đọc Hành Trình 4 Năm &rarr;",
+				phil_card3_desc: "Receive real-time notifications for trade fills, breakeven triggers, and trailing stop locks. Emergency lockdown circuit breaker in a single tap.",
+				pillars_label: "// 02 — THE FOUR CONFLUENCE PILLARS",
+				pillars_heading: "Engineered for Flawless Execution",
+				p4_card1_title: "Confluence Engine",
+				p4_card1_desc: "Multi-timeframe scoring from 1 to 4 stars. Blends dynamic RSI thresholds (BUY < 42, SELL > 58) with expanded 300-point confluence trigger zones.",
+				p4_card1_title2: "Strict 1:3 R:R Protection",
+				p4_card2_desc: "Firm 1:3 Risk-to-Reward ratio (500pt SL / 1500pt TP on Gold). Automatic breakeven at 500 points in profit to defend your balance unconditionally.",
+				p4_card3_title: "Smart Order Stacking",
+				p4_card3_desc: "Pyramids entries as trend momentum confirms without arbitrary distance locks, maximizing upside extension throughout strong wave legs.",
+				p4_card4_title: "Dynamic Lot Sizing",
+				p4_card4_desc: "Intelligent recovery lot sizing accommodates capital from $50 - $200 USD up to prop-firm accounts, strictly capping system drawdowns.",
+				screens_label: "// 03 — INTERACTIVE MOBILE UI SHOWCASE",
+				screens_heading: "Explore Core Mobile Screens",
+				stab_0: "Signal Radar",
+				stab_1: "MT5 Execution",
+				stab_2: "Position Guard",
+				stab_3: "Fleet Analytics",
+				srib_1: "Strict R:R Ratio",
+				srib_2: "50ms 20 FPS Stream",
+				srib_3: "Gold Spread Tolerance",
+				srib_4: "Cloud VPS Uptime",
+				pricing_label: "// 04 — FLEET TIERS & TRANSPARENT PRICING",
+				pricing_heading: "Select Your Trading Strategy",
+				fee_vps_lbl: "VPS Fee:",
+				fee_bot_lbl: "Bot Rental:",
+				fee_srv_lbl: "Service Fee:",
+				badge_popular: "Most Popular",
+				tier1_name: "High Risk Bot",
+				tier1_desc: "High trade frequency capitalizing on wave volatility. Enters from 1-star setups to maximize total profit velocity.",
+				t1_f1: "2-way wave trading without rigid trend filter",
+				t1_f2: "Entry allowed from 1-star confluence setups",
+				t1_f3: "Order stacking without minimum distance lock",
+				t1_f4: "Sub-50ms MT5 direct cloud execution",
+				t1_f5: "Zero service fee on flat or losing periods",
+				btn_choose_tier: "Choose High Risk",
+				tier2_name: "Moderate Bot",
+				tier2_desc: "Optimal equilibrium between safety and yield. Calibrated specifically for Gold (XAU/USD) traders.",
+				t2_f1: "Optimized for Gold (XAU/USD) & Major Forex",
+				t2_f2: "Active on 2-star and 3-star confluence setups",
+				t2_f3: "Automatic breakeven trigger at +500 points",
+				t2_f4: "Trailing stop at 500 points locking in profit",
+				t2_f5: "Optimal 7% service fee on net profit only",
+				btn_choose_tier_feat: "Choose Moderate",
+				tier3_name: "Safe Bot",
+				tier3_desc: "Ultra-conservative signal filtering prioritizing balance longevity. Trades strictly on high-conviction 4-star confluence.",
+				t3_f1: "Capital preservation and strict risk guard",
+				t3_f2: "Filtered entries: 3-star & 4-star setups only",
+				t3_f3: "Ultra-conservative dynamic lot sizing (0.01)",
+				t3_f4: "Automated emergency circuit breaker logic",
+				t3_f5: "Lowest service fee: only 5% on net profit",
+				btn_choose_tier_safe: "Choose Safe Bot",
+				pricing_note: "<strong>Transparency Guarantee:</strong> Confluence Bot connects directly via API to your personal MT5 account. We <strong>never hold or custody your funds</strong>. Service fees apply only to verified net profits.",
+				faq_label: "// 05 — FREQUENTLY ASKED QUESTIONS",
+				faq_heading: "Everything You Need to Know",
+				faq_sub: "Answers regarding VPS hosting, profit sharing mechanics, and 60-second mobile onboarding.",
+				q1_q: "1. What is the 260,000 VND / mo ($10 USD) VPS fee for?",
+				q1_a: "VPS (Virtual Private Server) is a high-performance Windows cloud server operating 24/7 with fiber-optic connectivity and a static IP. It ensures your MT5 bot scans signals and manages trailing stops uninterrupted even when your phone is turned off or has no cellular signal.",
+				q2_q: "2. How is the 5% - 8% service fee calculated?",
+				q2_a: "The service fee is billed strictly on <strong>verified net profit</strong> after deducting any losing trades. If your account is flat or incurs a loss during a cycle, you pay <strong>zero service fees</strong>. We only earn when you succeed.",
+				q3_q: "3. Do I need to deposit trading capital with Confluence?",
+				q3_a: "Never! You maintain 100% control of your account under your own name with your preferred MT5-compatible broker (Exness, IC Markets, XM, etc.). The bot connects strictly via trading API credentials with no withdrawal permissions whatsoever.",
+				q4_q: "4. What is the minimum capital requirement?",
+				q4_a: "The system is engineered with dynamic lot sizing supporting small accounts starting from <strong>$50 to $200 USD</strong> using micro-lots (0.01). For larger accounts, lot sizing scales proportionally to preserve the fixed 1:3 R:R structure.",
+				q5_q: "5. How long does mobile setup take?",
+				q5_a: "Setup takes less than 60 seconds. Simply open Confluence Mobile, scan the QR sync code from your web dashboard or input your MT5 credentials, and the VPS automatically links your account in real time.",
+				dl_label: "// 06 — READY TO TRADE",
+				dl_heading: "Experience Confluence Mobile.<br><em>Start Trading Today.</em>",
+				dl_sub: "Available on both iOS and Android. Download now to take command of your trading portfolio with algorithmic precision.",
+				bsd_ios_sub: "Available on iOS",
+				bsd_android_sub: "Available on Android",
+				bsd_apk_sub: "Direct Download",
+				dl_terminal_btn: "Or Launch Web Terminal Directly",
+				footer_desc: "Institutional algorithmic mobile trading system powered by MetaTrader 5. Strict mathematical discipline, 24/7 cloud automation, and zero-compromise risk management.",
+				fc_col1_title: "Product",
+				fc_c1_1: "Mobile Overview",
+				fc_c1_2: "Confluence Engine",
+				fc_c1_3: "App UI Preview",
+				fc_c1_4: "Fleet Pricing",
+				fc_col2_title: "Technology",
+				fc_c2_1: "Windows Cloud VPS",
+				fc_c2_2: "1:3 R:R Protocol",
+				fc_c2_3: "Trailing Stop 500pt",
+				fc_c2_4: "Web Trading Terminal",
+				fc_col3_title: "Legal & Support",
+				fc_c3_1: "Frequently Asked Questions",
+				fc_c3_2: "Fee Structure",
+				fc_c3_3: "About Us",
+				fc_c3_4: "Telegram Community",
+				footer_copy: "&copy; 2026 Confluence Trading Technologies. All rights reserved. Risk Disclosure: Leveraged trading in financial markets involves substantial risk of capital loss."
+			}
+		};
+
+		function applyLanguage(lang) {
+			currentLang = lang;
+			localStorage.setItem('confluence_lang', lang); localStorage.setItem('confluence_mobile_lang', lang);
+			const dict = i18nDictionary[lang];
+			if (!dict) return;
+
+			// Update language switcher indicator
+			const langVi = document.getElementById('langVi');
+			const langEn = document.getElementById('langEn');
+			if (langVi && langEn) {
+				langVi.classList.toggle('active', lang === 'vi');
+				langEn.classList.toggle('active', lang === 'en');
+			}
+
+			// Update all elements with data-i18n
+			document.querySelectorAll('[data-i18n]').forEach(el => {
+				const key = el.getAttribute('data-i18n');
+				if (dict[key]) {
+					el.innerHTML = dict[key];
+				}
+			});
+
+			// Update current screen preview
+			const activeTab = document.querySelector('.screen-tab-btn.active');
+			if (activeTab) {
+				const idx = parseInt(activeTab.id.replace('stab_', '')) || 0;
+				switchScreen(idx);
+			}
+		}
+
+		const langBtn = document.getElementById('langSwitchBtn');
+		if (langBtn) {
+			langBtn.addEventListener('click', () => {
+				const nextLang = currentLang === 'vi' ? 'en' : 'vi';
+				applyLanguage(nextLang);
+			});
+		}
+
+		// Initialize default language
+		applyLanguage(currentLang);
+	</script>
+</body>
+</html>
