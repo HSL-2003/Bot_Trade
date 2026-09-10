@@ -89,6 +89,63 @@ class BotSafetyTests(unittest.TestCase):
         self.assertEqual(bot.get_symbol_multiplier("USOIL"), 100.0)
 
 
+class RaceConditionTests(unittest.TestCase):
+    """Regression tests for Phase 0 concurrency fixes.
+
+    These pin the behavior we changed:
+      * pending-flag always resets even when execution raises mid-way.
+      * duplicate-close of the same ticket is serialized to one caller.
+    """
+
+    def test_pending_flag_resets_even_when_execution_raises(self):
+        bot = MT5TradingBot()
+        bot.simulation_mode = True
+
+        original = bot._execute_market_trade_locked
+
+        async def boom(*args, **kwargs):
+            raise RuntimeError("mid-execution failure (simulated)")
+
+        # Force the locked-body to raise AFTER the flag was set to True.
+        bot._execute_market_trade_locked = boom
+
+        async def scenario():
+            try:
+                await bot.execute_market_trade(
+                    order_type="BUY", lot_size=0.1, sl_points=50, tp_points=50, symbol="EURUSD"
+                )
+            except RuntimeError:
+                pass  # expected — the point is the flag must be released
+
+            return bot.is_pending_order
+
+        self.assertFalse(asyncio.run(scenario()))
+
+        # Restore so other tests are unaffected.
+        bot._execute_market_trade_locked = original
+
+    def test_duplicate_close_runs_once(self):
+        bot = MT5TradingBot()
+        bot.simulation_mode = True
+
+        calls: list[int] = []
+
+        async def fake_close(ticket: int):
+            calls.append(ticket)
+            # Simulate the SL/TP loop and the HTTP handler colliding.
+            await asyncio.sleep(0.05)
+            return None
+
+        bot._close_position_inner = fake_close
+
+        async def scenario():
+            await asyncio.gather(bot.close_position(123), bot.close_position(123))
+            return calls
+
+        asyncio.run(scenario())
+        self.assertEqual(len(calls), 1, "two coroutines must not both close the same ticket")
+
+
 class ConfigurationTests(unittest.TestCase):
     def test_supported_symbols_are_explicit(self):
         self.assertEqual(SUPPORTED_SYMBOLS, frozenset({"XAUUSD", "USOIL", "EURUSD", "GBPUSD"}))
@@ -244,7 +301,7 @@ class AuthDependencyTests(unittest.TestCase):
         self.request.client = None
         principal = asyncio.run(get_current_principal(session.token, self.service))
         self.assertEqual(asyncio.run(require_admin(self.request, principal)), principal)
-        self.assertEqual(authenticate_websocket(session.token, self.service), principal)
+        self.assertEqual(asyncio.run(authenticate_websocket(session.token, self.service)), principal)
 
 
 class AuthOAuthEndpointTests(unittest.TestCase):
@@ -542,7 +599,7 @@ class AuthDependencyCoverageTests(unittest.TestCase):
 
     def test_websocket_auth_rejects_unknown_token(self):
         with self.assertRaises(AuthenticationError):
-            authenticate_websocket("not-a-real-token", self.service)
+            asyncio.run(authenticate_websocket("not-a-real-token", self.service))
 
     def test_optional_principal_returns_none_without_token(self):
         self.assertIsNone(asyncio.run(get_current_principal_optional(self.request, self.service)))

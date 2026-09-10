@@ -11,6 +11,7 @@ import httpx
 from dotenv import load_dotenv
 from core.risk import InstrumentSpec, RiskCalculationError, calculate_volume
 from repositories.persistence import LOCK_HARD, LOCK_SOFT, LOCK_STATES, LOCK_UNLOCKED
+from services.execution_pipeline import TradeExecutionPipeline, get_default_pipeline
 
 # Load environment variables
 load_dotenv(override=True)
@@ -119,20 +120,35 @@ class MT5TradingBot:
         self.log_queue = asyncio.Queue()
         self.loop = None
 
-    def load_history(self):
-        try:
-            if os.path.exists("trade_history.json"):
-                with open("trade_history.json", "r") as f:
-                    self.history = json.load(f)
-        except Exception:
-            self.history = []
+        # Phase 0: serialized broker-mutating execution path.
+        # When None, _broker_call() lazily falls back to the process-wide
+        # default pipeline (one MT5 terminal = one IPC queue = one pipeline).
+        self.execution_pipeline: Optional[Any] = None
+
+        # Phase 0: duplicate-close guard (race between the price-feed loop,
+        # SL/TP management and manual HTTP closes over await boundaries).
+        self._closing_tickets: set = set()
+
+        # Phase 1: atomic live-state snapshot. The price-feed loop mutates
+        # self.symbol / self.current_price / self.indicators for each watchlist
+        # symbol in sequence; an HTTP reader polling at an await boundary can
+        # observe symbol=EURUSD but current_price of XAUUSD (torn state).
+        # Instead of letting readers race those scalars, the loop publishes a
+        # complete, consistent snapshot here once per iteration, and readers
+        # (WS, /api/state) consume this single reference.
+        self.live_state: Optional[Dict[str, Any]] = None
+        self._board_task_pending: bool = False
+
+        # Phase 2: Supabase (on_trade_close callback) is the ONLY source of truth
+        # for trade history. The local JSON file was a dual-write that caused
+        # state divergence and is no longer maintained. The in-memory list is
+        # still needed for the dashboard's recent-history display.
+        self.history: List[Dict[str, Any]] = []
 
     def save_history(self):
-        try:
-            with open("trade_history.json", "w") as f:
-                json.dump(self.history, f, indent=4)
-        except Exception:
-            pass
+        """Deprecated: Supabase is the single source of truth for trade history.
+        Kept as a no-op so existing call sites don't break."""
+        pass
 
     def _trigger_trade_open(self, pos: Dict[str, Any], account_id: Optional[str] = None, user_id: Optional[str] = None):
         if callable(self.on_trade_open):
@@ -822,9 +838,27 @@ class MT5TradingBot:
                             "center_price": round((fib_val + sr_val) / 2, dec)
                         })
 
+    def _broker_call(self, fn, *args, **kwargs):
+        """Route broker-mutating MT5 calls through the execution pipeline.
+
+        Architecture rule: ONLY the pipeline worker executes MT5 trade calls
+        (order_send / close / modify) via asyncio.to_thread — everything else
+        must submit through the queue so operations are serialized and
+        rate-limited against the single MT5 terminal IPC channel.
+        Falls back to a bare to_thread when no pipeline is wired (unit tests).
+        """
+        pipeline = self.execution_pipeline or get_default_pipeline()
+        if pipeline is not None:
+            return pipeline.submit(fn, *args, **kwargs)
+        return asyncio.to_thread(fn, *args, **kwargs)
+
     async def execute_market_trade(self, order_type: str, lot_size: float, sl_points: float, tp_points: float, snapshot_price: Optional[Dict[str, float]] = None, symbol: Optional[str] = None):
-        """Execution & Self-Healing Layer: Thread-safe order placement with exponential retry backoff.
-        snapshot_price: Optional dict {"bid": ..., "ask": ...} captured at signal detection time to prevent slippage.
+        """Public entry: validates, guards the pending-flag (bug-proof reset),
+        then delegates to the locked execution body.
+
+        The pending flag is ALWAYS released via finally — a CancelledError or
+        unexpected exception mid-execution can no longer leave the bot
+        permanently bricked with 'another order is pending'.
         """
         if self.trades_blocked:
             await self.log_event("EXECUTION_BLOCKED", f"Market order rejected: trading system is locked ({self.lock_state}).")
@@ -843,7 +877,14 @@ class MT5TradingBot:
             return
 
         self.is_pending_order = True
-        
+        try:
+            return await self._execute_market_trade_locked(order_type, lot_size, sl_points, tp_points, snapshot_price, symbol)
+        finally:
+            self.is_pending_order = False
+
+    async def _execute_market_trade_locked(self, order_type: str, lot_size: float, sl_points: float, tp_points: float, snapshot_price: Optional[Dict[str, float]] = None, symbol: Optional[str] = None):
+        """Locked execution body — caller owns the pending-flag lifecycle."""
+
         # Anti-slippage: use snapshot price if provided, otherwise fallback to current live price for this specific symbol
         exec_price = snapshot_price if snapshot_price else self.watchlist_data.get(symbol, self.current_price)
         
@@ -853,10 +894,20 @@ class MT5TradingBot:
             live_ref = self.watchlist_data.get(symbol, self.current_price)["ask"] if order_type == "BUY" else self.watchlist_data.get(symbol, self.current_price)["bid"]
             snap_ref = snapshot_price["ask"] if order_type == "BUY" else snapshot_price["bid"]
             if abs(live_ref - snap_ref) > max_slip:
-                self.is_pending_order = False
                 await self.log_event("SLIPPAGE_REJECT", f"Order rejected: price drifted {abs(live_ref - snap_ref):.2f} from snapshot (max {max_slip:.2f}). Snap={snap_ref}, Live={live_ref}")
                 return
-        
+
+        # Dynamic spread guard: re-check live spread at execution time (t0),
+        # not just at signal time — a fast market can widen the spread.
+        try:
+            sym_tick = self.watchlist_data.get(symbol) or {}
+            live_spread = float(sym_tick.get("spread") or 0)
+            if live_spread > 0 and live_spread > self.max_spread:
+                await self.log_event("SPREAD_REJECT", f"Order rejected: live spread {live_spread} pts exceeds max_spread {self.max_spread} on {symbol}.")
+                return
+        except Exception:
+            pass  # never block execution on guard telemetry failure
+
         await self.log_event("EXECUTION", f"Initiating order send: {order_type} {lot_size} Lots on {symbol}")
 
         # Exponential backoff retry parameters
@@ -934,8 +985,8 @@ class MT5TradingBot:
                     result = mt5.order_send(request)
                     return {"success": result.retcode == mt5.TRADE_RETCODE_DONE, "retcode": result.retcode, "comment": result.comment, "result": result}
 
-                # Run blocking order_send in executor thread
-                trade_res = await asyncio.to_thread(_place_order)
+                # Run blocking order_send through the execution pipeline
+                trade_res = await self._broker_call(_place_order)
 
                 if trade_res["success"]:
                     ret_obj = trade_res["result"]
@@ -1022,6 +1073,23 @@ class MT5TradingBot:
         return defaults.get(symbol, {"bid": 1.0, "ask": 1.0, "spread": 0})
 
     async def close_position(self, ticket: int):
+        """Close an active position (duplicate-close safe).
+
+        Guards the cooperative-multitasking race where the price-feed loop's
+        SL/TP trigger and a manual HTTP close both see the same open position
+        and issue two broker closes. The first caller marks the ticket; the
+        second sees the mark and skips.
+        """
+        if ticket in self._closing_tickets:
+            logger.info(f"Close skipped: ticket={ticket} is already being closed by another coroutine.")
+            return
+        self._closing_tickets.add(ticket)
+        try:
+            return await self._close_position_inner(ticket)
+        finally:
+            self._closing_tickets.discard(ticket)
+
+    async def _close_position_inner(self, ticket: int):
         """Close an active position"""
         logger.info(f"Closing position ticket={ticket} (simulation_mode={self.simulation_mode}, active_positions={len(self.positions)})")
         if self.simulation_mode:
@@ -1155,7 +1223,7 @@ class MT5TradingBot:
                 return True, close_p, profit_val, pos
             return False, 0.0, 0.0, None
 
-        res_success, close_price, profit_val, pos_obj = await asyncio.to_thread(_close)
+        res_success, close_price, profit_val, pos_obj = await self._broker_call(_close)
         logger.info(f"MT5 close result: ticket={ticket} success={res_success} close_price={close_price} profit={profit_val}")
         if res_success:
             for p in list(self.positions):
@@ -1224,7 +1292,7 @@ class MT5TradingBot:
                     logger.error(f"MT5 SL/TP modify failed for #{ticket}: {err_msg}")
                     return False
 
-            res = await asyncio.to_thread(_modify)
+            res = await self._broker_call(_modify)
             if res:
                 await self.log_event("POSITION_MODIFY", f"Position #{ticket} SL/TP modified successfully on MT5: SL={sl}, TP={tp}")
             return res
@@ -1299,7 +1367,7 @@ class MT5TradingBot:
             result = mt5.order_send(request)
             return {"success": result.retcode == mt5.TRADE_RETCODE_DONE, "retcode": result.retcode, "comment": result.comment}
 
-        res = await asyncio.to_thread(_modify)
+        res = await self._broker_call(_modify)
         if res["success"]:
             await self.log_event("TRADE_MODIFY", f"Position {ticket} SL/TP modified successfully. SL: {new_sl}, TP: {new_tp}")
             return True
@@ -1315,6 +1383,8 @@ class MT5TradingBot:
         for pos in list(self.positions):
             symbol = pos["symbol"]
             ticket = pos["ticket"]
+            if ticket in self._closing_tickets:
+                continue  # a close is in flight for this ticket — do not modify
             p_type = pos["type"]
             open_price = pos["open_price"]
             current_sl = pos["sl"]
@@ -1519,23 +1589,35 @@ class MT5TradingBot:
                 self.recent_logs = self.recent_logs[-200:]
 
     def calculate_lot_size(self, sl_points: float, risk_percent: float = None, stars_count: int = 1) -> float:
-        """Calculate volume from configured money risk; fail closed on bad SL."""
+        """Calculate volume from configured money risk; fail closed on bad SL.
+
+        Uses live broker metadata (contract/volume/tick) through the risk engine
+        when MT5 is connected; falls back to the tested instrument defaults only
+        in simulation mode.
+        """
         if sl_points <= 0:
             raise RiskCalculationError("Stop-loss distance is required for risk sizing")
+        from services.risk_engine import instrument_spec_for, size_position
         point = self.get_symbol_point(self.symbol)
         entry = self.current_price["ask"]
         stop = entry - (sl_points * point)
-        spec = InstrumentSpec(
-            tick_size=point,
-            tick_value=point * self.get_symbol_multiplier(self.symbol),
-        )
-        return calculate_volume(
+        spec = instrument_spec_for(self.symbol, mt5_symbol_info=(self.mt5_symbol_info() if not self.simulation_mode and MT5_AVAILABLE else None))
+        return size_position(
             equity=self.account_info["equity"],
             risk_percent=risk_percent if risk_percent is not None else self.risk_percent,
             entry_price=entry,
             stop_loss=stop,
-            instrument=spec,
+            spec=spec,
         )
+
+    def mt5_symbol_info(self):
+        """Return live broker symbol metadata, or None when unavailable."""
+        try:
+            if MT5_AVAILABLE:
+                return mt5.symbol_info(self.symbol)
+        except Exception:
+            return None
+        return None
 
     def calculate_ema(self, prices: List[float], period: int) -> float:
         if len(prices) < period:
@@ -2111,12 +2193,69 @@ class MT5TradingBot:
                 # Always update position PnL, current_price, and check pending order triggers 24/7
                 await self.update_account_state()
                 await self.check_pending_orders()
+                self.publish_live_state()
 
             except Exception as e:
                 logger.error(f"Error in continuous price feed loop: {e}")
             
             # Sleep 1.5 seconds for extremely smooth real-time update
             await asyncio.sleep(1.5)
+
+    def publish_live_state(self) -> None:
+        """Publish an atomically-consistent snapshot for concurrent readers.
+
+        The price-feed loop mutates ``self.symbol / current_price / indicators
+        / sr_levels / fib_levels / confluence_zones`` per watchlist symbol in
+        sequence. Any reader that touches those scalars between two mutations
+        observes a torn state (symbol=EURUSD with XAUUSD prices). This method
+        freezes a coherent view into a single dict reference; readers swap in
+        the reference in one step (no partial reads).
+        """
+        self.live_state = {
+            "symbol": self.symbol,
+            "current_price": dict(self.current_price or {}),
+            "indicators": dict(self.indicators or {}),
+            "sr_levels": list(self.sr_levels or []),
+            "fib_levels": dict(self.fib_levels or {}),
+            "confluence_zones": list(self.confluence_zones or []),
+            "active_signals": list(self.active_signals or []),
+            "account_info": dict(self.account_info or {}),
+            "positions": list(self.positions or []),
+            "pending_orders": list(self.pending_orders or []),
+            "watchlist": {sym: dict(data) for sym, data in self.watchlist_data.items()},
+        }
+        # Keep self.symbol/current_price/indicators as the "selected symbol"
+        # view; the snapshot holds the per-symbol consistent picture.
+        # Feed the shared market board so other accounts/consumers read one
+        # consistent quote surface instead of racing individual bot scalars.
+        try:
+            from services.market_data import get_market_board
+            if not getattr(self, "_board_task_pending", False):
+                self._board_task_pending = True
+                asyncio.get_running_loop().create_task(self._publish_board_snapshot())
+        except Exception:
+            pass  # board is best-effort; never block the price loop on it
+
+    async def _publish_board_snapshot(self) -> None:
+        """Push the current consistent view onto the shared market board."""
+        try:
+            from services.market_data import get_market_board
+            await get_market_board().publish({
+                "quotes": {
+                    sym: {"bid": self.watchlist_data[sym]["bid"],
+                          "ask": self.watchlist_data[sym]["ask"],
+                          "spread": self.watchlist_data[sym]["spread"]}
+                    for sym in self.watchlist_symbols if sym in self.watchlist_data
+                },
+                "symbol": self.symbol,
+                "account_info": dict(self.account_info or {}),
+                "positions": list(self.positions or []),
+                "published_at": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception:
+            pass
+        finally:
+            self._board_task_pending = False
 
     async def scan_market_signals(self):
         """Analyze current price vs Confluence Zones and generate graded trade signals"""

@@ -244,6 +244,75 @@ class SupabaseSessionService:
             raise AuthenticationError(detail or "Authentication request failed")
         return response
 
+    async def _arequest(self, method: str, url: str, **kwargs):
+        """Non-blocking request through the shared connection pool.
+
+        Keeps the event loop free while the HTTP round-trip is in flight and
+        reuses pooled connections (no per-call TLS handshake).
+        """
+        from services.async_http import get_http_pool
+
+        kwargs.setdefault("headers", self.headers)
+        pool = get_http_pool()
+        if pool is not None:
+            response = await pool.request(method, url, **kwargs)
+        else:
+            # No running loop (sync context) — fall back to a blocking call.
+            response = httpx.request(method, url, **kwargs)
+        if response.status_code >= 400:
+            try:
+                detail = response.json().get("msg") or response.json().get("message") or response.text
+            except ValueError:
+                detail = response.text
+            raise AuthenticationError(detail or "Authentication request failed")
+        return response
+
+    async def authenticate_async(self, token: str) -> Principal:
+        """Async equivalent of ``authenticate`` for request hot paths.
+
+        Cache-check is served from memory; a cache miss performs the two DB
+        lookups through the shared AsyncClient pool without blocking the
+        event loop. Mirrors the sync implementation exactly.
+        """
+        if not token:
+            raise AuthenticationError("Bearer token is required")
+        token_hash = self._hash(token)
+        now = time.monotonic()
+        hit = self._auth_cache.get(token_hash)
+        if hit and (now - hit[0]) < self._auth_cache_ttl:
+            return hit[1]
+        rows = (await self._arequest(
+            "GET", f"{self.rest_url}/user_sessions",
+            params={
+                "token_hash": f"eq.{token_hash}", "is_active": "eq.true", "status": "eq.active",
+                "expires_at": f"gt.{datetime.now(timezone.utc).isoformat()}",
+                "select": "user_id,account_id,roles", "limit": "1",
+            },
+        )).json()
+        if not rows:
+            raise AuthenticationError("Invalid or expired session")
+        row = rows[0]
+        user_id = str(row["user_id"])
+        # Source of truth for roles is user_profiles (admin-editable); fall back
+        # to the session's stored roles when the profile lookup fails.
+        roles = []
+        try:
+            prof = (await self._arequest(
+                "GET", f"{self.rest_url}/user_profiles",
+                params={"user_id": f"eq.{user_id}", "select": "roles", "limit": "1"},
+            )).json()
+            if prof and prof[0].get("roles"):
+                roles = list(prof[0]["roles"])
+        except Exception:
+            roles = []
+        if not roles:
+            roles = list(row.get("roles") or ["trader"])
+        if "admin" in roles and "trader" in roles:
+            roles = ["admin"]
+        principal = Principal(str(row["account_id"]), user_id, frozenset(roles))
+        self._auth_cache[token_hash] = (now, principal)
+        return principal
+
     def register(self, email: str, password: str, display_name: str | None = None) -> dict:
         email = normalize_email(email)
         validate_password_strength(password)

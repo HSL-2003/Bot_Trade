@@ -12,6 +12,7 @@ Every concept lives in exactly one place:
 """
 
 import os
+import asyncio
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, Response
@@ -94,12 +95,25 @@ async def get_bearer_token(
     return token
 
 
+async def _authenticate(session_service, token: str):
+    """Non-blocking session authentication.
+
+    Prefers the async (pooled, non-blocking) implementation when the session
+    service exposes it; otherwise runs the sync implementation in a worker
+    thread so the event loop is never blocked by the HTTP round-trips.
+    """
+    auth = getattr(session_service, "authenticate_async", None)
+    if callable(auth):
+        return await auth(token)
+    return await asyncio.to_thread(session_service.authenticate, token)
+
+
 async def get_current_principal(
     token: str = Depends(get_bearer_token),
     session_service: SessionService = Depends(get_session_service),
 ) -> Principal:
     try:
-        return session_service.authenticate(token)
+        return await _authenticate(session_service, token)
     except AuthenticationError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
@@ -112,7 +126,7 @@ async def get_current_principal_optional(
     if not token:
         return None
     try:
-        return session_service.authenticate(token)
+        return await _authenticate(session_service, token)
     except AuthenticationError as exc:
         # A supplied token that fails validation must surface as 401, not as an
         # anonymous request (legacy behavior: only "no token" means anonymous).
@@ -162,6 +176,6 @@ def set_session_cookie(response: Response, session: dict, request: Request) -> N
         )
 
 
-def authenticate_websocket(token: str, session_service: SessionService) -> Principal:
+async def authenticate_websocket(token: str, session_service: SessionService) -> Principal:
     """Authenticate a WebSocket token using the same session boundary as HTTP."""
-    return session_service.authenticate(token)
+    return await _authenticate(session_service, token)

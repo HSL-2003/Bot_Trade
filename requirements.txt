@@ -9,4 +9,5 @@ bcrypt==4.2.1
 slowapi==0.1.9
 python-jose[cryptography]==3.3.0
 gunicorn==23.0.0
+asyncpg==0.30.0  # Direct Postgres critical path (optional; see services/direct_db.py)
 

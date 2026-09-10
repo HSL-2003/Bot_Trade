@@ -25,6 +25,7 @@ from bot import MT5TradingBot, MT5_AVAILABLE
 from config import SUPPORTED_SYMBOLS, agents_enabled, allowed_origins
 from services.account_service import TradingAccountService
 from services.auth_service import AuthenticationError, InMemorySessionService, SupabaseSessionService, normalize_email, validate_password_strength
+from services.auth_dependencies import _authenticate as _session_authenticate
 from repositories.persistence import InMemoryAccountRepository, LOCK_HARD, LOCK_SOFT, LOCK_UNLOCKED
 from repositories.supabase_repository import SupabaseAccountRepository
 from security import (
@@ -62,11 +63,22 @@ async def lifespan(app: FastAPI):
     # Start the continuous price feed loop in the background
     asyncio.create_task(bot.start_price_feed_loop())
 
+    # Phase 0: start the shared broker-mutation pipeline (serializes all MT5
+    # trade ops through one queue behind a single IPC channel).
+    from services.execution_pipeline import get_default_pipeline
+    await get_default_pipeline().start()
+
     try:
         yield
     finally:
         # --- shutdown ---
         await account_service.shutdown()
+        pipeline = get_default_pipeline()
+        await pipeline.stop()
+        from services.async_http import aclose_http_pool
+        await aclose_http_pool()
+        from services.direct_db import close_direct_db
+        await close_direct_db()
         if not bot.simulation_mode and MT5_AVAILABLE:
             import MetaTrader5 as mt5  # type: ignore[import-not-found]
             mt5.shutdown()
@@ -156,7 +168,7 @@ else:
 bot_task = None
 
 
-def account_id_from_request(request: Request) -> str:
+async def account_id_from_request(request: Request) -> str:
     account_id = request.headers.get("X-Account-Id") or request.query_params.get("account_id")
     authorization = request.headers.get("Authorization", "")
     # Authenticate whenever a Bearer token is present OR when REQUIRE_AUTH is on.
@@ -167,7 +179,7 @@ def account_id_from_request(request: Request) -> str:
         if not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Bearer authentication is required")
         try:
-            principal = session_service.authenticate(authorization[7:].strip())
+            principal = await _session_authenticate(session_service, authorization[7:].strip())
         except AuthenticationError as exc:
             raise HTTPException(status_code=401, detail=str(exc)) from exc
 
@@ -269,7 +281,7 @@ def bearer_token(request: Request) -> str:
     return authorization[7:].strip()
 
 
-def require_admin(request: Request) -> None:
+async def require_admin(request: Request) -> None:
     """Verify that the request comes from an admin user. Raises HTTPException if not."""
     require_auth = os.getenv("REQUIRE_AUTH", "false").lower() == "true" or os.getenv("ENVIRONMENT", "development").lower() == "production"
     token = bearer_token(request)
@@ -279,7 +291,7 @@ def require_admin(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Bearer token is required")
 
     try:
-        principal = session_service.authenticate(token)
+        principal = await _session_authenticate(session_service, token)
         allowed_accounts = {a.strip() for a in os.getenv("ADMIN_ACCOUNT_IDS", "").split(",") if a.strip()}
         admin_emails = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "admin@ponytail.finance,operator@ponytail.finance").split(",") if e.strip()}
         user_email = (session_service.get_user_email(principal.user_id) if hasattr(session_service, "get_user_email") else "") or ""
@@ -462,7 +474,7 @@ async def social_callback(request: Request, payload: SocialCallbackModel):
 @app.get("/api/auth/me")
 async def current_user(request: Request):
     try:
-        principal = session_service.authenticate(bearer_token(request))
+        principal = await _session_authenticate(session_service, bearer_token(request))
         email = session_service.get_user_email(principal.user_id) if hasattr(session_service, "get_user_email") else None
         display_name = None
         if hasattr(repository, "profile"):
@@ -509,29 +521,29 @@ async def logout(request: Request):
     response.delete_cookie("session_token", path="/")
     return response
 
-def principal_optional_from_request(request: Request) -> Optional[Any]:
+async def principal_optional_from_request(request: Request) -> Optional[Any]:
     try:
         token = bearer_token(request)
-        return session_service.authenticate(token)
+        return await _session_authenticate(session_service, token)
     except Exception:
         return None
 
 
-def scoped_bot(request: Request) -> MT5TradingBot:
-    acc_id = account_id_from_request(request)
-    principal = principal_optional_from_request(request)
+async def scoped_bot(request: Request) -> MT5TradingBot:
+    acc_id = await account_id_from_request(request)
+    principal = await principal_optional_from_request(request)
     user_id = principal.user_id if principal else None
     return account_service.get_bot(acc_id, user_id)
 
 
-def principal_from_request(request: Request):
+async def principal_from_request(request: Request):
     require_auth = os.getenv("REQUIRE_AUTH", "false").lower() == "true" or os.getenv("ENVIRONMENT", "development").lower() == "production"
     try:
         token = bearer_token(request)
         if token == "demo-token" and not require_auth:
             from services.auth_service import Principal
             return Principal(os.getenv("DEFAULT_ACCOUNT_ID", "demo-account"), "demo-user", frozenset({"trader"}))
-        return session_service.authenticate(token)
+        return await _session_authenticate(session_service, token)
     except Exception as exc:
         if not require_auth:
             from services.auth_service import Principal
@@ -591,7 +603,7 @@ async def get_profile(request: Request):
     display_name = profile_data.get("display_name") or (email.split("@")[0] if email else "Trader")
 
     # 4. Financial & Realtime Balance Info from scoped_bot
-    bot_inst = scoped_bot(request)
+    bot_inst = await scoped_bot(request)
     acc_info = bot_inst.account_info if hasattr(bot_inst, "account_info") else {}
     balance = float(acc_info.get("balance") or 10000.0)
     equity = float(acc_info.get("equity") or balance)
@@ -631,7 +643,7 @@ async def get_profile(request: Request):
     }
 @app.patch("/api/profile")
 async def update_profile(payload: ProfileModel, request: Request):
-    principal = await asyncio.to_thread(principal_from_request, request)
+    principal = await principal_from_request(request)
     data = {key: value for key, value in payload.dict().items() if value is not None}
     if not hasattr(repository, "update_profile"):
         return {"user_id": principal.user_id, **data}
@@ -640,7 +652,7 @@ async def update_profile(payload: ProfileModel, request: Request):
 @app.get("/api/dashboard/data")
 @limiter.limit("60/minute")
 async def dashboard_data(request: Request, days: int = 30):
-    principal = await asyncio.to_thread(principal_from_request, request)
+    principal = await principal_from_request(request)
     days = max(1, min(days, 365))
     
     # 1. Fetch user trades from repository asynchronously in thread pool
@@ -711,9 +723,9 @@ async def dashboard_data(request: Request, days: int = 30):
 async def get_history_analytics(request: Request, period: str = "all"):
     if period not in ["day", "week", "month", "all"]:
         period = "all"
-    current_bot = scoped_bot(request)
-    principal = principal_optional_from_request(request)
-    acc_id = account_id_from_request(request)
+    current_bot = await scoped_bot(request)
+    principal = await principal_optional_from_request(request)
+    acc_id = await account_id_from_request(request)
     user_id = principal.user_id if principal else None
 
     # Auto-heal/sync unclosed records in Supabase if local history is present
@@ -729,7 +741,7 @@ async def get_history_analytics(request: Request, period: str = "all"):
 
 @app.get("/api/user/trades")
 async def get_user_trades_endpoint(request: Request, limit: int = 100, period: str = "all"):
-    principal = principal_from_request(request)
+    principal = await principal_from_request(request)
     if hasattr(repository, "get_user_trades"):
         trades = repository.get_user_trades(principal.account_id, principal.user_id, limit=limit, period=period)
     elif hasattr(repository, "recent_trades"):
@@ -892,7 +904,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.close(code=1008, reason="Authentication required")
             return
         try:
-            principal = session_service.authenticate(token)
+            principal = await _session_authenticate(session_service, token)
         except AuthenticationError:
             security_logger.warning("Invalid token provided for WebSocket connection.")
             await websocket.close(code=1008, reason="Invalid token")
@@ -916,6 +928,7 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             # Keep the live payload bounded; history has a dedicated endpoint.
+            live = getattr(stream_bot, "live_state", None) or {}
             state = {
                 "account_id": account_id,
                 "is_running": stream_bot.is_running,
@@ -924,7 +937,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "lock_state": stream_bot.lock_state,
                 "lock_reason": stream_bot.lock_reason,
                 "is_pending_order": stream_bot.is_pending_order,
-                "symbol": stream_bot.symbol,
+                "symbol": live.get("symbol", stream_bot.symbol),
                 "risk_percent": stream_bot.risk_percent,
                 "max_spread": stream_bot.max_spread,
                 "max_daily_loss_percent": stream_bot.max_daily_loss_percent,
@@ -941,20 +954,20 @@ async def websocket_endpoint(websocket: WebSocket):
                 "roi_enabled": stream_bot.roi_enabled,
                 "roi_table": stream_bot.roi_table,
                 "pair_locks": stream_bot.pair_locks,
-                "current_price": stream_bot.current_price,
-                "account_info": stream_bot.account_info,
-                "positions": stream_bot.positions,
-                "pending_orders": stream_bot.pending_orders,
+                "current_price": live.get("current_price", stream_bot.current_price),
+                "account_info": live.get("account_info", stream_bot.account_info),
+                "positions": live.get("positions", stream_bot.positions),
+                "pending_orders": live.get("pending_orders", stream_bot.pending_orders),
                 "news_events": stream_bot.news_events,
                 "recent_logs": stream_bot.recent_logs,
-                "sr_levels": stream_bot.sr_levels,
-                "fib_levels": stream_bot.fib_levels,
-                "confluence_zones": stream_bot.confluence_zones,
-                "active_signals": stream_bot.active_signals,
+                "sr_levels": live.get("sr_levels", stream_bot.sr_levels),
+                "fib_levels": live.get("fib_levels", stream_bot.fib_levels),
+                "confluence_zones": live.get("confluence_zones", stream_bot.confluence_zones),
+                "active_signals": live.get("active_signals", stream_bot.active_signals),
                 "trade_history": stream_bot.history[-100:],
                 "statistics": stream_bot.get_statistics(),
-                "indicators": stream_bot.indicators,
-                "watchlist": stream_bot.watchlist_data
+                "indicators": live.get("indicators", stream_bot.indicators),
+                "watchlist": live.get("watchlist", stream_bot.watchlist_data)
             }
             await websocket.send_json(state)
             await asyncio.sleep(0.5)
@@ -969,7 +982,7 @@ async def websocket_endpoint(websocket: WebSocket):
 @limiter.limit("10/minute")
 async def start_bot(request: Request):
     global bot_task
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
     if current_bot.lock_state == LOCK_HARD:
         raise HTTPException(status_code=423, detail="Trading system is hard-locked; unlock before starting")
     if current_bot.is_running:
@@ -989,7 +1002,7 @@ async def start_bot(request: Request):
 @app.post("/api/stop")
 @limiter.limit("10/minute")
 async def stop_bot(request: Request):
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
     if not current_bot.is_running:
         return {"status": "already_stopped"}
     await current_bot.stop()
@@ -1002,7 +1015,7 @@ class SimulationToggleModel(BaseModel):
 @app.post("/api/simulation/toggle")
 @limiter.limit("10/minute")
 async def toggle_simulation(request: Request, payload: Optional[SimulationToggleModel] = None):
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
     if current_bot.is_running:
         raise HTTPException(status_code=409, detail="Stop the bot before changing simulation mode")
     if payload is not None and payload.enabled is not None:
@@ -1014,7 +1027,8 @@ async def toggle_simulation(request: Request, payload: Optional[SimulationToggle
 # Get Bot State API
 @app.get("/api/state")
 async def get_state(request: Request):
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
+    live = getattr(current_bot, "live_state", None) or {}
     return {
         "is_running": current_bot.is_running,
         "simulation_mode": current_bot.simulation_mode,
@@ -1022,7 +1036,7 @@ async def get_state(request: Request):
         "lock_state": current_bot.lock_state,
         "lock_reason": current_bot.lock_reason,
         "is_pending_order": current_bot.is_pending_order,
-        "symbol": current_bot.symbol,
+        "symbol": live.get("symbol", current_bot.symbol),
         "settings": {
             "risk_percent": current_bot.risk_percent,
             "max_spread": current_bot.max_spread,
@@ -1041,26 +1055,26 @@ async def get_state(request: Request):
             "roi_table": ",".join([f"{k}:{v}" for k, v in current_bot.roi_table.items()])
         },
         "pair_locks": current_bot.pair_locks,
-        "current_price": current_bot.current_price,
-        "account_info": current_bot.account_info,
-        "positions": current_bot.positions,
+        "current_price": live.get("current_price", current_bot.current_price),
+        "account_info": live.get("account_info", current_bot.account_info),
+        "positions": live.get("positions", current_bot.positions),
         "news_events": current_bot.news_events,
         "recent_logs": current_bot.recent_logs,
-        "sr_levels": current_bot.sr_levels,
-        "fib_levels": current_bot.fib_levels,
-        "confluence_zones": current_bot.confluence_zones,
-        "active_signals": current_bot.active_signals,
+        "sr_levels": live.get("sr_levels", current_bot.sr_levels),
+        "fib_levels": live.get("fib_levels", current_bot.fib_levels),
+        "confluence_zones": live.get("confluence_zones", current_bot.confluence_zones),
+        "active_signals": live.get("active_signals", current_bot.active_signals),
         "trade_history": current_bot.history[-100:] if current_bot.history else [],
         "statistics": current_bot.get_statistics(),
-        "indicators": current_bot.indicators,
-        "watchlist": current_bot.watchlist_data
+        "indicators": live.get("indicators", current_bot.indicators),
+        "watchlist": live.get("watchlist", current_bot.watchlist_data)
     }
 
 # Update Settings API
 @app.post("/api/settings")
 @limiter.limit("30/minute")
 async def update_settings(settings: SettingsModel, request: Request):
-    bot = scoped_bot(request)
+    bot = await scoped_bot(request)
     settings.symbol = settings.symbol.upper().strip()
     if settings.symbol not in SUPPORTED_SYMBOLS:
         raise HTTPException(status_code=422, detail="Unsupported symbol")
@@ -1101,7 +1115,7 @@ async def update_settings(settings: SettingsModel, request: Request):
 @app.post("/api/symbol-toggle")
 @limiter.limit("30/minute")
 async def symbol_toggle_endpoint(data: SymbolToggleModel, request: Request):
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
     if data.preset == "XAUUSD_ONLY":
         for sym in current_bot.enabled_symbols:
             current_bot.enabled_symbols[sym] = (sym == "XAUUSD")
@@ -1123,14 +1137,14 @@ async def symbol_toggle_endpoint(data: SymbolToggleModel, request: Request):
 @app.post("/api/trade")
 @limiter.limit("20/minute")
 async def manual_trade(trade: ManualTradeModel, request: Request):
-    bot = scoped_bot(request)
+    bot = await scoped_bot(request)
     if bot.trades_blocked:
         raise HTTPException(status_code=423, detail=f"Trading system is locked ({bot.lock_state})")
     if trade.lot_size <= 0:
         raise HTTPException(status_code=422, detail="Lot size must be positive")
     
     # Run filter check for manual trade
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
     passed = await current_bot.check_filters(trade.type, is_manual=True, symbol=trade.symbol)
     if not passed:
         raise HTTPException(status_code=400, detail="Trade rejected by risk filters (spread/drawdown/news).")
@@ -1205,7 +1219,7 @@ async def manual_trade(trade: ManualTradeModel, request: Request):
 @app.post("/api/pending/cancel/{ticket}")
 @limiter.limit("30/minute")
 async def cancel_pending_order_endpoint(ticket: int, request: Request):
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
     success = await current_bot.cancel_pending_order(ticket)
     if not success and bot != current_bot:
         success = await bot.cancel_pending_order(ticket)
@@ -1217,7 +1231,7 @@ async def cancel_pending_order_endpoint(ticket: int, request: Request):
 @app.post("/api/close/{ticket}")
 @limiter.limit("30/minute")
 async def close_position_endpoint(ticket: int, request: Request):
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
     await current_bot.close_position(ticket)
     if bot != current_bot:
         await bot.close_position(ticket)
@@ -1232,7 +1246,7 @@ async def close_position_endpoint(ticket: int, request: Request):
 @app.post("/api/close-all")
 @limiter.limit("10/minute")
 async def close_all_positions_endpoint(request: Request):
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
     await current_bot.close_all_positions()
     if bot != current_bot:
         await bot.close_all_positions()
@@ -1246,7 +1260,7 @@ async def close_all_positions_endpoint(request: Request):
 @app.post("/api/modify-sltp/{ticket}")
 @limiter.limit("30/minute")
 async def modify_sltp_endpoint(ticket: int, data: ModifySLTPModel, request: Request):
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
     success = await current_bot.modify_position_sltp(ticket, data.sl, data.tp)
     if not success:
         raise HTTPException(status_code=400, detail="Failed to modify SL/TP. Position not found or broker rejected.")
@@ -1256,7 +1270,7 @@ async def modify_sltp_endpoint(ticket: int, data: ModifySLTPModel, request: Requ
 @app.post("/api/circuit-breaker/trigger")
 @limiter.limit("10/minute")
 async def manual_trigger_circuit_breaker(request: Request):
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
     await current_bot.hard_lock("Manual circuit breaker lockdown")
     return {"status": "locked", "lock_state": current_bot.lock_state}
 
@@ -1264,7 +1278,7 @@ async def manual_trigger_circuit_breaker(request: Request):
 @app.post("/api/circuit-breaker/reset")
 @limiter.limit("10/minute")
 async def reset_circuit_breaker(request: Request):
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
     current_bot.daily_start_equity = current_bot.account_info["balance"]
     current_bot.account_info["daily_start_equity"] = current_bot.daily_start_equity
     current_bot.account_info["daily_drawdown_percent"] = 0.0
@@ -1279,7 +1293,7 @@ class LockModel(BaseModel):
 @app.post("/api/lock")
 @limiter.limit("10/minute")
 async def set_lock_endpoint(payload: LockModel, request: Request):
-    current_bot = scoped_bot(request)
+    current_bot = await scoped_bot(request)
     if payload.state == LOCK_HARD:
         await current_bot.hard_lock(payload.reason)
     elif payload.state == LOCK_SOFT:
@@ -1294,7 +1308,7 @@ async def set_lock_endpoint(payload: LockModel, request: Request):
 async def run_sdlc_loop_endpoint(task: AgentTaskModel, request: Request):
     if not agents_enabled():
         raise HTTPException(status_code=404, detail="SDLC agents are disabled")
-    principal = principal_from_request(request)
+    principal = await principal_from_request(request)
     if "admin" not in principal.roles and "trader" not in principal.roles:
         raise HTTPException(status_code=403, detail="Unauthorized role for SDLC agents")
     if not task.prompt.strip() or not 1 <= (task.max_retries or 0) <= 5:
@@ -1579,8 +1593,14 @@ def _admin_aggregates(accounts, trades):
 @app.get("/api/admin/overview")
 @limiter.limit("120/minute")
 async def admin_overview(request: Request, q: str = "", status: str = "", lock_state: str = "", page: int = 1, per_page: int = 50):
-    """Combined admin payload: KPIs/charts + filtered accounts table in ONE request."""
-    require_admin(request)
+    """Combined admin payload: KPIs/charts + filtered accounts table in ONE request.
+
+    Phase 2: prefers the SQL view ``admin_account_summary`` (pre-aggregated
+    per-account stats, pre-joined with bot_types) — replacing the
+    O(all-trades) Python-side aggregation with a single indexed SQL query.
+    Falls back to the legacy path if the view doesn't exist (migration not run).
+    """
+    await require_admin(request)
     accounts_fut = asyncio.to_thread(repository.list_accounts) if hasattr(repository, "list_accounts") else None
     trades_fut = asyncio.to_thread(repository.get_all_trades) if hasattr(repository, "get_all_trades") else None
     users_fut = asyncio.to_thread(repository.list_user_profiles) if hasattr(repository, "list_user_profiles") else None
@@ -1600,26 +1620,35 @@ async def admin_overview(request: Request, q: str = "", status: str = "", lock_s
     data = _admin_aggregates(accounts, trades)
     data["partner"] = _partner_analytics(users, trades)
 
-    filtered = accounts
+    # Phase 2: try the SQL view for enriched per-account stats (pre-joined).
+    enriched_accounts = None
+    if hasattr(repository, "get_account_summary"):
+        try:
+            enriched_accounts = await asyncio.to_thread(repository.get_account_summary)
+        except Exception:
+            pass  # migration not run — legacy path below
+
+    filtered = enriched_accounts if enriched_accounts else accounts
     if q:
         q_lower = q.lower()
         filtered = [a for a in filtered if q_lower in str(a.get("id", "")).lower() or q_lower in str(a.get("display_name", "")).lower()]
     if status:
-        filtered = [a for a in filtered if a.get("status") == status]
+        filtered = [a for a in filtered if a.get("status") == status or a.get("account_status") == status]
     if lock_state:
         filtered = [a for a in filtered if a.get("lock_state") == lock_state]
     filtered = sorted(filtered, key=lambda a: str(a.get("created_at") or ""), reverse=True)
-    filtered = _enrich_account_stats(filtered, trades)
 
-    # Join bot_type info
-    if hasattr(repository, "get_bot_types"):
-        bot_types_map = {bt["id"]: bt for bt in repository.get_bot_types()}
-        for a in filtered:
-            bt_id = a.get("bot_type_id")
-            if bt_id and bt_id in bot_types_map:
-                bt = bot_types_map[bt_id]
-                a["bot_type_name"] = bt["name"]
-                a["bot_type_risk"] = bt["risk_level"]
+    # Only enrich + join when NOT using the view (view already has bot_type)
+    if not enriched_accounts:
+        filtered = _enrich_account_stats(filtered, trades)
+        if hasattr(repository, "get_bot_types"):
+            bot_types_map = {bt["id"]: bt for bt in repository.get_bot_types()}
+            for a in filtered:
+                bt_id = a.get("bot_type_id")
+                if bt_id and bt_id in bot_types_map:
+                    bt = bot_types_map[bt_id]
+                    a["bot_type_name"] = bt["name"]
+                    a["bot_type_risk"] = bt["risk_level"]
 
     total = len(filtered)
     page = max(1, page)
@@ -1633,7 +1662,7 @@ async def admin_overview(request: Request, q: str = "", status: str = "", lock_s
 @limiter.limit("60/minute")
 async def admin_partner_analytics(request: Request):
     """Exness-style partner metrics: registrations, lot volume, commission, backcom, bot P&L."""
-    require_admin(request)
+    await require_admin(request)
     users = await asyncio.to_thread(repository.list_user_profiles) if hasattr(repository, "list_user_profiles") else []
     trades = await asyncio.to_thread(repository.get_all_trades) if hasattr(repository, "get_all_trades") else []
     return _partner_analytics(users, trades)
@@ -1686,7 +1715,7 @@ def _enrich_account_stats(accounts, trades):
 @app.get("/api/admin/accounts")
 @limiter.limit("60/minute")
 async def admin_list_accounts(request: Request, q: str = "", status: str = "", lock_state: str = "", page: int = 1, per_page: int = 50):
-    require_admin(request)
+    await require_admin(request)
     accounts = await asyncio.to_thread(repository.list_accounts) if hasattr(repository, "list_accounts") else []
     if q:
         q = q.lower()
@@ -1709,7 +1738,7 @@ async def admin_list_accounts(request: Request, q: str = "", status: str = "", l
 @app.get("/api/admin/accounts/{account_id}")
 @limiter.limit("60/minute")
 async def admin_account_detail(account_id: str, request: Request):
-    require_admin(request)
+    await require_admin(request)
     if not hasattr(repository, "get_account_detail"):
         raise HTTPException(status_code=404, detail="Account detail unavailable")
     detail = repository.get_account_detail(account_id)
@@ -1730,7 +1759,7 @@ async def admin_account_detail(account_id: str, request: Request):
 @app.post("/api/admin/accounts/{account_id}/bot-type")
 @limiter.limit("20/minute")
 async def admin_set_bot_type(account_id: str, payload: dict, request: Request):
-    require_admin(request)
+    await require_admin(request)
     bot_type_id = payload.get("bot_type_id")
     if not bot_type_id:
         raise HTTPException(status_code=400, detail="bot_type_id is required")
@@ -1742,7 +1771,7 @@ async def admin_set_bot_type(account_id: str, payload: dict, request: Request):
 @app.post("/api/admin/accounts/{account_id}/status")
 @limiter.limit("20/minute")
 async def admin_set_status(account_id: str, payload: AdminStatusModel, request: Request):
-    require_admin(request)
+    await require_admin(request)
     if not hasattr(repository, "set_account_status"):
         raise HTTPException(status_code=501, detail="Unsupported repository")
     repository.set_account_status(account_id, payload.status, payload.reason)
@@ -1754,7 +1783,7 @@ async def admin_set_status(account_id: str, payload: AdminStatusModel, request: 
 @app.post("/api/admin/accounts/{account_id}/lock")
 @limiter.limit("20/minute")
 async def admin_set_lock(account_id: str, payload: AdminLockModel, request: Request):
-    require_admin(request)
+    await require_admin(request)
     current_bot = account_service.get_bot(account_id)
     if payload.state == LOCK_HARD:
         await current_bot.hard_lock(payload.reason)
@@ -1768,11 +1797,39 @@ async def admin_set_lock(account_id: str, payload: AdminLockModel, request: Requ
     return {"status": "ok", "account_id": account_id, "lock_state": current_bot.lock_state}
 
 
+@app.post("/api/admin/accounts/{account_id}/unlock")
+@limiter.limit("10/minute")
+async def admin_unlock_account(account_id: str, payload: AdminLockModel, request: Request):
+    """Admin-only unlock of a hard/soft locked account.
+
+    Phase 2: gates the LOCK_HARD→UNLOCKED transition through a dedicated
+    endpoint that validates the admin role and logs the action. The DB trigger
+    (enforce_hard_lock) is a defense-in-depth safety net.
+    """
+    principal = await require_admin(request)
+    current_bot = account_service.get_bot(account_id)
+    if current_bot.lock_state != LOCK_HARD:
+        raise HTTPException(status_code=400, detail="Account is not hard-locked")
+    current_bot.unlock(payload.reason)
+    if hasattr(repository, "set_lock_state"):
+        repository.set_lock_state(account_id, LOCK_UNLOCKED, payload.reason)
+    log_security_event(
+        event="admin_unlock_account",
+        severity="warning",
+        account_id=account_id,
+        user_id=principal.user_id,
+        correlation_id=getattr(request.state, "correlation_id", None),
+        details={"reason": payload.reason, "previous_state": "hard_locked"},
+    )
+    logger.info(f"[ADMIN_UNLOCK] Account {account_id} unlocked by admin {principal.user_id} (reason: {payload.reason})")
+    return {"status": "unlocked", "account_id": account_id, "lock_state": current_bot.lock_state}
+
+
 @app.get("/api/admin/users")
 @limiter.limit("60/minute")
 async def admin_list_users(request: Request):
     """Lấy danh sách hồ sơ người dùng trong hệ thống kèm thông tin tài khoản và email."""
-    require_admin(request)
+    await require_admin(request)
     users = []
     if hasattr(repository, "list_user_profiles"):
         users = await asyncio.to_thread(repository.list_user_profiles)
@@ -1795,7 +1852,7 @@ async def admin_list_users(request: Request):
 @limiter.limit("20/minute")
 async def admin_create_user(payload: AdminCreateUserModel, request: Request):
     """Tạo người dùng mới (Admin hoặc Trader - loại trừ lẫn nhau)."""
-    require_admin(request)
+    await require_admin(request)
     try:
         validate_password_strength(payload.password)
     except Exception as exc:
@@ -1826,7 +1883,7 @@ async def admin_create_user(payload: AdminCreateUserModel, request: Request):
 @limiter.limit("20/minute")
 async def admin_update_user(user_id: str, payload: AdminUpdateUserModel, request: Request):
     """Cập nhật thông tin/mật khẩu/vai trò/trạng thái người dùng."""
-    require_admin(request)
+    await require_admin(request)
     if payload.password:
         try:
             validate_password_strength(payload.password)
@@ -1859,7 +1916,7 @@ async def admin_update_user(user_id: str, payload: AdminUpdateUserModel, request
 @limiter.limit("20/minute")
 async def admin_delete_user(user_id: str, request: Request):
     """Xóa người dùng khỏi hệ thống."""
-    require_admin(request)
+    await require_admin(request)
     current_user_id = getattr(request.state, "user_id", None)
     if current_user_id and current_user_id == user_id:
         raise HTTPException(status_code=400, detail="Không thể tự xóa tài khoản Admin đang đăng nhập.")
@@ -1880,7 +1937,7 @@ async def admin_delete_user(user_id: str, request: Request):
 @app.put("/api/admin/users/{user_id}/roles")
 @limiter.limit("30/minute")
 async def admin_set_roles(user_id: str, payload: AdminRolesModel, request: Request):
-    require_admin(request)
+    await require_admin(request)
     role_set = set(payload.roles) & {"trader", "admin"}
     if "admin" in role_set and "trader" in role_set:
         raise HTTPException(
@@ -1900,7 +1957,7 @@ async def admin_set_roles(user_id: str, payload: AdminRolesModel, request: Reque
 @limiter.limit("60/minute")
 async def admin_account_positions(account_id: str, request: Request):
     """Quan sát trực tiếp danh sách lệnh đang mở của một tài khoản."""
-    require_admin(request)
+    await require_admin(request)
     session = account_service.get_session(account_id)
     bot = session.bot
     positions = list(bot.positions)
@@ -1918,7 +1975,7 @@ async def admin_account_positions(account_id: str, request: Request):
 @limiter.limit("30/minute")
 async def admin_close_position(account_id: str, ticket: int, request: Request):
     """Admin can thiệp đóng một vị thế mở cụ thể của tài khoản."""
-    require_admin(request)
+    await require_admin(request)
     session = account_service.get_session(account_id)
     bot = session.bot
     success = await bot.close_position(ticket)
@@ -1935,7 +1992,7 @@ async def admin_close_position(account_id: str, ticket: int, request: Request):
 @limiter.limit("15/minute")
 async def admin_close_all_positions(account_id: str, request: Request):
     """Admin can thiệp đóng toàn bộ vị thế của một tài khoản."""
-    require_admin(request)
+    await require_admin(request)
     session = account_service.get_session(account_id)
     bot = session.bot
     closed_count = len(bot.positions)
@@ -1953,7 +2010,7 @@ async def admin_close_all_positions(account_id: str, request: Request):
 @limiter.limit("60/minute")
 async def admin_account_daily_performance(account_id: str, request: Request):
     """Phân tích tỷ lệ thắng và lợi nhuận theo từng ngày cho tài khoản."""
-    require_admin(request)
+    await require_admin(request)
     days = []
     if hasattr(repository, "get_account_daily_performance"):
         days = await asyncio.to_thread(repository.get_account_daily_performance, account_id)
@@ -1977,7 +2034,7 @@ async def admin_account_daily_performance(account_id: str, request: Request):
 @limiter.limit("5/minute")
 async def admin_fleet_emergency_close_all(payload: EmergencyCloseAllModel, request: Request):
     """Lệnh đóng khẩn cấp toàn bộ vị thế trên mọi tài khoản khi thị trường quét mạnh."""
-    require_admin(request)
+    await require_admin(request)
     total_closed = 0
     total_halted = 0
     affected_accounts = []
@@ -2023,7 +2080,7 @@ async def admin_fleet_emergency_close_all(payload: EmergencyCloseAllModel, reque
 @limiter.limit("60/minute")
 async def admin_bot_fleet_breakdown(request: Request):
     """Thống kê chi tiết từng loại bot cho từng tài khoản."""
-    require_admin(request)
+    await require_admin(request)
     bot_types = await asyncio.to_thread(repository.get_bot_types, include_inactive=True) if hasattr(repository, "get_bot_types") else []
     accounts = await asyncio.to_thread(repository.list_accounts) if hasattr(repository, "list_accounts") else []
     trades = await asyncio.to_thread(repository.get_all_trades) if hasattr(repository, "get_all_trades") else []
@@ -2068,7 +2125,7 @@ async def admin_bot_fleet_breakdown(request: Request):
 @app.post("/api/admin/accounts/{account_id}/revoke-sessions")
 @limiter.limit("20/minute")
 async def admin_revoke(account_id: str, request: Request):
-    require_admin(request)
+    await require_admin(request)
     n = repository.revoke_account_sessions(account_id) if hasattr(repository, "revoke_account_sessions") else 0
     return {"status": "ok", "account_id": account_id, "revoked": n}
 
@@ -2077,7 +2134,7 @@ async def admin_revoke(account_id: str, request: Request):
 @limiter.limit("10/minute")
 async def admin_deploy_bot(account_id: str, request: Request):
     """Nạp (khởi động) bot vào một tài khoản MT5 người dùng."""
-    require_admin(request)
+    await require_admin(request)
     current_bot = account_service.get_bot(account_id)
     if current_bot.lock_state == LOCK_HARD:
         raise HTTPException(status_code=423, detail="Account is hard-locked; unlock before deploying bot")
@@ -2094,7 +2151,7 @@ async def admin_deploy_bot(account_id: str, request: Request):
 @limiter.limit("10/minute")
 async def admin_halt_bot(account_id: str, request: Request):
     """Dừng bot đang chạy trên một tài khoản."""
-    require_admin(request)
+    await require_admin(request)
     current_bot = account_service.get_bot(account_id)
     if not current_bot.is_running:
         return {"status": "already_stopped", "account_id": account_id}
@@ -2106,7 +2163,7 @@ async def admin_halt_bot(account_id: str, request: Request):
 @limiter.limit("60/minute")
 async def admin_trades(request: Request, limit: int = 300):
     """Toàn bộ hoạt động đi lệnh của bot trên mọi tài khoản."""
-    require_admin(request)
+    await require_admin(request)
     limit = max(1, min(limit, 2000))
     trades = await asyncio.to_thread(repository.get_all_trades, limit) if hasattr(repository, "get_all_trades") else []
     closed = [t for t in trades if t.get("status") == "closed"]
@@ -2133,7 +2190,7 @@ async def admin_trades(request: Request, limit: int = 300):
 @limiter.limit("60/minute")
 async def list_bot_types(request: Request, include_inactive: bool = False):
     """Lấy danh sách tất cả các loại bot."""
-    require_admin(request)
+    await require_admin(request)
     if not hasattr(repository, "get_bot_types"):
         raise HTTPException(status_code=501, detail="Bot types management not supported")
     bot_types = await asyncio.to_thread(repository.get_bot_types, include_inactive=include_inactive)
@@ -2144,7 +2201,7 @@ async def list_bot_types(request: Request, include_inactive: bool = False):
 @limiter.limit("60/minute")
 async def get_bot_type(bot_type_id: str, request: Request):
     """Lấy thông tin chi tiết một loại bot."""
-    require_admin(request)
+    await require_admin(request)
     if not hasattr(repository, "get_bot_type"):
         raise HTTPException(status_code=501, detail="Bot types management not supported")
     bot_type = await asyncio.to_thread(repository.get_bot_type, bot_type_id)
@@ -2166,7 +2223,7 @@ async def get_bot_type(bot_type_id: str, request: Request):
 @limiter.limit("20/minute")
 async def create_bot_type(payload: BotTypeCreate, request: Request):
     """Tạo loại bot mới."""
-    require_admin(request)
+    await require_admin(request)
     if not hasattr(repository, "create_bot_type"):
         raise HTTPException(status_code=501, detail="Bot types management not supported")
     
@@ -2187,7 +2244,7 @@ async def create_bot_type(payload: BotTypeCreate, request: Request):
 @limiter.limit("20/minute")
 async def update_bot_type(bot_type_id: str, payload: BotTypeUpdate, request: Request):
     """Cập nhật thông tin loại bot."""
-    require_admin(request)
+    await require_admin(request)
     if not hasattr(repository, "update_bot_type"):
         raise HTTPException(status_code=501, detail="Bot types management not supported")
     
@@ -2220,7 +2277,7 @@ async def patch_bot_type(bot_type_id: str, payload: BotTypeUpdate, request: Requ
 @limiter.limit("20/minute")
 async def delete_bot_type(bot_type_id: str, request: Request, hard_delete: bool = False):
     """Xóa loại bot (soft delete mặc định, hard delete nếu hard_delete=true)."""
-    require_admin(request)
+    await require_admin(request)
     if not hasattr(repository, "delete_bot_type"):
         raise HTTPException(status_code=501, detail="Bot types management not supported")
     

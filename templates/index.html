@@ -139,10 +139,10 @@
         }
 
         .landing-nav .brand-logo {
-            font-family: 'Cinzel', serif;
-            font-weight: 900;
+            font-family: var(--font-main);
+            font-weight: 800;
             font-size: 1.15rem;
-            letter-spacing: 2px;
+            letter-spacing: 1.5px;
             color: #f8fafc;
         }
 
@@ -216,9 +216,9 @@
         }
 
         .landing-hero h1 {
-            font-family: 'Cinzel', serif;
+            font-family: var(--font-main);
             font-size: 4.2rem;
-            font-weight: 900;
+            font-weight: 800;
             line-height: 0.95;
             letter-spacing: -1px;
             margin-bottom: 24px;
@@ -311,7 +311,8 @@
 
         .account-modal-card h2 {
             margin: 10px 0 12px;
-            font-family: 'Cinzel', serif;
+            font-family: var(--font-main);
+            font-weight: 800;
             color: #f8fafc;
         }
 
@@ -499,9 +500,9 @@
         }
 
         .landing-info-section h2 {
-            font-family: 'Cinzel', serif;
+            font-family: var(--font-main);
             font-size: 2.2rem;
-            font-weight: 700;
+            font-weight: 800;
             line-height: 1.15;
             margin-bottom: 18px;
             color: #f8fafc;
@@ -1420,16 +1421,16 @@
         <nav class="landing-nav">
             <div class="brand-logo">CONFLUENCE ALGO BOT</div>
             <div class="nav-menu">
-                <a href="/our-app" style="color:var(--accent-primary);font-weight:700;" aria-label="Our Mobile App">Our App</a>
-                <a href="/about">About Us</a>
-                <a href="/pricing">Pricing</a>
-                <a href="/faq">Q&amp;A</a>
-                <button class="lang-switch-btn" id="langSwitchBtnLanding" onclick="toggleLandingLanguage()" title="Chuyển đổi ngôn ngữ / Switch Language" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);border-radius:20px;padding:5px 12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:#e8ece4;font-family:var(--font-mono);font-size:11px;font-weight:600;">
-                    <span class="lang-code active" id="langViLanding" style="color:var(--accent-primary);font-weight:700;">VI</span>
+                <a class="nav_i18n" href="/our-app" data-i18n="nav_our_app" style="color:var(--accent-primary);font-weight:700;" aria-label="Our Mobile App">Our App</a>
+                <a class="nav_i18n" href="/about" data-i18n="nav_about">About Us</a>
+                <a class="nav_i18n" href="/pricing" data-i18n="nav_pricing">Pricing</a>
+                <a class="nav_i18n" href="/faq" data-i18n="nav_faq">Q&amp;A</a>
+                <button class="lang-switch-btn" id="langSwitchBtnLanding" onclick="toggleLandingLanguage()" title="Switch Language" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);border-radius:20px;padding:5px 12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:#e8ece4;font-family:var(--font-mono);font-size:11px;font-weight:600;">
+                    <span class="lang-code" id="langViLanding" style="opacity:0.45;font-weight:500;">VI</span>
                     <span style="opacity:0.25;">/</span>
-                    <span class="lang-code" id="langEnLanding" style="opacity:0.45;">EN</span>
+                    <span class="lang-code active" id="langEnLanding" style="color:var(--accent-primary);font-weight:700;">EN</span>
                 </button>
-                <button class="btn-enter-terminal-nav" onclick="enterTerminal()">Skip to Terminal</button>
+                <button class="btn-enter-terminal-nav" onclick="enterTerminal()" data-i18n="nav_terminal">Skip to Terminal</button>
             </div>
         </nav>
 
@@ -1437,17 +1438,16 @@
             <!-- HERO -->
             <section class="landing-hero">
                 <div class="landing-hero-content">
-                    <div class="badge-tag">Institutional Algorithmic Trading System</div>
+                    <div class="badge-tag" data-i18n="hero_badge">INSTITUTIONAL QUANTITATIVE TRADING ENGINE</div>
                     <h1>CONFLUENCE ALGO BOT</h1>
-                    <p>High-frequency multi-indicator trading engine engineered with Fibonacci retracements, multi-EMA
-                        trend filters, RSI reversals, and multi-layered risk guards.</p>
+                    <p data-i18n="hero_lead">Autonomous multi-timeframe algorithmic trading system driven by Fibonacci golden ratios, multi-EMA trend stacks, RSI momentum exhaustion, and institutional risk management.</p>
                     <div class="landing-hero-actions">
-                        <a class="btn-create-account" href="/register">Create account</a>
-                        <a class="account-modal-login" href="/login">Sign in</a>
+                        <a class="btn-create-account" href="/register" data-i18n="hero_cta_signup">Create Account</a>
+                        <a class="account-modal-login" href="/login" data-i18n="hero_cta_signin">Sign In</a>
                     </div>
                 </div>
                 <div class="landing-scroll-hint">
-                    <span>Scroll to Explore</span>
+                    <span data-i18n="hero_scroll">Scroll to Explore</span>
                     <div class="scroll-line"></div>
                 </div>
             </section>
@@ -1455,14 +1455,14 @@
             <!-- SECTION 01: ARCHITECTURE -->
             <section id="section-arch" class="landing-info-section left">
                 <div class="text-card">
-                    <div class="section-label">01 — System Architecture</div>
-                    <h2>3-Tier Modular Infrastructure</h2>
-                    <p>Built for zero latency and fault-tolerant operation under volatile market conditions.</p>
+                    <div class="section-label" data-i18n="s01_label">01 — System Architecture</div>
+                    <h2 data-i18n="s01_h2">3-Tier Low-Latency Framework</h2>
+                    <p data-i18n="s01_desc">Engineered for fault-tolerant execution and sub-50ms tick processing under volatile market regimes.</p>
                     <ul class="spec-bullets">
-                        <li><span>Presentation & UI Layer</span><span>Vanilla CSS + WebGL</span></li>
-                        <li><span>API Gateway & Telemetry</span><span>FastAPI + WebSockets</span></li>
-                        <li><span>Core Trading Engine</span><span>Python AsyncIO</span></li>
-                        <li><span>Execution Protocol</span><span>MT5 Zero-Latency API</span></li>
+                        <li><span data-i18n="s01_b1k">Presentation Layer</span><span>WebGL 3D + Hardware Acceleration</span></li>
+                        <li><span data-i18n="s01_b2k">Telemetry</span><span>FastAPI + WebSockets Stream</span></li>
+                        <li><span data-i18n="s01_b3k">Core Engine</span><span>Python AsyncIO Concurrent</span></li>
+                        <li><span data-i18n="s01_b4k">Broker Gateway</span><span>Direct MetaTrader 5 Bridge</span></li>
                     </ul>
                 </div>
             </section>
@@ -1470,14 +1470,14 @@
             <!-- SECTION 02: STRATEGY -->
             <section id="section-strat" class="landing-info-section right">
                 <div class="text-card">
-                    <div class="section-label">02 — Confluence Strategy</div>
-                    <h2>High-Probability Signal Confluence</h2>
-                    <p>Executes trades strictly when all 4 quantitative conditions align perfectly in real-time.</p>
+                    <div class="section-label" data-i18n="s02_label">02 — Confluence Strategy</div>
+                    <h2 data-i18n="s02_h2">Multi-Factor Signal Alignment</h2>
+                    <p data-i18n="s02_desc">Strict rule-based order execution triggered only when 4 quantitative conditions align concurrently.</p>
                     <ul class="spec-bullets">
-                        <li><span>Fibonacci Retracement</span><span>50.0% / 61.8% Zone</span></li>
-                        <li><span>Trend Alignment</span><span>EMA 10 / 34 / 89 / 200</span></li>
-                        <li><span>Momentum Trigger</span><span>RSI Oversold / Overbought</span></li>
-                        <li><span>Risk-Reward Ratio</span><span>1 : 3 Minimum</span></li>
+                        <li><span data-i18n="s02_b1k">Fibonacci Retracement</span><span>50.0% / 61.8% Golden Pocket</span></li>
+                        <li><span data-i18n="s02_b2k">Trend Filtering</span><span>EMA 10 / 34 / 89 / 200</span></li>
+                        <li><span data-i18n="s02_b3k">Momentum Window</span><span>RSI Exhaustion Levels</span></li>
+                        <li><span data-i18n="s02_b4k">Risk-Reward Mandate</span><span>Strict 1 : 3 Minimum</span></li>
                     </ul>
                 </div>
             </section>
@@ -1485,15 +1485,14 @@
             <!-- SECTION 03: RISK GATEKEEPER -->
             <section id="section-risk" class="landing-info-section left">
                 <div class="text-card">
-                    <div class="section-label">03 — Risk Gatekeeper</div>
-                    <h2>Multi-Layer Safety Protocols</h2>
-                    <p>Guarding equity against unexpected slippage, high-impact news spikes, and illiquid weekend
-                        spreads.</p>
+                    <div class="section-label" data-i18n="s03_label">03 — Risk Gatekeeper</div>
+                    <h2 data-i18n="s03_h2">Capital Preservation Guardrails</h2>
+                    <p data-i18n="s03_desc">Active defensive mechanisms protecting equity against slippage spikes, red-news volatility, and illiquid weekends.</p>
                     <ul class="spec-bullets">
-                        <li><span>Spread Guard</span><span>Automatic Max Limit</span></li>
-                        <li><span>High-Impact News Filter</span><span>ForexFactory Calendar</span></li>
-                        <li><span>Weekend Closure Filter</span><span>Saturday/Sunday Lockdown</span></li>
-                        <li><span>Cooldown Protection</span><span>Post-Trade Pause</span></li>
+                        <li><span data-i18n="s03_b1k">Spread Spike Protection</span><span>Dynamic Spread Ceiling Filter</span></li>
+                        <li><span data-i18n="s03_b2k">High-Impact News Guard</span><span>ForexFactory Calendar Lock</span></li>
+                        <li><span data-i18n="s03_b3k">Weekend Exposure Control</span><span>Friday Position Lockdown</span></li>
+                        <li><span data-i18n="s03_b4k">Execution Cooldown</span><span>Post-Trade Pause</span></li>
                     </ul>
                 </div>
             </section>
@@ -1501,30 +1500,29 @@
             <!-- SECTION 04: TELEMETRY -->
             <section id="section-specs" class="landing-info-section right">
                 <div class="text-card">
-                    <div class="section-label">04 — Execution & Telemetry</div>
-                    <h2>Real-Time Performance Tracking</h2>
-                    <p>Instantaneous WebSocket data feeds stream live order updates, floating PnL, and account metrics.
-                    </p>
+                    <div class="section-label" data-i18n="s04_label">04 — Execution &amp; Telemetry</div>
+                    <h2 data-i18n="s04_h2">Real-Time Precision Monitoring</h2>
+                    <p data-i18n="s04_desc">Millisecond-grade data pipelining feeds live positions, floating PnL, and automated safety status.</p>
                     <ul class="spec-bullets">
-                        <li><span>WebSocket Latency</span><span>50ms Stream</span></li>
-                        <li><span>Simulation Engine</span><span>Paper Trading Mode</span></li>
-                        <li><span>Live MT5 Terminal</span><span>Direct Broker Bridge</span></li>
-                        <li><span>Trailing SL/TP</span><span>Dynamic Breakeven</span></li>
+                        <li><span data-i18n="s04_b1k">Feed Latency</span><span>Sub-50ms Bi-Directional</span></li>
+                        <li><span data-i18n="s04_b2k">Execution Modes</span><span>Paper Simulation &amp; Live MT5</span></li>
+                        <li><span data-i18n="s04_b3k">Breakeven Lock</span><span>Auto Lock at +500pt</span></li>
+                        <li><span data-i18n="s04_b4k">Dynamic Trailing</span><span>Trailing Stop Tracking</span></li>
                     </ul>
                 </div>
             </section>
 
-            <!-- SECTION 05: ABOUT US -->
+            <!-- SECTION 05: ABOUT SYSTEM -->
             <section id="section-about" class="landing-info-section left">
                 <div class="text-card">
-                    <div class="section-label">05 — About Us</div>
-                    <h2>Engineered for Execution Purity</h2>
-                    <p>Confluence Algo Bot is an autonomous quantitative trading infrastructure developed for high-precision algorithmic execution on MetaTrader 5, specializing in Gold (XAUUSD), Indices, and Currencies with fixed 1:3 R:R discipline.</p>
+                    <div class="section-label" data-i18n="s05_label">05 — Quantitative Vision</div>
+                    <h2 data-i18n="s05_h2">Engineered for Mathematical Edge</h2>
+                    <p data-i18n="s05_desc">Confluence Algo Bot removes human cognitive bias, deploying institutional mathematical discipline across Gold (XAUUSD), Indices, and Currencies.</p>
                     <ul class="spec-bullets">
-                        <li><span>Core Philosophy</span><span>Mathematical Confluence</span></li>
-                        <li><span>Execution Protocol</span><span>Sub-50ms Direct Gateway</span></li>
-                        <li><span>Risk Mandate</span><span>Capital Preservation First</span></li>
-                        <li><span>Mobile App</span><span>Full Remote Control</span></li>
+                        <li><span data-i18n="s05_b1k">Philosophy</span><span>Mathematical Signal Confluence</span></li>
+                        <li><span data-i18n="s05_b2k">Asset Focus</span><span>Gold (XAUUSD), FX &amp; Indices</span></li>
+                        <li><span data-i18n="s05_b3k">Risk Priority</span><span>Preservation Over Asymmetry</span></li>
+                        <li><span data-i18n="s05_b4k">Remote Oversight</span><span>Native Mobile Companion</span></li>
                     </ul>
                 </div>
             </section>
@@ -1532,14 +1530,14 @@
             <!-- SECTION 06: Q&A / FAQ -->
             <section id="section-faq" class="landing-info-section right">
                 <div class="text-card">
-                    <div class="section-label">06 — Q&A / System Briefing</div>
-                    <h2>Frequently Asked Questions</h2>
-                    <p>Key parameters, execution rules, and account integration details.</p>
+                    <div class="section-label" data-i18n="s06_label">06 — Technical Q&amp;A</div>
+                    <h2 data-i18n="s06_h2">Core Operational Parameters</h2>
+                    <p data-i18n="s06_desc">Essential operating mechanics, execution logic, and account compatibility.</p>
                     <ul class="spec-bullets">
-                        <li><span>Target R:R Ratio</span><span>Fixed 1:3 (SL 500pt / TP 1500pt)</span></li>
-                        <li><span>Trailing & Breakeven</span><span>Automated at 500pt Profit</span></li>
-                        <li><span>RSI Entry Window</span><span>BUY &lt; 42 // SELL &gt; 58</span></li>
-                        <li><span>Broker Support</span><span>MetaTrader 5 All Brokers</span></li>
+                        <li><span data-i18n="s06_b1k">Target R:R Ratio</span><span>Fixed 1:3 (SL 500pt / TP 1500pt)</span></li>
+                        <li><span data-i18n="s06_b2k">Breakeven Lock</span><span>Automated at +500pt Profit</span></li>
+                        <li><span data-i18n="s06_b3k">RSI Entry Window</span><span>BUY &lt; 42 // SELL &gt; 58</span></li>
+                        <li><span data-i18n="s06_b4k">Broker Support</span><span>MetaTrader 5 Universal</span></li>
                     </ul>
                 </div>
             </section>
@@ -1547,28 +1545,27 @@
             <!-- SECTION 07: PRICING -->
             <section id="section-pricing" class="landing-info-section left">
                 <div class="text-card">
-                    <div class="section-label">07 — Bot Pricing &amp; Plans</div>
-                    <h2>Minh Bạch &amp; Hiệu Quả Tối Đa</h2>
-                    <p>Hệ thống định giá 3 tầng rõ ràng theo chiến lược rủi ro của từng nhà giao dịch.</p>
+                    <div class="section-label" data-i18n="s07_label">07 — Bot Pricing &amp; Plans</div>
+                    <h2 data-i18n="s07_h2">Transparent &amp; Aligned Growth</h2>
+                    <p data-i18n="s07_desc">3-tier structure aligned with individual risk appetite and account capital sizing.</p>
                     <ul class="spec-bullets">
-                        <li><span>Bot Mạo Hiểm (High)</span><span>VPS 260.000đ (10$) + Thuê 159.000đ (6.1$) + Phí 8% LN</span></li>
-                        <li><span>Bot Trung Bình (Mid)</span><span>VPS 260.000đ (10$) + Thuê 199.000đ (7.7$) + Phí 7% LN</span></li>
-                        <li><span>Bot An Toàn (Safe)</span><span>VPS 260.000đ (10$) + Thuê 219.000đ (8.5$) + Phí 5% LN</span></li>
-                        <li><span>Chi Tiết Bảng Giá</span><span><a href="/pricing" style="color:var(--accent-primary);text-decoration:underline;">Xem Chi Tiết / Bảng So Sánh &rarr;</a></span></li>
+                        <li><span data-i18n="s07_b1k">High-Risk Tier</span><span>VPS $10 + Rent $6.1/mo + 8% Profit Share</span></li>
+                        <li><span data-i18n="s07_b2k">Mid-Risk Tier</span><span>VPS $10 + Rent $7.7/mo + 7% Profit Share</span></li>
+                        <li><span data-i18n="s07_b3k">Safe-Risk Tier</span><span>VPS $10 + Rent $8.5/mo + 5% Profit Share</span></li>
+                        <li><span data-i18n="s07_b4k">Detailed Comparison</span><span><a href="/pricing" style="color:var(--accent-primary);text-decoration:underline;" data-i18n="s07_b4k_link">View Full Comparison &amp; Calculations &rarr;</a></span></li>
                     </ul>
                 </div>
             </section>
 
             <!-- SECTION 08: LAUNCH CTA -->
             <section class="landing-cta-section">
-                <div class="section-label">05 — Terminal Access</div>
-                <h2 style="font-family: 'Cinzel', serif; font-size: 3rem; margin-top: 10px; color: #f8fafc;">READY TO
-                    TRADE</h2>
-                <p style="color: #94a3b8; max-width: 480px; margin-top: 12px; font-size: 0.95rem; line-height: 1.7;">
+                <div class="section-label" data-i18n="cta_label">08 — Terminal Access</div>
+                <h2 style="font-family: var(--font-main); font-size: 3rem; font-weight: 800; margin-top: 10px; color: #f8fafc;" data-i18n="cta_h2">READY TO TRADE</h2>
+                <p style="color: #94a3b8; max-width: 480px; margin-top: 12px; font-size: 0.95rem; line-height: 1.7;" data-i18n="cta_desc">
                     Launch the live institutional trading dashboard to monitor real-time signals, adjust risk
                     parameters, and manage active positions.
                 </p>
-                <button class="btn-start-bot-main" onclick="enterTerminal()">START BOT & ENTER TERMINAL</button>
+                <button class="btn-start-bot-main" onclick="enterTerminal()" data-i18n="cta_btn">START BOT &amp; ENTER TERMINAL</button>
             </section>
         </div>
     </div>
@@ -1578,12 +1575,12 @@
         <div class="account-modal-card">
             <button class="account-modal-dismiss" type="button" aria-label="Close"
                 onclick="closeAccountAccessModal()">×</button>
-            <div class="section-label">TERMINAL ACCESS // AUTH GATE</div>
-            <h2 id="accountAccessTitle">Ready to enter the terminal?</h2>
-            <p>Choose your access path before connecting to the trading workspace.</p>
+            <div class="section-label" data-i18n="auth_label">TERMINAL ACCESS // AUTH GATE</div>
+            <h2 id="accountAccessTitle" data-i18n="auth_h2">Ready to Enter the Terminal?</h2>
+            <p data-i18n="auth_desc">Choose your access path before connecting to the trading workspace.</p>
             <div class="account-modal-actions">
-                <a class="btn-create-account" href="/register">I’m new — create an account</a>
-                <a class="account-modal-login" href="/login">I already have an account</a>
+                <a class="btn-create-account" href="/register" data-i18n="auth_signup">Create Account</a>
+                <a class="account-modal-login" href="/login" data-i18n="auth_signin">Sign In to Existing Account</a>
             </div>
         </div>
     </div>
@@ -4761,13 +4758,97 @@
             }
         })();
 
-        // Landing Nav Language Switcher Sync
+// ===== Landing i18n Dictionary (EN default / VI optional) =====
+        const I18N_LANDING = {
+            en: {
+                nav_our_app: 'Our App', nav_about: 'About Us', nav_pricing: 'Pricing', nav_faq: 'Q&amp;A',
+                nav_terminal: 'Skip to Terminal',
+                hero_badge: 'INSTITUTIONAL QUANTITATIVE TRADING ENGINE',
+                hero_lead: 'Autonomous multi-timeframe algorithmic trading system driven by Fibonacci golden ratios, multi-EMA trend stacks, RSI momentum exhaustion, and institutional risk management.',
+                hero_cta_signup: 'Create Account', hero_cta_signin: 'Sign In', hero_scroll: 'Scroll to Explore',
+                s01_label: '01 — System Architecture', s01_h2: '3-Tier Low-Latency Framework',
+                s01_desc: 'Engineered for fault-tolerant execution and sub-50ms tick processing under volatile market regimes.',
+                s01_b1k: 'Presentation Layer', s01_b2k: 'Telemetry', s01_b3k: 'Core Engine', s01_b4k: 'Broker Gateway',
+                s02_label: '02 — Confluence Strategy', s02_h2: 'Multi-Factor Signal Alignment',
+                s02_desc: 'Strict rule-based order execution triggered only when 4 quantitative conditions align concurrently.',
+                s02_b1k: 'Fibonacci Retracement', s02_b2k: 'Trend Filtering', s02_b3k: 'Momentum Window', s02_b4k: 'Risk-Reward Mandate',
+                s03_label: '03 — Risk Gatekeeper', s03_h2: 'Capital Preservation Guardrails',
+                s03_desc: 'Active defensive mechanisms protecting equity against slippage spikes, red-news volatility, and illiquid weekends.',
+                s03_b1k: 'Spread Spike Protection', s03_b2k: 'High-Impact News Guard', s03_b3k: 'Weekend Exposure Control', s03_b4k: 'Execution Cooldown',
+                s04_label: '04 — Execution &amp; Telemetry', s04_h2: 'Real-Time Precision Monitoring',
+                s04_desc: 'Millisecond-grade data pipelining feeds live positions, floating PnL, and automated safety status.',
+                s04_b1k: 'Feed Latency', s04_b2k: 'Execution Modes', s04_b3k: 'Breakeven Lock', s04_b4k: 'Dynamic Trailing',
+                s05_label: '05 — Quantitative Vision', s05_h2: 'Engineered for Mathematical Edge',
+                s05_desc: 'Confluence Algo Bot removes human cognitive bias, deploying institutional mathematical discipline across Gold (XAUUSD), Indices, and Currencies.',
+                s05_b1k: 'Philosophy', s05_b2k: 'Asset Focus', s05_b3k: 'Risk Priority', s05_b4k: 'Remote Oversight',
+                s06_label: '06 — Technical Q&amp;A', s06_h2: 'Core Operational Parameters',
+                s06_desc: 'Essential operating mechanics, execution logic, and account compatibility.',
+                s06_b1k: 'Target R:R Ratio', s06_b2k: 'Breakeven Lock', s06_b3k: 'RSI Entry Window', s06_b4k: 'Broker Support',
+                s07_label: '07 — Bot Pricing &amp; Plans', s07_h2: 'Transparent &amp; Aligned Growth',
+                s07_desc: '3-tier structure aligned with individual risk appetite and account capital sizing.',
+                s07_b1k: 'High-Risk Tier', s07_b2k: 'Mid-Risk Tier', s07_b3k: 'Safe-Risk Tier', s07_b4k: 'Detailed Comparison',
+                s07_b4k_link: 'View Full Comparison &amp; Calculations &rarr;',
+                cta_label: '08 — Terminal Access', cta_h2: 'READY TO TRADE',
+                cta_desc: 'Launch the live institutional trading dashboard to monitor real-time signals, adjust risk parameters, and manage active positions.',
+                cta_btn: 'START BOT &amp; ENTER TERMINAL',
+                auth_label: 'TERMINAL ACCESS // AUTH GATE', auth_h2: 'Ready to Enter the Terminal?',
+                auth_desc: 'Choose your access path before connecting to the trading workspace.',
+                auth_signup: 'Create Account', auth_signin: 'Sign In to Existing Account'
+            },
+vi: {
+                nav_our_app: 'Ứng Dụng', nav_about: 'Về Chúng Tôi', nav_pricing: 'Bảng Giá', nav_faq: 'Hỏi &amp; Đáp',
+                nav_terminal: 'Vào Terminal',
+                hero_badge: 'HỆ THỐNG GIAO DỊCH THUẬT TOÁN ĐỊNH LƯỢNG',
+                hero_lead: 'Cỗ máy giao dịch tự động đa khung thời gian: Kết hợp sóng hồi Fibonacci, cụm lọc xu hướng đa EMA, xung lực RSI và cơ chế bảo toàn vốn đa tầng.',
+                hero_cta_signup: 'Mở Tài Khoản', hero_cta_signin: 'Đăng Nhập', hero_scroll: 'Cuộn để khám phá',
+                s01_label: '01 — Kiến Trúc Hệ Thống', s01_h2: 'Hạ Tầng 3 Tầng Độ Trễ Thấp',
+                s01_desc: 'Thiết kế chịu lỗi cao, xử lý bước giá sub-50ms trong mọi điều kiện thị trường biến động.',
+                s01_b1k: 'Tầng Hiển Thị', s01_b2k: 'Dữ Liệt Trực Tiệp', s01_b3k: 'Lõi Tính Toán', s01_b4k: 'Cầu Nối Sàn',
+                s02_label: '02 — Chiến Lược Hợp Lưu', s02_h2: 'Hội Tụ Tín Hiệu Đa Yếu Tố',
+                s02_desc: 'Vào lệnh kỷ luật, chỉ kích hoạt khi đủ 4 điều kiện định lượng đồng thuận cùng lúc.',
+                s02_b1k: 'Vùng Hồi Quy Fibonacci', s02_b2k: 'Lọc Xu Hướng', s02_b3k: 'Vùng Xung Lực', s02_b4k: 'Tỷ Lệ R:R Kỷ Luật',
+                s03_label: '03 — Kiểm Soát Rủi Ro', s03_h2: 'Hàng Rào Bảo Toàn Nguồn Vốn',
+                s03_desc: 'Cơ chế phòng thủ chủ động bảo vė tài khoản trước trượt giá, tin tức đỏ và giãn spread cuối tuần.',
+                s03_b1k: 'Chống Giãn Spread', s03_b2k: 'Lọc Tin Tức Mạnh', s03_b3k: 'Đóng Lệnh Cuối Tuần', s03_b4k: 'Thời Gian Nghỉ Cooldown',
+                s04_label: '04 — Khớp Lệnh &amp; Giám Sát', s04_h2: 'Đo Lường Hiệu Suất Thời Gian Thực',
+                s04_desc: 'Luồng dữ liệt mili-giây cập nhật vị thế sống, floating PnL và trạng thái an toàn tài khoản.',
+                s04_b1k: 'Độ Trễ Truyền Phát', s04_b2k: 'Chế Độ Vận Hàhn', s04_b3k: 'Khóa Hòa Vốn', s04_b4k: 'Trailing Stop Động',
+                s05_label: '05 — Tầm Nhìn Định Lượng', s05_h2: 'Kỷ Luật Toán Học Thực Chiến',
+                s05_desc: 'Loại bỏ hoàn toàn cảm tính, triển khai kỷ luật toán học định lượng trên Vàng (XAUUSD), Chỉ số và Ngoại hối.',
+                s05_b1k: 'Triết Lý Cốt Lõi', s05_b2k: 'Thị Trường Trong Tâm', s05_b3k: 'Ưu Tiên Rủi Ro', s05_b4k: 'Giám Sát Di Động',
+                s06_label: '06 — Hỏi &amp; Đáp Kỹ Thuật', s06_h2: 'Tham Số Vận Hàhn Cơ Bản',
+                s06_desc: 'Nguyên tức hoạt động, logic vào lệnh và khả năng tương thích sàn giao dịch.',
+                s06_b1k: 'Tỷ Lệ R:R Mục Tiêu', s06_b2k: 'Khóa Hòa Vốn', s06_b3k: 'Lọc Tín Hiệu', s06_b4k: 'Sàn Hỗ Trợ',
+                s07_label: '07 — Gói Thuê &amp; Biểu Phí', s07_h2: 'Minh Bạch &amp; Đồng Hàhn Lợi Nhuận',
+                s07_desc: '3 cấp độ định giá rõ ràng theo khẩu vị rủi ro và quy mô vốn của nhà đầu tır.',
+                s07_b1k: 'Gói Mạo Hiểm', s07_b2k: 'Gói Cân Bằng', s07_b3k: 'Gói An Toàn', s07_b4k: 'Bảng Giá Chi Tiết',
+                s07_b4k_link: 'Xem Bảng So Sánh &amp; Tính Phí Chi Tiết &rarr;',
+                cta_label: '08 — Cổng Kết Nối', cta_h2: 'SẴN SÀNG GIAO DỊCH',
+                cta_desc: 'Khởi chạy bảng điều khiển định lượng trực tiếp để theo dõi tín hiệu, điều chi rủi ro và quản lý vị thế.',
+                cta_btn: 'KHỞI CHẠY BOT &amp; VÀO TERMINAL',
+                auth_label: 'CỔNG TRUY CẬP // AUTH GATE', auth_h2: 'Sẵn Sàng Vào Terminal?',
+                auth_desc: 'Chọn phương thức xác thuc tài khoản trước khi kết nối tới không gian làm việc.',
+                auth_signup: 'Mở Tài Khoản Mới', auth_signin: 'Đăng Nhập Tài Khoản Hiện Có'
+            }
+        };
+        // Landing Nav Language Switcher Sync (default EN)
         function toggleLandingLanguage() {
-            const cur = localStorage.getItem('confluence_lang') || 'vi';
-            const next = cur === 'vi' ? 'en' : 'vi';
+            const cur = localStorage.getItem('confluence_lang') || 'en';
+            const next = cur === 'en' ? 'vi' : 'en';
             localStorage.setItem('confluence_lang', next);
             localStorage.setItem('confluence_mobile_lang', next);
-            updateLandingLangUI(next);
+            applyLandingLang(next);
+        }
+
+        function applyLandingLang(lang) {
+            const dict = I18N_LANDING[lang] || I18N_LANDING.en;
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key]) {
+                    el.innerHTML = dict[key];
+                }
+            });
+            updateLandingLangUI(lang);
         }
 
         function updateLandingLangUI(lang) {
@@ -4777,17 +4858,21 @@
                 if (lang === 'vi') {
                     viEl.style.opacity = '1';
                     viEl.style.fontWeight = '700';
+                    viEl.style.color = 'var(--accent-primary)';
                     enEl.style.opacity = '0.45';
                     enEl.style.fontWeight = '500';
+                    enEl.style.color = 'inherit';
                 } else {
                     enEl.style.opacity = '1';
                     enEl.style.fontWeight = '700';
+                    enEl.style.color = 'var(--accent-primary)';
                     viEl.style.opacity = '0.45';
                     viEl.style.fontWeight = '500';
+                    viEl.style.color = 'inherit';
                 }
             }
         }
-        updateLandingLangUI(localStorage.getItem('confluence_lang') || 'vi');
+        applyLandingLang(localStorage.getItem('confluence_lang') || 'en');
     </script>
 
 </body>

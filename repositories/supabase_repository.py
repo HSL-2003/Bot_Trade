@@ -564,6 +564,31 @@ class SupabaseAccountRepository:
         )
         self._cache_clear("admin_accounts")
 
+    def get_account_summary(self, *, ttl: float = 10.0) -> list[dict[str, Any]]:
+        """Query the admin_account_summary SQL view for pre-aggregated stats.
+
+        Replaces the O(all-trades) Python-side aggregation in admin_overview.
+        Returns one row per trading account with trades, P&L, win rate, and
+        bot type already joined. Falls back to an empty list if the view
+        hasn't been created (migration not run).
+        """
+        cached = self._cache_get("account_summary", ttl)
+        if cached is not None:
+            return cached
+        try:
+            response = httpx.get(
+                f"{self.base_url}/admin_account_summary",
+                params={"select": "*", "limit": "1000"},
+                headers=self.headers,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            rows = response.json()
+            self._cache_set("account_summary", rows, ttl)
+            return rows
+        except Exception:
+            return []
+
     def get_all_trades(self, limit: int = 5000, *, ttl: float = 5.0) -> list[dict[str, Any]]:
         cached = self._cache_get("admin_trades", ttl)
         if cached is not None:
@@ -774,7 +799,7 @@ class SupabaseAccountRepository:
         user_id = user_data.get("id")
 
         # 2. Create User Profile
-        httpx.post(
+        profile_res = httpx.post(
             f"{self.base_url}/user_profiles",
             json={
                 "user_id": user_id,
@@ -786,13 +811,21 @@ class SupabaseAccountRepository:
             headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"},
             timeout=self.timeout,
         )
+        if profile_res.status_code >= 400:
+            # Rollback: delete the just-created auth user (no orphan)
+            httpx.delete(f"{self.auth_url}/admin/users/{user_id}", headers=self.headers, timeout=self.timeout)
+            try:
+                err_msg = profile_res.json().get("message") or profile_res.text
+            except Exception:
+                err_msg = profile_res.text
+            raise AccountScopeError(f"Profile creation failed: {err_msg}")
 
         # 3. If trader, create primary trading account
         account_id = None
         if role_clean == "trader":
             account_id = f"acct-{user_id}"
             default_bot_type = bot_type_id or "308b6e56-d024-4831-950c-e2cefd241c1b"
-            httpx.post(
+            acc_res = httpx.post(
                 f"{self.base_url}/trading_accounts",
                 json={
                     "id": account_id,
@@ -805,6 +838,15 @@ class SupabaseAccountRepository:
                 headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"},
                 timeout=self.timeout,
             )
+            if acc_res.status_code >= 400:
+                # Rollback: delete auth user AND profile (no partial state)
+                httpx.delete(f"{self.auth_url}/admin/users/{user_id}", headers=self.headers, timeout=self.timeout)
+                httpx.delete(f"{self.base_url}/user_profiles", params={"user_id": f"eq.{user_id}"}, headers=self.headers, timeout=self.timeout)
+                try:
+                    err_msg = acc_res.json().get("message") or acc_res.text
+                except Exception:
+                    err_msg = acc_res.text
+                raise AccountScopeError(f"Trading account creation failed: {err_msg}")
             self._cache_clear("admin_accounts")
 
         self._cache_clear()
