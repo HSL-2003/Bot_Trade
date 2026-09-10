@@ -73,6 +73,11 @@ async def lifespan(app: FastAPI):
     finally:
         # --- shutdown ---
         await account_service.shutdown()
+        if hasattr(repository, "close"):
+            try:
+                await asyncio.to_thread(repository.close)
+            except Exception:
+                pass
         pipeline = get_default_pipeline()
         await pipeline.stop()
         from services.async_http import aclose_http_pool
@@ -294,7 +299,7 @@ async def require_admin(request: Request) -> None:
         principal = await _session_authenticate(session_service, token)
         allowed_accounts = {a.strip() for a in os.getenv("ADMIN_ACCOUNT_IDS", "").split(",") if a.strip()}
         admin_emails = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "admin@ponytail.finance,operator@ponytail.finance").split(",") if e.strip()}
-        user_email = (session_service.get_user_email(principal.user_id) if hasattr(session_service, "get_user_email") else "") or ""
+        user_email = (await asyncio.to_thread(session_service.get_user_email, principal.user_id) if hasattr(session_service, "get_user_email") else "") or ""
         
         # Strict validation: If user is a trader (bot user), deny admin access
         if "trader" in principal.roles and "admin" not in principal.roles:
@@ -475,11 +480,11 @@ async def social_callback(request: Request, payload: SocialCallbackModel):
 async def current_user(request: Request):
     try:
         principal = await _session_authenticate(session_service, bearer_token(request))
-        email = session_service.get_user_email(principal.user_id) if hasattr(session_service, "get_user_email") else None
+        email = await asyncio.to_thread(session_service.get_user_email, principal.user_id) if hasattr(session_service, "get_user_email") else None
         display_name = None
         if hasattr(repository, "profile"):
             try:
-                prof = repository.profile(principal.user_id)
+                prof = await asyncio.to_thread(repository.profile, principal.user_id)
                 display_name = prof.get("display_name")
             except Exception:
                 pass
@@ -533,7 +538,7 @@ async def scoped_bot(request: Request) -> MT5TradingBot:
     acc_id = await account_id_from_request(request)
     principal = await principal_optional_from_request(request)
     user_id = principal.user_id if principal else None
-    return account_service.get_bot(acc_id, user_id)
+    return await asyncio.to_thread(account_service.get_bot, acc_id, user_id)
 
 
 async def principal_from_request(request: Request):
@@ -735,7 +740,7 @@ async def get_history_analytics(request: Request, period: str = "all"):
     # Get user trades from repository if available
     user_trades = None
     if hasattr(repository, "get_user_trades"):
-        user_trades = repository.get_user_trades(acc_id, user_id, limit=300, period=period)
+        user_trades = await asyncio.to_thread(repository.get_user_trades, acc_id, user_id, limit=300, period=period)
 
     return current_bot.get_history_analytics(period=period, trades=user_trades)
 
@@ -743,9 +748,9 @@ async def get_history_analytics(request: Request, period: str = "all"):
 async def get_user_trades_endpoint(request: Request, limit: int = 100, period: str = "all"):
     principal = await principal_from_request(request)
     if hasattr(repository, "get_user_trades"):
-        trades = repository.get_user_trades(principal.account_id, principal.user_id, limit=limit, period=period)
+        trades = await asyncio.to_thread(repository.get_user_trades, principal.account_id, principal.user_id, limit=limit, period=period)
     elif hasattr(repository, "recent_trades"):
-        trades = repository.recent_trades(principal.account_id, principal.user_id, limit=limit)
+        trades = await asyncio.to_thread(repository.recent_trades, principal.account_id, principal.user_id, limit=limit)
     else:
         trades = []
     
@@ -917,7 +922,7 @@ async def websocket_endpoint(websocket: WebSocket):
             return
     account_id = account_id or os.getenv("DEFAULT_ACCOUNT_ID", "demo-account")
     try:
-        stream_bot = account_service.get_bot(account_id)
+        stream_bot = await asyncio.to_thread(account_service.get_bot, account_id)
         if not hasattr(stream_bot, "_price_feed_task") or stream_bot._price_feed_task is None or stream_bot._price_feed_task.done():
             stream_bot._price_feed_task = asyncio.create_task(stream_bot.start_price_feed_loop())
     except Exception as exc:
@@ -1642,7 +1647,7 @@ async def admin_overview(request: Request, q: str = "", status: str = "", lock_s
     if not enriched_accounts:
         filtered = _enrich_account_stats(filtered, trades)
         if hasattr(repository, "get_bot_types"):
-            bot_types_map = {bt["id"]: bt for bt in repository.get_bot_types()}
+            bot_types_map = {bt["id"]: bt for bt in (await asyncio.to_thread(repository.get_bot_types))}
             for a in filtered:
                 bt_id = a.get("bot_type_id")
                 if bt_id and bt_id in bot_types_map:
@@ -1741,14 +1746,14 @@ async def admin_account_detail(account_id: str, request: Request):
     await require_admin(request)
     if not hasattr(repository, "get_account_detail"):
         raise HTTPException(status_code=404, detail="Account detail unavailable")
-    detail = repository.get_account_detail(account_id)
+    detail = await asyncio.to_thread(repository.get_account_detail, account_id)
     if not detail:
         raise HTTPException(status_code=404, detail="Trading account does not exist")
     # Join bot_type_name
     if hasattr(repository, "get_bot_types"):
         bt_id = detail.get("bot_type_id")
         if bt_id:
-            bot_types = {bt["id"]: bt for bt in repository.get_bot_types()}
+            bot_types = {bt["id"]: bt for bt in (await asyncio.to_thread(repository.get_bot_types))}
             bt = bot_types.get(bt_id)
             if bt:
                 detail["bot_type_name"] = bt["name"]
@@ -1764,7 +1769,7 @@ async def admin_set_bot_type(account_id: str, payload: dict, request: Request):
     if not bot_type_id:
         raise HTTPException(status_code=400, detail="bot_type_id is required")
     if hasattr(repository, "update_account"):
-        repository.update_account(account_id, {"bot_type_id": bot_type_id})
+        await asyncio.to_thread(repository.update_account, account_id, {'bot_type_id': bot_type_id})
     return {"status": "updated", "account_id": account_id, "bot_type_id": bot_type_id}
 
 
@@ -1774,9 +1779,9 @@ async def admin_set_status(account_id: str, payload: AdminStatusModel, request: 
     await require_admin(request)
     if not hasattr(repository, "set_account_status"):
         raise HTTPException(status_code=501, detail="Unsupported repository")
-    repository.set_account_status(account_id, payload.status, payload.reason)
+    await asyncio.to_thread(repository.set_account_status, account_id, payload.status, payload.reason)
     if payload.status == "blocked" and hasattr(repository, "revoke_account_sessions"):
-        repository.revoke_account_sessions(account_id)
+        await asyncio.to_thread(repository.revoke_account_sessions, account_id)
     return {"status": "ok", "account_id": account_id, "account_status": payload.status}
 
 
@@ -1784,7 +1789,7 @@ async def admin_set_status(account_id: str, payload: AdminStatusModel, request: 
 @limiter.limit("20/minute")
 async def admin_set_lock(account_id: str, payload: AdminLockModel, request: Request):
     await require_admin(request)
-    current_bot = account_service.get_bot(account_id)
+    current_bot = await asyncio.to_thread(account_service.get_bot, account_id)
     if payload.state == LOCK_HARD:
         await current_bot.hard_lock(payload.reason)
     elif payload.state == LOCK_SOFT:
@@ -1792,7 +1797,7 @@ async def admin_set_lock(account_id: str, payload: AdminLockModel, request: Requ
     else:
         current_bot.unlock(payload.reason)
     if hasattr(repository, "set_lock_state"):
-        repository.set_lock_state(account_id, payload.state, payload.reason)
+        await asyncio.to_thread(repository.set_lock_state, account_id, payload.state, payload.reason)
     logger.info(f"[ADMIN_LOCK] Account {account_id} lock state successfully set to: {payload.state} (reason: {payload.reason})")
     return {"status": "ok", "account_id": account_id, "lock_state": current_bot.lock_state}
 
@@ -1807,12 +1812,12 @@ async def admin_unlock_account(account_id: str, payload: AdminLockModel, request
     (enforce_hard_lock) is a defense-in-depth safety net.
     """
     principal = await require_admin(request)
-    current_bot = account_service.get_bot(account_id)
+    current_bot = await asyncio.to_thread(account_service.get_bot, account_id)
     if current_bot.lock_state != LOCK_HARD:
         raise HTTPException(status_code=400, detail="Account is not hard-locked")
     current_bot.unlock(payload.reason)
     if hasattr(repository, "set_lock_state"):
-        repository.set_lock_state(account_id, LOCK_UNLOCKED, payload.reason)
+        await asyncio.to_thread(repository.set_lock_state, account_id, LOCK_UNLOCKED, payload.reason)
     log_security_event(
         event="admin_unlock_account",
         severity="warning",
@@ -1947,7 +1952,7 @@ async def admin_set_roles(user_id: str, payload: AdminRolesModel, request: Reque
     roles = ["admin"] if "admin" in role_set else ["trader"]
     result = {"user_id": user_id, "roles": roles}
     if hasattr(repository, "update_user_roles"):
-        result = repository.update_user_roles(user_id, roles)
+        result = await asyncio.to_thread(repository.update_user_roles, user_id, roles)
     if hasattr(session_service, "set_user_roles"):
         session_service.set_user_roles(user_id, result["roles"])
     return result
@@ -1958,7 +1963,7 @@ async def admin_set_roles(user_id: str, payload: AdminRolesModel, request: Reque
 async def admin_account_positions(account_id: str, request: Request):
     """Quan sát trực tiếp danh sách lệnh đang mở của một tài khoản."""
     await require_admin(request)
-    session = account_service.get_session(account_id)
+    session = await asyncio.to_thread(account_service.get_session, account_id)
     bot = session.bot
     positions = list(bot.positions)
     floating_pnl = round(sum(float(p.get("profit") or 0.0) for p in positions), 2)
@@ -1976,7 +1981,7 @@ async def admin_account_positions(account_id: str, request: Request):
 async def admin_close_position(account_id: str, ticket: int, request: Request):
     """Admin can thiệp đóng một vị thế mở cụ thể của tài khoản."""
     await require_admin(request)
-    session = account_service.get_session(account_id)
+    session = await asyncio.to_thread(account_service.get_session, account_id)
     bot = session.bot
     success = await bot.close_position(ticket)
     log_security_event(
@@ -1993,7 +1998,7 @@ async def admin_close_position(account_id: str, ticket: int, request: Request):
 async def admin_close_all_positions(account_id: str, request: Request):
     """Admin can thiệp đóng toàn bộ vị thế của một tài khoản."""
     await require_admin(request)
-    session = account_service.get_session(account_id)
+    session = await asyncio.to_thread(account_service.get_session, account_id)
     bot = session.bot
     closed_count = len(bot.positions)
     await bot.close_all_positions()
@@ -2126,7 +2131,7 @@ async def admin_bot_fleet_breakdown(request: Request):
 @limiter.limit("20/minute")
 async def admin_revoke(account_id: str, request: Request):
     await require_admin(request)
-    n = repository.revoke_account_sessions(account_id) if hasattr(repository, "revoke_account_sessions") else 0
+    n = await asyncio.to_thread(repository.revoke_account_sessions, account_id) if hasattr(repository, "revoke_account_sessions") else 0
     return {"status": "ok", "account_id": account_id, "revoked": n}
 
 
@@ -2135,7 +2140,7 @@ async def admin_revoke(account_id: str, request: Request):
 async def admin_deploy_bot(account_id: str, request: Request):
     """Nạp (khởi động) bot vào một tài khoản MT5 người dùng."""
     await require_admin(request)
-    current_bot = account_service.get_bot(account_id)
+    current_bot = await asyncio.to_thread(account_service.get_bot, account_id)
     if current_bot.lock_state == LOCK_HARD:
         raise HTTPException(status_code=423, detail="Account is hard-locked; unlock before deploying bot")
     if current_bot.is_running:
@@ -2152,7 +2157,7 @@ async def admin_deploy_bot(account_id: str, request: Request):
 async def admin_halt_bot(account_id: str, request: Request):
     """Dừng bot đang chạy trên một tài khoản."""
     await require_admin(request)
-    current_bot = account_service.get_bot(account_id)
+    current_bot = await asyncio.to_thread(account_service.get_bot, account_id)
     if not current_bot.is_running:
         return {"status": "already_stopped", "account_id": account_id}
     await current_bot.stop()

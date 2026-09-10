@@ -21,14 +21,30 @@ class SupabaseAccountRepository:
         self.auth_url = url.rstrip("/") + "/auth/v1"
         self.headers = {"apikey": service_role_key, "Authorization": f"Bearer {service_role_key}"}
         self.timeout = timeout
+        # Shared connection pool (httpx.Client is thread-safe). All queries run
+        # from worker threads (asyncio.to_thread) or the serialized execution
+        # pipeline, so a single pooled client keeps connections alive across
+        # calls instead of opening/closing a new TCP+TLS connection per request.
+        self._client = httpx.Client(
+            headers=self.headers,
+            timeout=timeout,
+            limits=httpx.Limits(max_connections=50, max_keepalive_connections=10),
+        )
         # Short-TTL cache for admin aggregations: prevents the overview + accounts
         # endpoints from re-fetching the same rows from Supabase on every refresh.
         self._cache: dict[str, tuple[float, Any]] = {}
 
+    def close(self) -> None:
+        """Close the pooled HTTP client (idempotent). Call at shutdown."""
+        try:
+            self._client.close()
+        except Exception:
+            pass
+
     def get(self, account_id: str) -> AccountState:
         if not account_id or not account_id.strip():
             raise AccountScopeError("Account scope is required")
-        response = httpx.get(
+        response = self._client.get(
             f"{self.base_url}/trading_accounts",
             params={"id": f"eq.{account_id}", "select": "id"},
             headers=self.headers,
@@ -43,7 +59,7 @@ class SupabaseAccountRepository:
         if not state.account_id.strip():
             raise AccountScopeError("Account scope is required")
         payload = {"id": state.account_id, "settings": state.settings}
-        response = httpx.patch(
+        response = self._client.patch(
             f"{self.base_url}/trading_accounts",
             params={"id": f"eq.{state.account_id}"},
             json=payload,
@@ -55,7 +71,7 @@ class SupabaseAccountRepository:
     def profile(self, user_id: str) -> dict[str, Any]:
         if not user_id or not user_id.strip():
             raise AccountScopeError("User scope is required")
-        response = httpx.get(f"{self.base_url}/user_profiles", params={"user_id": f"eq.{user_id.strip()}", "select": "*", "limit": "1"}, headers=self.headers, timeout=self.timeout)
+        response = self._client.get(f"{self.base_url}/user_profiles", params={"user_id": f"eq.{user_id.strip()}", "select": "*", "limit": "1"}, headers=self.headers, timeout=self.timeout)
         response.raise_for_status()
         return response.json()[0] if response.json() else {"user_id": user_id.strip()}
 
@@ -63,7 +79,7 @@ class SupabaseAccountRepository:
         if not user_id or not user_id.strip():
             raise AccountScopeError("User scope is required")
         user_id = user_id.strip()
-        response = httpx.patch(
+        response = self._client.patch(
             f"{self.base_url}/user_profiles",
             params={"user_id": f"eq.{user_id}"},
             json=payload,
@@ -77,7 +93,7 @@ class SupabaseAccountRepository:
 
         # If no record was updated (profile does not exist yet), insert a new profile row
         insert_payload = {"user_id": user_id, **payload}
-        insert_response = httpx.post(
+        insert_response = self._client.post(
             f"{self.base_url}/user_profiles",
             json=insert_payload,
             headers={**self.headers, "Content-Type": "application/json", "Prefer": "return=representation"},
@@ -92,7 +108,7 @@ class SupabaseAccountRepository:
         if user_id and user_id.strip():
             params["user_id"] = f"eq.{user_id.strip()}"
         try:
-            response = httpx.get(f"{self.base_url}/user_profit_daily", params=params, headers=self.headers, timeout=self.timeout)
+            response = self._client.get(f"{self.base_url}/user_profit_daily", params=params, headers=self.headers, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except Exception:
@@ -103,7 +119,7 @@ class SupabaseAccountRepository:
         if user_id and user_id.strip():
             params["user_id"] = f"eq.{user_id.strip()}"
         try:
-            response = httpx.get(f"{self.base_url}/trade_orders", params=params, headers=self.headers, timeout=self.timeout)
+            response = self._client.get(f"{self.base_url}/trade_orders", params=params, headers=self.headers, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except Exception:
@@ -131,7 +147,7 @@ class SupabaseAccountRepository:
             "metadata": trade.get("metadata", {})
         }
         try:
-            response = httpx.post(
+            response = self._client.post(
                 f"{self.base_url}/trade_orders",
                 json=payload,
                 headers={**self.headers, "Content-Type": "application/json", "Prefer": "return=representation"},
@@ -159,7 +175,7 @@ class SupabaseAccountRepository:
         }
         try:
             # 1. Primary update: Match by broker_ticket (unique across orders)
-            response = httpx.patch(
+            response = self._client.patch(
                 f"{self.base_url}/trade_orders",
                 params={"broker_ticket": f"eq.{ticket_val}"},
                 json=patch_payload,
@@ -173,7 +189,7 @@ class SupabaseAccountRepository:
             
             # 2. Secondary update: Match by account_id and broker_ticket
             if account_id and account_id.strip():
-                response2 = httpx.patch(
+                response2 = self._client.patch(
                     f"{self.base_url}/trade_orders",
                     params={"account_id": f"eq.{account_id.strip()}", "broker_ticket": f"eq.{ticket_val}"},
                     json=patch_payload,
@@ -203,7 +219,7 @@ class SupabaseAccountRepository:
                 "closed_at": close_t,
                 "metadata": {}
             }
-            insert_res = httpx.post(
+            insert_res = self._client.post(
                 f"{self.base_url}/trade_orders",
                 json=full_payload,
                 headers={**self.headers, "Content-Type": "application/json", "Prefer": "return=representation"},
@@ -220,7 +236,7 @@ class SupabaseAccountRepository:
         if not account_id or not account_id.strip():
             raise AccountScopeError("Account scope is required")
         try:
-            response = httpx.get(
+            response = self._client.get(
                 f"{self.base_url}/trading_accounts",
                 params={"id": f"eq.{account_id.strip()}", "select": "lock_state,lock_reason,locked_at,unlocked_at"},
                 headers=self.headers,
@@ -249,7 +265,7 @@ class SupabaseAccountRepository:
         else:
             payload["locked_at"] = now_iso
         try:
-            response = httpx.patch(
+            response = self._client.patch(
                 f"{self.base_url}/trading_accounts",
                 params={"id": f"eq.{account_id.strip()}"},
                 json=payload,
@@ -282,7 +298,7 @@ class SupabaseAccountRepository:
                 "closed_at": close_t,
             }
             try:
-                res = httpx.patch(
+                res = self._client.patch(
                     f"{self.base_url}/trade_orders",
                     params={"broker_ticket": f"eq.{ticket_val}"},
                     json=patch_payload,
@@ -307,7 +323,7 @@ class SupabaseAccountRepository:
         if user_id and user_id.strip():
             params["user_id"] = f"eq.{user_id.strip()}"
         try:
-            response = httpx.get(f"{self.base_url}/trade_orders", params=params, headers=self.headers, timeout=self.timeout)
+            response = self._client.get(f"{self.base_url}/trade_orders", params=params, headers=self.headers, timeout=self.timeout)
             response.raise_for_status()
             rows = response.json()
             return rows
@@ -339,7 +355,7 @@ class SupabaseAccountRepository:
         if not ids:
             return {}
         try:
-            response = httpx.get(
+            response = self._client.get(
                 f"{self.base_url}/trading_accounts",
                 params={"id": f"in.({','.join(ids)})", "select": "id,lock_state,lock_reason,locked_at,unlocked_at"},
                 headers=self.headers,
@@ -364,7 +380,7 @@ class SupabaseAccountRepository:
         if not ids:
             return {}
         try:
-            response = httpx.get(
+            response = self._client.get(
                 f"{self.base_url}/user_profiles",
                 params={"user_id": f"in.({','.join(ids)})", "select": "user_id,display_name,roles"},
                 headers=self.headers,
@@ -380,7 +396,7 @@ class SupabaseAccountRepository:
         if cached is not None:
             return cached
         try:
-            response = httpx.get(
+            response = self._client.get(
                 f"{self.base_url}/trading_accounts",
                 params={"select": "*", "order": "created_at.asc", "limit": "1000"},
                 headers=self.headers,
@@ -428,7 +444,7 @@ class SupabaseAccountRepository:
             params = {"select": "*", "limit": "100", "order": "created_at.desc"}
             if not include_inactive:
                 params["is_active"] = "eq.true"
-            response = httpx.get(
+            response = self._client.get(
                 f"{self.base_url}/bot_types",
                 params=params,
                 headers=self.headers,
@@ -446,7 +462,7 @@ class SupabaseAccountRepository:
         if not bot_type_id or not bot_type_id.strip():
             return None
         try:
-            response = httpx.get(
+            response = self._client.get(
                 f"{self.base_url}/bot_types",
                 params={"id": f"eq.{bot_type_id.strip()}", "select": "*", "limit": "1"},
                 headers=self.headers,
@@ -482,7 +498,7 @@ class SupabaseAccountRepository:
             "metadata": payload.get("metadata", {})
         }
         try:
-            response = httpx.post(
+            response = self._client.post(
                 f"{self.base_url}/bot_types",
                 json=full_payload,
                 headers={**self.headers, "Content-Type": "application/json", "Prefer": "return=representation"},
@@ -507,7 +523,7 @@ class SupabaseAccountRepository:
         update_payload.pop("created_at", None)
         
         try:
-            response = httpx.patch(
+            response = self._client.patch(
                 f"{self.base_url}/bot_types",
                 params={"id": f"eq.{bot_type_id.strip()}"},
                 json=update_payload,
@@ -532,7 +548,7 @@ class SupabaseAccountRepository:
         try:
             if soft_delete:
                 # Soft delete: set is_active to false
-                response = httpx.patch(
+                response = self._client.patch(
                     f"{self.base_url}/bot_types",
                     params={"id": f"eq.{bot_type_id.strip()}"},
                     json={"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()},
@@ -541,7 +557,7 @@ class SupabaseAccountRepository:
                 )
             else:
                 # Hard delete: actually remove the record
-                response = httpx.delete(
+                response = self._client.delete(
                     f"{self.base_url}/bot_types",
                     params={"id": f"eq.{bot_type_id.strip()}"},
                     headers={**self.headers, "Prefer": "return=minimal"},
@@ -576,7 +592,7 @@ class SupabaseAccountRepository:
         if cached is not None:
             return cached
         try:
-            response = httpx.get(
+            response = self._client.get(
                 f"{self.base_url}/admin_account_summary",
                 params={"select": "*", "limit": "1000"},
                 headers=self.headers,
@@ -594,7 +610,7 @@ class SupabaseAccountRepository:
         if cached is not None:
             return cached
         try:
-            response = httpx.get(
+            response = self._client.get(
                 f"{self.base_url}/trade_orders",
                 params={"select": "*", "order": "submitted_at.desc", "limit": str(limit)},
                 headers=self.headers,
@@ -611,7 +627,7 @@ class SupabaseAccountRepository:
         if not account_id or not account_id.strip():
             raise AccountScopeError("Account scope is required")
         try:
-            response = httpx.get(
+            response = self._client.get(
                 f"{self.base_url}/trading_accounts",
                 params={"id": f"eq.{account_id.strip()}", "select": "*", "limit": "1"},
                 headers=self.headers,
@@ -692,7 +708,7 @@ class SupabaseAccountRepository:
     def list_user_profiles(self) -> list[dict[str, Any]]:
         profiles = []
         try:
-            response = httpx.get(
+            response = self._client.get(
                 f"{self.base_url}/user_profiles",
                 params={"select": "*", "order": "created_at.desc", "limit": "500"},
                 headers=self.headers,
@@ -705,7 +721,7 @@ class SupabaseAccountRepository:
 
         # Enrich with auth email if available
         try:
-            auth_res = httpx.get(
+            auth_res = self._client.get(
                 f"{self.auth_url}/admin/users",
                 headers=self.headers,
                 timeout=self.timeout,
@@ -782,7 +798,7 @@ class SupabaseAccountRepository:
             raise AccountScopeError("Vai trò không hợp lệ. Chỉ chấp nhận 'admin' hoặc 'trader'.")
 
         # 1. Create Supabase Auth User
-        auth_res = httpx.post(
+        auth_res = self._client.post(
             f"{self.auth_url}/admin/users",
             json={"email": email, "password": password, "email_confirm": True},
             headers=self.headers,
@@ -799,7 +815,7 @@ class SupabaseAccountRepository:
         user_id = user_data.get("id")
 
         # 2. Create User Profile
-        profile_res = httpx.post(
+        profile_res = self._client.post(
             f"{self.base_url}/user_profiles",
             json={
                 "user_id": user_id,
@@ -813,7 +829,7 @@ class SupabaseAccountRepository:
         )
         if profile_res.status_code >= 400:
             # Rollback: delete the just-created auth user (no orphan)
-            httpx.delete(f"{self.auth_url}/admin/users/{user_id}", headers=self.headers, timeout=self.timeout)
+            self._client.delete(f"{self.auth_url}/admin/users/{user_id}", headers=self.headers, timeout=self.timeout)
             try:
                 err_msg = profile_res.json().get("message") or profile_res.text
             except Exception:
@@ -825,7 +841,7 @@ class SupabaseAccountRepository:
         if role_clean == "trader":
             account_id = f"acct-{user_id}"
             default_bot_type = bot_type_id or "308b6e56-d024-4831-950c-e2cefd241c1b"
-            acc_res = httpx.post(
+            acc_res = self._client.post(
                 f"{self.base_url}/trading_accounts",
                 json={
                     "id": account_id,
@@ -840,8 +856,8 @@ class SupabaseAccountRepository:
             )
             if acc_res.status_code >= 400:
                 # Rollback: delete auth user AND profile (no partial state)
-                httpx.delete(f"{self.auth_url}/admin/users/{user_id}", headers=self.headers, timeout=self.timeout)
-                httpx.delete(f"{self.base_url}/user_profiles", params={"user_id": f"eq.{user_id}"}, headers=self.headers, timeout=self.timeout)
+                self._client.delete(f"{self.auth_url}/admin/users/{user_id}", headers=self.headers, timeout=self.timeout)
+                self._client.delete(f"{self.base_url}/user_profiles", params={"user_id": f"eq.{user_id}"}, headers=self.headers, timeout=self.timeout)
                 try:
                     err_msg = acc_res.json().get("message") or acc_res.text
                 except Exception:
@@ -866,7 +882,7 @@ class SupabaseAccountRepository:
 
         # Update password if provided
         if password:
-            pw_res = httpx.put(
+            pw_res = self._client.put(
                 f"{self.auth_url}/admin/users/{user_id}",
                 json={"password": password},
                 headers=self.headers,
@@ -898,14 +914,14 @@ class SupabaseAccountRepository:
 
         # If role changed to trader, make sure account exists
         if role == "trader":
-            acc_check = httpx.get(
+            acc_check = self._client.get(
                 f"{self.base_url}/trading_accounts",
                 params={"owner_user_id": f"eq.{user_id}", "select": "id"},
                 headers=self.headers,
                 timeout=self.timeout,
             )
             if not acc_check.json():
-                httpx.post(
+                self._client.post(
                     f"{self.base_url}/trading_accounts",
                     json={
                         "id": f"acct-{user_id}",
@@ -927,13 +943,13 @@ class SupabaseAccountRepository:
         user_id = user_id.strip()
 
         # Delete auth user
-        del_res = httpx.delete(
+        del_res = self._client.delete(
             f"{self.auth_url}/admin/users/{user_id}",
             headers=self.headers,
             timeout=self.timeout,
         )
         # Delete / cascade user profile & trading account
-        httpx.delete(
+        self._client.delete(
             f"{self.base_url}/user_profiles",
             params={"user_id": f"eq.{user_id}"},
             headers=self.headers,
@@ -947,7 +963,7 @@ class SupabaseAccountRepository:
             raise AccountScopeError("Account scope is required")
         payload = {"is_active": False, "status": "revoked", "revoked_at": datetime.now(timezone.utc).isoformat()}
         try:
-            response = httpx.patch(
+            response = self._client.patch(
                 f"{self.base_url}/user_sessions",
                 params={"account_id": f"eq.{account_id.strip()}"},
                 json=payload,
@@ -961,7 +977,7 @@ class SupabaseAccountRepository:
 
     def _admin_patch(self, resource: str, params: dict[str, str], payload: dict[str, Any]) -> None:
         try:
-            response = httpx.patch(
+            response = self._client.patch(
                 resource,
                 params=params,
                 json=payload,

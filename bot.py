@@ -150,6 +150,11 @@ class MT5TradingBot:
         Kept as a no-op so existing call sites don't break."""
         pass
 
+    def load_history(self):
+        """Deprecated: Supabase is the single source of truth for trade history.
+        Kept as a no-op so __init__ and legacy call sites don't break."""
+        pass
+
     def _trigger_trade_open(self, pos: Dict[str, Any], account_id: Optional[str] = None, user_id: Optional[str] = None):
         if callable(self.on_trade_open):
             try:
