@@ -14,6 +14,7 @@ lean and un-bloated, and keeps trading domain code untouched.
 
 from __future__ import annotations
 
+import os
 import logging
 import secrets
 from typing import Awaitable, Callable
@@ -23,6 +24,23 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 security_logger = logging.getLogger("security")
+
+
+def is_request_secure(request: Request) -> bool:
+    """Detect HTTPS either directly or behind TLS-terminating reverse proxies."""
+    if os.getenv("COOKIE_SECURE", "").lower() in ("true", "1", "yes"):
+        return True
+    if os.getenv("ENVIRONMENT", "development").lower() == "production":
+        return True
+    if getattr(request, "url", None) and getattr(request.url, "scheme", "") == "https":
+        return True
+    headers = getattr(request, "headers", None)
+    if headers:
+        if headers.get("x-forwarded-proto", "").lower() == "https":
+            return True
+        if "proto=https" in headers.get("forwarded", "").lower():
+            return True
+    return False
 
 # Default CSRF cookie name and header name (double-submit cookie pattern).
 CSRF_COOKIE_NAME = "_csrf"
@@ -162,6 +180,6 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
                 max_age=3600,
                 httponly=False,   # js needs to read it to echo back
                 samesite="strict",
-                secure=request.url.scheme == "https",
+                secure=is_request_secure(request),
             )
         return response

@@ -18,18 +18,20 @@ from typing import Optional
 from fastapi import Depends, HTTPException, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from security import log_security_event
+from security import log_security_event, is_request_secure
 from services.auth_service import AuthenticationError, Principal, SessionService
 
 __all__ = [
     "SESSION_COOKIE_NAME",
     "authenticate_websocket",
     "auth_enforced",
+    "bearer_token",
     "get_account_id",
     "get_bearer_token",
     "get_current_principal",
     "get_current_principal_optional",
     "get_session_service",
+    "is_request_secure",
     "require_admin",
     "set_session_cookie",
 ]
@@ -51,6 +53,16 @@ def _extract_token(request: Request) -> Optional[str]:
     return request.cookies.get(SESSION_COOKIE_NAME)
 
 
+def bearer_token(request: Request) -> str:
+    """Read the session token synchronously from headers or cookies."""
+    token = _extract_token(request)
+    if not token:
+        if not auth_enforced():
+            return "demo-token"
+        raise HTTPException(status_code=401, detail="Bearer authentication is required")
+    return token
+
+
 def auth_enforced() -> bool:
     """Auth is mandatory when REQUIRE_AUTH is on or the deployment is production."""
     return (
@@ -64,6 +76,16 @@ def _admin_allowlist() -> frozenset:
     entries = {
         entry.strip()
         for entry in os.getenv("ADMIN_ACCOUNT_IDS", "").split(",")
+        if entry.strip()
+    }
+    return frozenset(entries)
+
+
+def _admin_emails() -> frozenset:
+    """Configured administrator emails allowed to act as admin."""
+    entries = {
+        entry.strip().lower()
+        for entry in os.getenv("ADMIN_EMAILS", "admin@ponytail.finance,operator@ponytail.finance").split(",")
         if entry.strip()
     }
     return frozenset(entries)
@@ -135,16 +157,49 @@ async def get_current_principal_optional(
 
 async def require_admin(
     request: Request,
-    principal: Principal = Depends(get_current_principal),
+    principal: Optional[Principal] = None,
 ) -> Principal:
-    if "admin" in principal.roles or principal.account_id in _admin_allowlist():
+    """Verify that the request comes from an admin user. Returns Principal if valid.
+
+    Supports direct function invocation: await require_admin(request)
+    and dependency injection: principal: Principal = Depends(require_admin)
+    """
+    if principal is None or not isinstance(principal, Principal):
+        token = _extract_token(request)
+        if not token:
+            if not auth_enforced():
+                return Principal("demo-account", "demo-user", frozenset({"admin"}))
+            raise HTTPException(status_code=401, detail="Bearer token is required")
+        session_service = get_session_service(request)
+        try:
+            principal = await _authenticate(session_service, token)
+        except AuthenticationError as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+    user_email = ""
+    session_svc = getattr(getattr(request, "app", None), "state", None)
+    session_service = getattr(session_svc, "session_service", None) if session_svc else None
+    if session_service and hasattr(session_service, "get_user_email"):
+        try:
+            user_email = (await asyncio.to_thread(session_service.get_user_email, principal.user_id) or "").strip().lower()
+        except Exception:
+            user_email = ""
+
+    is_admin = (
+        "admin" in principal.roles
+        or principal.account_id in _admin_allowlist()
+        or (bool(user_email) and user_email in _admin_emails())
+    )
+    if is_admin:
         return principal
+
     log_security_event(
         "admin_access_denied",
         account_id=principal.account_id,
         user_id=principal.user_id,
-        correlation_id=getattr(request.state, "correlation_id", None),
-        client_ip=request.client.host if request.client else None,
+        correlation_id=getattr(getattr(request, "state", None), "correlation_id", None),
+        client_ip=request.client.host if getattr(request, "client", None) else None,
+        detail=f"roles={list(principal.roles)}",
     )
     raise HTTPException(status_code=403, detail="Admin role is required")
 
@@ -170,7 +225,7 @@ def set_session_cookie(response: Response, session: dict, request: Request) -> N
             value=token,
             max_age=3600,
             httponly=True,
-            secure=request.url.scheme == "https",
+            secure=is_request_secure(request),
             samesite="strict",
             path="/",
         )

@@ -5,6 +5,7 @@ provides the account-scoped contract that a production identity provider can
 implement without leaking authentication logic into trading code.
 """
 
+import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import secrets
@@ -13,7 +14,9 @@ import time
 import httpx
 import re
 import bcrypt
-from typing import Protocol, runtime_checkable
+from typing import Optional, Protocol, runtime_checkable
+
+_DUMMY_BCRYPT_HASH = bcrypt.hashpw(b"anti-timing-dummy-defense", bcrypt.gensalt()).decode("utf-8")
 
 
 
@@ -92,6 +95,10 @@ class InMemorySessionService:
         return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     @staticmethod
+    def _is_legacy_hash(hashed: str) -> bool:
+        return not (hashed.startswith("$2b$") or hashed.startswith("$2a$"))
+
+    @staticmethod
     def _verify_pw(password: str, hashed: str) -> bool:
         if not hashed:
             return False
@@ -130,23 +137,19 @@ class InMemorySessionService:
     def login(self, email: str, password: str, portal: str | None = None) -> dict:
         email = normalize_email(email)
         user = self._users.get(email)
-        if not user or not self._verify_pw(password, user["password_hash"]):
+        # Constant-time timing side-channel defense: always run bcrypt checkpw
+        target_hash = user["password_hash"] if user else _DUMMY_BCRYPT_HASH
+        is_valid = self._verify_pw(password, target_hash)
+        if not user or not is_valid:
             raise AuthenticationError("Invalid email or password")
-        existing_roles = list(self._user_roles.get(user["user_id"]) or ["trader"])
         
-        # Enforce mutual exclusion: trader != admin
-        if portal == "admin":
-            if "trader" in existing_roles and "admin" not in existing_roles:
-                raise AuthenticationError("Tài khoản của bạn là tài khoản dùng BOT (Trader), không được phép truy cập hệ thống Quản trị (Admin).")
-            roles = ["admin"]
-            self._user_roles[user["user_id"]] = frozenset(roles)
-        elif portal == "trader":
-            if "admin" in existing_roles and "trader" not in existing_roles:
-                raise AuthenticationError("Tài khoản Quản trị viên (Admin) không được sử dụng để chạy bot giao dịch. Vui lòng đăng nhập tại /admin/login.")
-            roles = ["trader"]
-            self._user_roles[user["user_id"]] = frozenset(roles)
-        else:
-            roles = ["admin"] if "admin" in existing_roles else ["trader"]
+        # Transparently upgrade legacy SHA-256 hashes to bcrypt on successful login
+        if self._is_legacy_hash(user["password_hash"]):
+            user["password_hash"] = self._hash_pw(password)
+
+        # Authoritative roles from storage - NEVER mutated by login or portal parameter
+        existing_roles = list(self._user_roles.get(user["user_id"]) or ["trader"])
+        roles = ["admin"] if "admin" in existing_roles else ["trader"]
 
         session = self.create(Principal(user["account_id"], user["user_id"], frozenset(roles)))
         return {
@@ -339,48 +342,14 @@ class SupabaseSessionService:
         except httpx.HTTPError as exc:
             raise AuthenticationError("Authentication service is unavailable") from exc
         if response.status_code >= 400:
-            try:
-                error = response.json()
-            except ValueError:
-                error = {}
-            message = str(error.get("error_description") or error.get("msg") or "").lower()
-            if "confirm" in message or "not verified" in message:
-                raise AuthenticationError("Please confirm your email before signing in")
             raise AuthenticationError("Invalid email or password")
         user = response.json().get("user") or {}
         user_id = user.get("id")
         if not user_id:
-            raise AuthenticationError("Invalid authentication response")
+            raise AuthenticationError("Invalid email or password")
 
-        # Validate mutual exclusion between Admin and Trader
-        existing_roles = self._get_user_roles(user_id)
-        if portal == "admin":
-            if "trader" in existing_roles and "admin" not in existing_roles:
-                raise AuthenticationError("Tài khoản của bạn là tài khoản dùng BOT (Trader), không được phép truy cập hệ thống Quản trị (Admin).")
-            roles = ["admin"]
-            if existing_roles != ["admin"]:
-                try:
-                    self._request("PATCH", f"{self.rest_url}/user_profiles",
-                                  params={"user_id": f"eq.{user_id}"},
-                                  json={"roles": ["admin"]},
-                                  headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
-                except Exception:
-                    pass
-        elif portal == "trader":
-            if "admin" in existing_roles and "trader" not in existing_roles:
-                raise AuthenticationError("Tài khoản Quản trị viên (Admin) không được sử dụng để chạy bot giao dịch. Vui lòng đăng nhập tại /admin/login.")
-            roles = ["trader"]
-            if existing_roles != ["trader"]:
-                try:
-                    self._request("PATCH", f"{self.rest_url}/user_profiles",
-                                  params={"user_id": f"eq.{user_id}"},
-                                  json={"roles": ["trader"]},
-                                  headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
-                except Exception:
-                    pass
-        else:
-            roles = list(existing_roles) if existing_roles else ["trader"]
-
+        # Roles are authoritative from the persisted profile - authentication never mutates privileges
+        roles = self._get_user_roles(user_id)
         account_id = self._ensure_account(user_id)
         return self._create_session(user_id, account_id, roles=roles)
 
@@ -404,7 +373,7 @@ class SupabaseSessionService:
 
         The user returns from GitHub/Google OAuth or email link with a short-lived
         Supabase access token in the URL fragment. We verify it against the
-        Supabase Auth /user endpoint, enforce role separation, and mint our session.
+        Supabase Auth /user endpoint, resolve authoritative roles, and mint our session.
         """
         if not supabase_token:
             raise AuthenticationError("Missing authentication token")
@@ -433,61 +402,27 @@ class SupabaseSessionService:
         except Exception:
             pass
 
-        existing_roles = list(prof[0].get("roles") or []) if prof and len(prof) > 0 and prof[0].get("roles") else []
+        admin_emails = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "admin@ponytail.finance,operator@ponytail.finance").split(",") if e.strip()}
 
-        if portal == "admin":
-            # Validation rule: If account is already a trader (bot user), deny admin access
-            if "trader" in existing_roles and "admin" not in existing_roles:
-                raise AuthenticationError("Tài khoản của bạn là tài khoản dùng BOT (Trader), không có quyền Quản trị (Admin).")
-            
-            roles = ["admin"]
-            # Save / update profile to guarantee admin role and no trader role
-            if prof and len(prof) > 0:
-                if existing_roles != ["admin"]:
-                    try:
-                        self._request("PATCH", f"{self.rest_url}/user_profiles",
-                                      params={"user_id": f"eq.{user_id}"},
-                                      json={"roles": ["admin"]},
-                                      headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
-                    except Exception:
-                        pass
-            else:
-                display = (user_data.get("user_metadata") or {}).get("full_name") or (email.split("@")[0] if email else "Admin Operator")
-                try:
-                    self._request("POST", f"{self.rest_url}/user_profiles", json={
-                        "user_id": user_id,
-                        "display_name": display,
-                        "roles": ["admin"],
-                    }, headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
-                except Exception:
-                    pass
-        else: # portal == "trader"
-            # Validation rule: If account is already an admin, deny trader / bot usage
-            if "admin" in existing_roles and "trader" not in existing_roles:
-                raise AuthenticationError("Tài khoản Quản trị viên (Admin) không được sử dụng để chạy bot giao dịch. Vui lòng đăng nhập tại /admin/login.")
-            
-            roles = list(existing_roles) if ("trader" in existing_roles) else ["trader"]
-            if prof and len(prof) > 0:
-                if "trader" not in existing_roles:
-                    try:
-                        updated_roles = list(set(existing_roles + ["trader"]))
-                        self._request("PATCH", f"{self.rest_url}/user_profiles",
-                                      params={"user_id": f"eq.{user_id}"},
-                                      json={"roles": updated_roles},
-                                      headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
-                        roles = updated_roles
-                    except Exception:
-                        pass
-            else:
-                display = (user_data.get("user_metadata") or {}).get("full_name") or (email.split("@")[0] if email else "Trader")
-                try:
-                    self._request("POST", f"{self.rest_url}/user_profiles", json={
-                        "user_id": user_id,
-                        "display_name": display,
-                        "roles": ["trader"],
-                    }, headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
-                except Exception:
-                    pass
+        if prof and len(prof) > 0:
+            # Profile exists: Authoritative roles from DB. Never mutate existing roles on login.
+            existing_roles = list(prof[0].get("roles") or [])
+            roles = existing_roles if existing_roles else ["trader"]
+        else:
+            # First-time provisioning: Default to 'trader' (least privilege).
+            # Only assign 'admin' if email is in the server-side ADMIN_EMAILS allowlist.
+            # The client-controlled 'portal' parameter is NEVER trusted to grant admin rights.
+            initial_role = "admin" if (email and email in admin_emails) else "trader"
+            roles = [initial_role]
+            display = (user_data.get("user_metadata") or {}).get("full_name") or (email.split("@")[0] if email else "Trader")
+            try:
+                self._request("POST", f"{self.rest_url}/user_profiles", json={
+                    "user_id": user_id,
+                    "display_name": display,
+                    "roles": roles,
+                }, headers={**self.headers, "Prefer": "return=minimal", "Content-Type": "application/json"})
+            except Exception:
+                pass
 
         account_id = self._ensure_account(user_id)
         return self._create_session(user_id, account_id, roles=roles)

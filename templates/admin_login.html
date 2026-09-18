@@ -342,6 +342,40 @@ body {
     border-radius: 9999px;
 }
 
+.login-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.login-mascot {
+    width: 72px;
+    height: 72px;
+    flex: 0 0 72px;
+    padding: 0;
+    border: 0;
+    background: url('/static/mascots/raccoon-directions.webp') 50% 50% / 300% 300% no-repeat;
+    cursor: pointer;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.42));
+    transition: transform 160ms ease, filter 160ms ease;
+}
+
+.login-mascot:hover {
+    transform: translateY(-3px) scale(1.05);
+    filter: drop-shadow(0 12px 12px rgba(57, 255, 20, 0.22));
+}
+
+.login-mascot.is-reacting {
+    transform: translateY(2px) scale(0.88, 0.82);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .login-mascot {
+        transition: none;
+    }
+}
+
 /* Inputs */
 .form-group {
     margin-bottom: 1.1rem;
@@ -921,8 +955,19 @@ body.mode-login .footer-container {
                 <h2 class="login-card-title">Admin Portal Sign In</h2>
                 <p class="login-card-subtitle">Hệ thống quản trị độc lập • Dedicated Control Panel</p>
             </div>
-            <div class="security-badge">
-                <span>TLS 1.3</span>
+            <div class="login-card-actions">
+                <div class="security-badge">
+                    <span>TLS 1.3</span>
+                </div>
+                <button
+                    id="adminLoginMascot"
+                    class="login-mascot"
+                    type="button"
+                    aria-label="Raccoon mascot. It follows your cursor; click for a reaction."
+                    title="Raccoon mascot"
+                    data-directions="/static/mascots/raccoon-directions.webp"
+                    data-reactions="/static/mascots/raccoon-reactions.webp"
+                ></button>
             </div>
         </div>
 
@@ -1376,6 +1421,66 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePhysics();
     }
 });
+</script>
+
+<script>
+(() => {
+    const mascot = document.getElementById('adminLoginMascot');
+    const canTrack = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!mascot || !canTrack) {
+        if (mascot) mascot.hidden = true;
+        return;
+    }
+
+    const positionByCell = (column, row) => `${column * 50}% ${row * 50}%`;
+    const directions = mascot.dataset.directions;
+    const reactions = mascot.dataset.reactions;
+    let isReacting = false;
+    let lastPointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+
+    function setDirection(pointerX, pointerY) {
+        if (isReacting) return;
+
+        const bounds = mascot.getBoundingClientRect();
+        const offsetX = pointerX - (bounds.left + bounds.width / 2);
+        const offsetY = pointerY - (bounds.top + bounds.height / 2);
+        const deadZone = bounds.width * 0.16;
+        const column = offsetX < -deadZone ? 0 : offsetX > deadZone ? 2 : 1;
+        const row = offsetY < -deadZone ? 0 : offsetY > deadZone ? 2 : 1;
+
+        mascot.style.backgroundImage = `url('${directions}')`;
+        mascot.style.backgroundPosition = positionByCell(column, row);
+    }
+
+    function react() {
+        isReacting = true;
+        mascot.classList.add('is-reacting');
+        mascot.style.backgroundImage = `url('${reactions}')`;
+        mascot.style.backgroundPosition = positionByCell(Math.floor(Math.random() * 3), Math.floor(Math.random() * 3));
+
+        window.setTimeout(() => {
+            isReacting = false;
+            mascot.classList.remove('is-reacting');
+            setDirection(lastPointer.x, lastPointer.y);
+        }, reduceMotion ? 0 : 560);
+    }
+
+    window.addEventListener('pointermove', (event) => {
+        lastPointer = { x: event.clientX, y: event.clientY };
+        setDirection(event.clientX, event.clientY);
+    }, { passive: true });
+
+    mascot.addEventListener('pointerdown', (event) => event.stopPropagation());
+    mascot.addEventListener('pointerup', (event) => event.stopPropagation());
+    mascot.addEventListener('click', (event) => {
+        event.stopPropagation();
+        react();
+    });
+
+    setDirection(lastPointer.x, lastPointer.y);
+})();
 </script>
 
 </body>

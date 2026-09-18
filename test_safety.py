@@ -605,5 +605,112 @@ class AuthDependencyCoverageTests(unittest.TestCase):
         self.assertIsNone(asyncio.run(get_current_principal_optional(self.request, self.service)))
 
 
+class AuthSecurityHardeningTests(unittest.TestCase):
+    """Tests verifying the remediation of vulnerabilities V1-V6."""
+
+    def setUp(self):
+        self.service = InMemorySessionService()
+
+    def test_login_portal_admin_does_not_escalate_trader_role(self):
+        """V1 & V2: Passing portal='admin' must not escalate a user to admin or mutate roles."""
+        self.service.register("user@example.com", "StrongPassword123!")
+        res = self.service.login("user@example.com", "StrongPassword123!", portal="admin")
+        self.assertEqual(res["roles"], ["trader"])
+        user_id = self.service._users["user@example.com"]["user_id"]
+        self.assertEqual(self.service._user_roles[user_id], frozenset({"trader"}))
+
+    def test_login_failure_returns_uniform_401_without_leaking_role(self):
+        """V3: Failed login must return uniform 401 with generic error, never 403 or detailed leak."""
+        from fastapi.testclient import TestClient
+        import app as module
+        client = TestClient(module.app)
+        
+        # Test non-existent email
+        resp1 = client.post("/api/auth/login", json={"email": "nonexistent@example.com", "password": "WrongPassword1!"})
+        self.assertEqual(resp1.status_code, 401)
+        self.assertEqual(resp1.json()["detail"], "Invalid email or password")
+
+        # Test wrong password for registered account
+        email = "secuser@example.com"
+        client.post("/api/auth/register", json={"email": email, "password": "StrongPassword123!"})
+        resp2 = client.post("/api/auth/login", json={"email": email, "password": "WrongPassword999!"})
+        self.assertEqual(resp2.status_code, 401)
+        self.assertEqual(resp2.json()["detail"], "Invalid email or password")
+
+        # Test trader logging in with portal='admin'
+        resp3 = client.post("/api/auth/login", json={"email": email, "password": "StrongPassword123!", "portal": "admin"})
+        self.assertEqual(resp3.status_code, 200)
+        self.assertEqual(resp3.json()["roles"], ["trader"])
+
+    def test_timing_defense_executes_dummy_verification_on_missing_email(self):
+        """V4: Missing email must execute dummy bcrypt verification to maintain constant time."""
+        from unittest.mock import patch
+        with patch.object(self.service, "_verify_pw", wraps=self.service._verify_pw) as mock_verify:
+            with self.assertRaises(AuthenticationError):
+                self.service.login("nonexistent_timing@example.com", "SomePassword123!")
+            self.assertTrue(mock_verify.called)
+
+    def test_transparent_legacy_sha256_hash_upgrade(self):
+        """V5: Legacy SHA-256 hashes must be transparently upgraded to bcrypt on successful login."""
+        import hashlib
+        email = "legacy@example.com"
+        raw_pw = "LegacyPassword123!"
+        sha256_hash = hashlib.sha256(raw_pw.encode("utf-8")).hexdigest()
+        user_id = "legacy-uid-123"
+        self.service._users[email] = {
+            "password_hash": sha256_hash,
+            "user_id": user_id,
+            "account_id": f"acct-{user_id}",
+            "display_name": email,
+        }
+        self.service._user_roles[user_id] = frozenset({"trader"})
+
+        # Confirm it is currently a legacy hash
+        self.assertTrue(self.service._is_legacy_hash(self.service._users[email]["password_hash"]))
+
+        # Log in
+        res = self.service.login(email, raw_pw)
+        self.assertIn("access_token", res)
+
+        # Confirm password_hash is now upgraded to bcrypt ($2b$)
+        upgraded_hash = self.service._users[email]["password_hash"]
+        self.assertFalse(self.service._is_legacy_hash(upgraded_hash))
+        self.assertTrue(upgraded_hash.startswith("$2b$") or upgraded_hash.startswith("$2a$"))
+
+    def test_reverse_proxy_cookie_secure_flag(self):
+        """V6: Cookie must have Secure flag when behind reverse proxy or in production."""
+        from fastapi import Response
+        from services.auth_dependencies import is_request_secure, set_session_cookie
+
+        req_proxy = type("Request", (), {
+            "url": type("URL", (), {"scheme": "http"})(),
+            "headers": {"x-forwarded-proto": "https"},
+        })()
+        self.assertTrue(is_request_secure(req_proxy))
+
+        resp = Response()
+        set_session_cookie(resp, {"access_token": "tok-proxy"}, req_proxy)
+        cookie = resp.headers.get("set-cookie", "")
+        self.assertIn("secure", cookie.lower())
+
+        # Test with ENVIRONMENT=production
+        old_env = os.environ.get("ENVIRONMENT")
+        try:
+            os.environ["ENVIRONMENT"] = "production"
+            req_plain = type("Request", (), {
+                "url": type("URL", (), {"scheme": "http"})(),
+                "headers": {},
+            })()
+            self.assertTrue(is_request_secure(req_plain))
+            resp2 = Response()
+            set_session_cookie(resp2, {"access_token": "tok-prod"}, req_plain)
+            self.assertIn("secure", resp2.headers.get("set-cookie", "").lower())
+        finally:
+            if old_env is None:
+                os.environ.pop("ENVIRONMENT", None)
+            else:
+                os.environ["ENVIRONMENT"] = old_env
+
+
 if __name__ == "__main__":
     unittest.main()

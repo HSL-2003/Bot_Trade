@@ -255,15 +255,17 @@ class SupabaseAccountRepository:
             pass
         return {"lock_state": "unlocked", "lock_reason": None, "locked_at": None, "unlocked_at": None}
 
-    def set_lock_state(self, account_id: str, lock_state: str, reason: Optional[str] = None) -> None:
+    def set_lock_state(self, account_id: str, lock_state: str, reason: Optional[str] = None, unlocked_by: Optional[str] = None) -> None:
         if not account_id or not account_id.strip():
             raise AccountScopeError("Account scope is required")
         now_iso = datetime.now(timezone.utc).isoformat()
         payload: dict[str, Any] = {"lock_state": lock_state, "lock_reason": reason}
         if lock_state == "unlocked":
             payload["unlocked_at"] = now_iso
+            payload["unlocked_by"] = unlocked_by  # DB trigger requires actor to release a HARD lock
         else:
             payload["locked_at"] = now_iso
+            payload["unlocked_by"] = None  # a new lock clears who unlocked it
         try:
             response = self._client.patch(
                 f"{self.base_url}/trading_accounts",

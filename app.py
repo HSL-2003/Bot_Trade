@@ -24,8 +24,20 @@ from datetime import datetime, timezone
 from bot import MT5TradingBot, MT5_AVAILABLE
 from config import SUPPORTED_SYMBOLS, agents_enabled, allowed_origins
 from services.account_service import TradingAccountService
-from services.auth_service import AuthenticationError, InMemorySessionService, SupabaseSessionService, normalize_email, validate_password_strength
-from services.auth_dependencies import _authenticate as _session_authenticate
+from services.auth_service import (
+    AuthenticationError,
+    InMemorySessionService,
+    SupabaseSessionService,
+    normalize_email,
+    validate_password_strength,
+)
+from services.auth_dependencies import (
+    _authenticate as _session_authenticate,
+    bearer_token,
+    require_admin,
+    set_session_cookie,
+    is_request_secure,
+)
 from repositories.persistence import InMemoryAccountRepository, LOCK_HARD, LOCK_SOFT, LOCK_UNLOCKED
 from repositories.supabase_repository import SupabaseAccountRepository
 from security import (
@@ -67,6 +79,11 @@ async def lifespan(app: FastAPI):
     # trade ops through one queue behind a single IPC channel).
     from services.execution_pipeline import get_default_pipeline
     await get_default_pipeline().start()
+
+    # Real-time notifications reuse the existing /ws WebSocket: the notification
+    # service pushes rows into per-connection queues drained by that send loop.
+    from services.notification_service import register_push_handler
+    register_push_handler(_push_notification)
 
     try:
         yield
@@ -273,92 +290,6 @@ class BotTypeUpdate(BaseModel):
     metadata: Optional[dict] = None
 
 
-def bearer_token(request: Request) -> str:
-    authorization = request.headers.get("Authorization", "")
-    if not authorization.startswith("Bearer "):
-        cookie = request.cookies.get("session_token")
-        if cookie:
-            return cookie
-        require_auth = os.getenv("REQUIRE_AUTH", "false").lower() == "true" or os.getenv("ENVIRONMENT", "development").lower() == "production"
-        if not require_auth:
-            return "demo-token"
-        raise HTTPException(status_code=401, detail="Bearer authentication is required")
-    return authorization[7:].strip()
-
-
-async def require_admin(request: Request) -> None:
-    """Verify that the request comes from an admin user. Raises HTTPException if not."""
-    require_auth = os.getenv("REQUIRE_AUTH", "false").lower() == "true" or os.getenv("ENVIRONMENT", "development").lower() == "production"
-    token = bearer_token(request)
-    if (token == "demo-token" or not token) and not require_auth:
-        return
-    if not token:
-        raise HTTPException(status_code=401, detail="Bearer token is required")
-
-    try:
-        principal = await _session_authenticate(session_service, token)
-        allowed_accounts = {a.strip() for a in os.getenv("ADMIN_ACCOUNT_IDS", "").split(",") if a.strip()}
-        admin_emails = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "admin@ponytail.finance,operator@ponytail.finance").split(",") if e.strip()}
-        user_email = (await asyncio.to_thread(session_service.get_user_email, principal.user_id) if hasattr(session_service, "get_user_email") else "") or ""
-        
-        # Strict validation: If user is a trader (bot user), deny admin access
-        if "trader" in principal.roles and "admin" not in principal.roles:
-            log_security_event(
-                event="admin_access_denied_trader_role",
-                severity="warning",
-                user_id=principal.user_id,
-                details={"roles": list(principal.roles), "endpoint": str(request.url.path)},
-                correlation_id=getattr(request.state, "correlation_id", None),
-                client_ip=request.client.host if request.client else None,
-            )
-            raise HTTPException(status_code=403, detail="Tài khoản Trader dùng BOT không có quyền truy cập hệ thống Quản trị (Admin)")
-
-        is_admin = (
-            "admin" in principal.roles 
-            or principal.account_id in allowed_accounts 
-            or user_email.lower() in admin_emails
-            or "admin" in user_email.lower()
-            or not require_auth
-        )
-        if not is_admin:
-            log_security_event(
-                event="admin_access_denied",
-                severity="warning",
-                user_id=principal.user_id,
-                details={"roles": list(principal.roles), "endpoint": str(request.url.path)},
-                correlation_id=getattr(request.state, "correlation_id", None),
-                client_ip=request.client.host if request.client else None,
-            )
-            raise HTTPException(status_code=403, detail="Admin access required")
-    except AuthenticationError as exc:
-        if not require_auth:
-            return
-        log_security_event(
-            event="admin_auth_failed",
-            severity="warning",
-            details={"endpoint": str(request.url.path)},
-            correlation_id=getattr(request.state, "correlation_id", None),
-            client_ip=request.client.host if request.client else None,
-        )
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
-
-
-def set_session_cookie(response: Response, session: dict, request: Request) -> None:
-    """Persist the session token in an HttpOnly, SameSite=Strict cookie."""
-    token = session.get("access_token")
-    if not token:
-        return
-    response.set_cookie(
-        key="session_token",
-        value=token,
-        max_age=3600,
-        httponly=True,
-        secure=request.url.scheme == "https",
-        samesite="strict",
-        path="/",
-    )
-
-
 @app.post("/api/auth/register", status_code=201)
 @limiter.limit("5/minute")
 async def register(request: Request, payload: RegisterModel):
@@ -388,7 +319,7 @@ async def register(request: Request, payload: RegisterModel):
 @app.post("/api/auth/login")
 @limiter.limit("10/minute")
 async def login(request: Request, payload: LoginModel):
-    logger.info("🔑 [AUTH] Login attempt for: %s (portal: %s)", payload.email, payload.portal)
+    logger.info("🔑 [AUTH] Login attempt for: %s", payload.email)
     try:
         result = session_service.login(normalize_email(payload.email), payload.password, portal=payload.portal)
         logger.info("✅ [AUTH] Login succeeded for: %s (user_id: %s)", payload.email, result.get("user_id"))
@@ -398,10 +329,10 @@ async def login(request: Request, payload: LoginModel):
             "login_failed",
             correlation_id=getattr(request.state, "correlation_id", None),
             client_ip=request.client.host if request.client else None,
-            detail="invalid credentials or role conflict",
+            detail=f"reason={exc}",
         )
-        status = 403 if ("không có quyền" in str(exc).lower() or "không được phép" in str(exc).lower() or "không được sử dụng" in str(exc).lower()) else 401
-        raise HTTPException(status_code=status, detail=str(exc)) from exc
+        # Uniform 401: prevent account & role enumeration oracle
+        raise HTTPException(status_code=401, detail="Invalid email or password") from exc
     except Exception as exc:
         logger.exception("❌ [AUTH] Unexpected error during login: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error during login") from exc
@@ -468,9 +399,10 @@ async def social_callback(request: Request, payload: SocialCallbackModel):
             "oauth_callback_failed",
             correlation_id=getattr(request.state, "correlation_id", None),
             client_ip=request.client.host if request.client else None,
+            detail=f"reason={exc}",
         )
-        status = 403 if ("không có quyền" in str(exc).lower() or "không được" in str(exc).lower() or "không thể" in str(exc).lower()) else 401
-        raise HTTPException(status_code=status, detail=str(exc)) from exc
+        # Uniform 401: prevent role leakage and status oracle
+        raise HTTPException(status_code=401, detail="Invalid or expired sign-in token") from exc
     response = JSONResponse(content=jsonable_encoder(result))
     set_session_cookie(response, result, request)
     return response
@@ -772,6 +704,42 @@ async def get_user_trades_endpoint(request: Request, limit: int = 100, period: s
 # Active WebSocket connections list
 active_connections: list[WebSocket] = []
 
+# Real-time notification fan-out. Each authenticated WebSocket owns a bounded
+# asyncio.Queue; the notification service pushes into that queue and the
+# connection's own send loop drains it. Routing through a queue keeps a single
+# writer per socket, which is what Starlette needs -- concurrent sends on one
+# WebSocket interleave frames.
+notification_clients: dict[str, set[asyncio.Queue]] = {}
+
+
+def _register_notification_client(user_id: str, queue: "asyncio.Queue") -> None:
+    notification_clients.setdefault(user_id, set()).add(queue)
+
+
+def _unregister_notification_client(user_id: str, queue: "asyncio.Queue") -> None:
+    queues = notification_clients.get(user_id)
+    if not queues:
+        return
+    queues.discard(queue)
+    if not queues:
+        notification_clients.pop(user_id, None)
+
+
+async def _push_notification(user_id: str, payload: dict) -> None:
+    """Deliver one notification to every live socket belonging to ``user_id``.
+
+    Bounded queues mean a slow or dead client drops its own live push (the row in
+    ``public.notifications`` is the source of truth and the mobile app reads it
+    through Supabase Realtime), but never blocks the caller or other clients.
+    """
+    for queue in list(notification_clients.get(user_id, ())):
+        try:
+            queue.put_nowait(payload)
+        except asyncio.QueueFull:
+            logger.warning(
+                "Notification queue full for user %s - dropping live push", user_id
+            )
+
 class SettingsModel(BaseModel):
     symbol: str
     risk_percent: float
@@ -902,6 +870,7 @@ async def websocket_endpoint(websocket: WebSocket):
     requested_account_id = websocket.query_params.get("account_id")
     token = websocket.query_params.get("token", "") or websocket.cookies.get("session_token", "")
     account_id = requested_account_id
+    ws_user_id = None
     require_auth = os.getenv("REQUIRE_AUTH", "false").lower() == "true" or os.getenv("ENVIRONMENT", "development").lower() == "production"
     if require_auth or token:
         if not token:
@@ -917,6 +886,7 @@ async def websocket_endpoint(websocket: WebSocket):
         # The session is authoritative when the client does not yet have the
         # account id (for example, a page loaded from an older cached bundle).
         account_id = principal.account_id
+        ws_user_id = principal.user_id
         if requested_account_id and principal.account_id != requested_account_id:
             await websocket.close(code=1008, reason="Account mismatch")
             return
@@ -930,8 +900,18 @@ async def websocket_endpoint(websocket: WebSocket):
         return
     await websocket.accept()
     active_connections.append(websocket)
+    notification_queue: "asyncio.Queue" = asyncio.Queue(maxsize=50)
+    if ws_user_id:
+        _register_notification_client(ws_user_id, notification_queue)
     try:
         while True:
+            # Drain anything the notification service queued since the last tick.
+            pending_notifications = []
+            while not notification_queue.empty():
+                try:
+                    pending_notifications.append(notification_queue.get_nowait())
+                except asyncio.QueueEmpty:
+                    break
             # Keep the live payload bounded; history has a dedicated endpoint.
             live = getattr(stream_bot, "live_state", None) or {}
             state = {
@@ -974,6 +954,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 "indicators": live.get("indicators", stream_bot.indicators),
                 "watchlist": live.get("watchlist", stream_bot.watchlist_data)
             }
+            if pending_notifications:
+                state["notifications"] = pending_notifications
             await websocket.send_json(state)
             await asyncio.sleep(0.5)
     except WebSocketDisconnect:
@@ -981,6 +963,40 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         if websocket in active_connections:
             active_connections.remove(websocket)
+    finally:
+        if ws_user_id:
+            _unregister_notification_client(ws_user_id, notification_queue)
+
+
+# ---------------------------------------------------------------------------
+# Notification inbox API. The persistent log behind the real-time pushes; the
+# Flutter app reads the same rows straight from Supabase (Realtime + REST).
+# ---------------------------------------------------------------------------
+@app.get("/api/notifications")
+@limiter.limit("120/minute")
+async def list_my_notifications(request: Request, limit: int = 30, unread_only: bool = False):
+    principal = await principal_from_request(request)
+    from services.notification_service import list_notifications
+
+    items = await list_notifications(
+        principal.user_id, limit=limit, unread_only=unread_only
+    )
+    return {"notifications": items, "count": len(items)}
+
+
+@app.post("/api/notifications/read")
+@limiter.limit("120/minute")
+async def mark_my_notifications_read(request: Request):
+    principal = await principal_from_request(request)
+    from services.notification_service import mark_read
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    notification_id = payload.get("id") if isinstance(payload, dict) else None
+    updated = await mark_read(principal.user_id, notification_id)
+    return {"updated": updated}
 
 # Start Bot API
 @app.post("/api/start")
@@ -1284,6 +1300,10 @@ async def manual_trigger_circuit_breaker(request: Request):
 @limiter.limit("10/minute")
 async def reset_circuit_breaker(request: Request):
     current_bot = await scoped_bot(request)
+    if current_bot.lock_state == LOCK_HARD:
+        # Only an authorized admin may release a HARD lock (enforced by the
+        # enforce_hard_lock DB trigger) — keep code/UI consistent with that.
+        raise HTTPException(status_code=403, detail="HARD lock can only be released via the admin unlock endpoint")
     current_bot.daily_start_equity = current_bot.account_info["balance"]
     current_bot.account_info["daily_start_equity"] = current_bot.daily_start_equity
     current_bot.account_info["daily_drawdown_percent"] = 0.0
@@ -1788,7 +1808,7 @@ async def admin_set_status(account_id: str, payload: AdminStatusModel, request: 
 @app.post("/api/admin/accounts/{account_id}/lock")
 @limiter.limit("20/minute")
 async def admin_set_lock(account_id: str, payload: AdminLockModel, request: Request):
-    await require_admin(request)
+    principal = await require_admin(request)
     current_bot = await asyncio.to_thread(account_service.get_bot, account_id)
     if payload.state == LOCK_HARD:
         await current_bot.hard_lock(payload.reason)
@@ -1797,7 +1817,11 @@ async def admin_set_lock(account_id: str, payload: AdminLockModel, request: Requ
     else:
         current_bot.unlock(payload.reason)
     if hasattr(repository, "set_lock_state"):
-        await asyncio.to_thread(repository.set_lock_state, account_id, payload.state, payload.reason)
+        await asyncio.to_thread(
+            repository.set_lock_state,
+            account_id, payload.state, payload.reason,
+            unlocked_by=principal.user_id if payload.state == LOCK_UNLOCKED else None,
+        )
     logger.info(f"[ADMIN_LOCK] Account {account_id} lock state successfully set to: {payload.state} (reason: {payload.reason})")
     return {"status": "ok", "account_id": account_id, "lock_state": current_bot.lock_state}
 
@@ -1817,7 +1841,11 @@ async def admin_unlock_account(account_id: str, payload: AdminLockModel, request
         raise HTTPException(status_code=400, detail="Account is not hard-locked")
     current_bot.unlock(payload.reason)
     if hasattr(repository, "set_lock_state"):
-        await asyncio.to_thread(repository.set_lock_state, account_id, LOCK_UNLOCKED, payload.reason)
+        await asyncio.to_thread(
+            repository.set_lock_state,
+            account_id, LOCK_UNLOCKED, payload.reason,
+            unlocked_by=principal.user_id,
+        )
     log_security_event(
         event="admin_unlock_account",
         severity="warning",

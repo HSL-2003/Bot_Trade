@@ -60,6 +60,21 @@ async def _get_pool():
     return pool
 
 
+async def get_direct_pool():
+    """Public accessor: the asyncpg pool, or ``None`` when not configured.
+
+    Unlike the private ``_get_pool`` this returns ``None`` for an unconfigured
+    deployment, so optional features (notifications, advisory locks) can degrade
+    gracefully, while the critical trade path keeps its fail-fast behaviour.
+
+    A configured-but-broken setup still raises ``DirectDbError`` (missing
+    asyncpg, bad URL) - that is a deployment error, not something to paper over.
+    """
+    if not os.getenv("DATABASE_POOL_URL", ""):
+        return None
+    return await _get_pool()
+
+
 async def close_direct_db() -> None:
     """Close the cached pool (idempotent). Call once at app shutdown."""
     pool = getattr(_get_pool, "_cached_pool", None)
