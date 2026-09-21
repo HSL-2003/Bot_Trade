@@ -33,7 +33,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from services.direct_db import get_direct_pool
+from repositories.direct_db import get_direct_pool
 
 logger = logging.getLogger("db_locks")
 

@@ -28,12 +28,18 @@ class DirectDbError(RuntimeError):
     """Raised when the direct database path is configured but unusable."""
 
 
-async def _get_pool():
-    """Return the module-level asyncpg pool for the running loop.
+_pools: dict[int, Any] = {}
 
-    asyncpg pools are event-loop bound, so we cache per-running-loop like the
-    httpx pool does. Raises DirectDbError with a clear message when configured
-    but asyncpg is not installed.
+
+async def _get_pool():
+    """Return the asyncpg pool bound to the *currently running* event loop.
+
+    Like the httpx pool in ``async_http.py``, the pool must be keyed by the
+    running loop: ``asyncio.run()``, TestClient and uvicorn each own a different
+    loop, and a pool created on a closed loop fails with
+    ``RuntimeError: Event loop is closed``. Production has one long-lived loop,
+    so it still ends up with exactly one pool. Raises ``DirectDbError`` with a
+    clear message when configured but asyncpg is not installed.
     """
     import asyncio
 
@@ -46,17 +52,27 @@ async def _get_pool():
             "There is intentionally no silent fallback to PostgREST."
         )
 
-    pool = getattr(_get_pool, "_cached_pool", None)
+    loop_id = id(asyncio.get_running_loop())
+    pool = _pools.get(loop_id)
     if pool is not None:
         return pool
     url = os.getenv("DATABASE_POOL_URL", "")
     if not url:
         raise DirectDbError("DATABASE_POOL_URL is not set")
-    loop = asyncio.get_running_loop()
     import asyncpg as apg
 
-    pool = await apg.create_pool(url, min_size=1, max_size=6, timeout=15.0)
-    _get_pool._cached_pool = pool  # type: ignore[attr-defined]
+    # statement_cache_size=0 is REQUIRED behind the Supabase transaction pooler
+    # (PgBouncer): server-side prepared statements do not survive connection
+    # multiplexing and fail intermittently with "prepared statement already
+    # exists". Verified against the live pooler (6543).
+    pool = await apg.create_pool(
+        url,
+        min_size=1,
+        max_size=6,
+        timeout=15.0,
+        statement_cache_size=0,
+    )
+    _pools[loop_id] = pool
     return pool
 
 
@@ -76,14 +92,13 @@ async def get_direct_pool():
 
 
 async def close_direct_db() -> None:
-    """Close the cached pool (idempotent). Call once at app shutdown."""
-    pool = getattr(_get_pool, "_cached_pool", None)
-    if pool is not None:
+    """Close every pooled connection (idempotent). Call once at app shutdown."""
+    for pool in list(_pools.values()):
         try:
             await pool.close()
         except Exception:
             pass
-    _get_pool._cached_pool = None  # type: ignore[attr-defined]
+    _pools.clear()
 
 
 async def record_trade_close_direct(

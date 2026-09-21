@@ -59,6 +59,19 @@ PushHandler = Callable[[str, dict], Awaitable[None]]
 _push_handlers: list[PushHandler] = []
 
 
+def _json_safe(value: Any) -> Any:
+    """Coerce a value into something ``json`` can always encode.
+
+    Notification payloads carry values straight out of the database: asyncpg
+    hands back ``UUID``/``Decimal``/``datetime`` objects, and PostgREST hands back
+    strings, so the same call site must work for both. Without this, persistence
+    failed with ``TypeError: Object of type UUID is not JSON serializable`` and -
+    because notification delivery must never break a business flow - the failure
+    was silent (observed live on the first paid order, 2026-09-21).
+    """
+    return json.loads(json.dumps(value, default=str))
+
+
 def register_push_handler(handler: PushHandler) -> None:
     """Register a real-time delivery callback (called by ``app.py`` at startup).
 
@@ -89,7 +102,7 @@ def _rest_headers(key: str) -> dict:
 
 async def _insert(user_id: str, payload: dict) -> Optional[str]:
     """Persist one notification. Returns its id, or ``None`` when unwritable."""
-    from services.direct_db import get_direct_pool
+    from repositories.direct_db import get_direct_pool
 
     pool = await get_direct_pool()
     if pool is not None:
@@ -157,7 +170,9 @@ async def notify_user(
         "type": ntype,
         "title": title,
         "message": message,
-        "data": data or {},
+        # Normalised once here so every sink (JSONB column, REST body, WebSocket
+        # frame) is guaranteed encodable even when callers pass database types.
+        "data": _json_safe(data or {}),
         "severity": severity,
     }
     try:
@@ -185,7 +200,7 @@ async def notify_all_admins(
 
 async def _admin_user_ids() -> list[str]:
     """User ids whose ``user_profiles.roles`` contains ``"admin"``."""
-    from services.direct_db import get_direct_pool
+    from repositories.direct_db import get_direct_pool
 
     pool = await get_direct_pool()
     if pool is not None:
@@ -223,7 +238,7 @@ async def list_notifications(
 ) -> list[dict]:
     """Newest-first notifications for one user (backing the in-app inbox)."""
     limit = max(1, min(int(limit), 100))
-    from services.direct_db import get_direct_pool
+    from repositories.direct_db import get_direct_pool
 
     pool = await get_direct_pool()
     if pool is not None:
@@ -261,7 +276,7 @@ async def list_notifications(
 async def mark_read(user_id: str, notification_id: Optional[str] = None) -> int:
     """Mark one notification (or all of them) as read. Returns the row count."""
     stamp = "timezone('utc', now())"
-    from services.direct_db import get_direct_pool
+    from repositories.direct_db import get_direct_pool
 
     pool = await get_direct_pool()
     if pool is not None:

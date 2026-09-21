@@ -131,7 +131,24 @@ def verify_webhook(body: dict) -> bool:
         return False
     candidate = {k: v for k, v in data.items() if k != "signature"}
     expected = compute_signature(candidate, checksum_key)
-    return hmac.compare_digest(str(signature), expected)
+    ok = hmac.compare_digest(str(signature), expected)
+    if not ok:
+        # Safe diagnostics (no secrets: keys and signature prefixes only). The
+        # live gateway once delivered a real payment whose signature our
+        # algorithm rejected (2026-09-21); the polling fallback completed that
+        # order, and this log is what lets the NEXT delivery reveal the field
+        # that differs (nested content? different key set?).
+        logger.warning(
+            "PayOS signature mismatch: data_keys=%s nested=%s "
+            "provided=%s expected=%s orderCode=%s",
+            sorted(candidate.keys()),
+            sorted(k for k, v in candidate.items()
+                   if isinstance(v, (dict, list))),
+            str(signature)[:12],
+            expected[:12],
+            candidate.get("orderCode"),
+        )
+    return ok
 
 
 async def _request(
@@ -220,6 +237,7 @@ async def create_payment_link(
     return_url: Optional[str] = None,
     cancel_url: Optional[str] = None,
     items: Optional[list[dict]] = None,
+    checkout_url: Optional[str] = None,
 ) -> PaymentLink:
     """Create a payment link. ``expired_at`` is a Unix timestamp in seconds.
 
@@ -239,6 +257,8 @@ async def create_payment_link(
         "returnUrl": return_url or os.getenv("PAYOS_RETURN_URL", ""),
     }
     payload = {**sign_data, "signature": compute_signature(sign_data, checksum_key)}
+    if checkout_url is not None:
+        payload["checkoutUrl"] = checkout_url
     if expired_at is not None:
         payload["expiredAt"] = int(expired_at)
     if items:
@@ -252,6 +272,17 @@ async def create_payment_link(
         qr_code=data.get("qrCode"),
         raw=data,
     )
+
+
+async def confirm_webhook(webhook_url: str) -> dict:
+    """Register/verify the callback URL with PayOS (docs: POST /confirm-webhook).
+
+    Verified 2026-09-18 against docs: response is ``{"code","desc","data"}`` and
+    HTTP is 200 even for a bad ``webhookUrl`` (code "20": "webhook not existed").
+    On success the response simply echoes the registered URL.
+    """
+    body = await _request("POST", "/confirm-webhook", {"webhookUrl": webhook_url})
+    return body.get("data") or body
 
 
 async def get_payment_link(payment_link_id: str) -> dict:

@@ -85,10 +85,38 @@ async def lifespan(app: FastAPI):
     from services.notification_service import register_push_handler
     register_push_handler(_push_notification)
 
+    # Phase A: commerce crons. Polling (every minute) is the safety net for a
+    # dropped PayOS callback; expiry (every 5 minutes) releases abandoned carts.
+    # Both no-op until PAYOS_* is configured.
+    async def _commerce_cron_loop():
+        ticks = 0
+        while True:
+            await asyncio.sleep(60)
+            ticks += 1
+            try:
+                from repositories.payos_client import is_configured as _payos_ready
+                if _payos_ready():
+                    await commerce_service.poll_pending_orders()
+                if ticks % 5 == 0:
+                    await commerce_service.expire_pending_orders()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logging.getLogger("commerce.service").exception(
+                    "commerce cron tick failed"
+                )
+
+    commerce_cron_task = asyncio.create_task(_commerce_cron_loop())
+
     try:
         yield
     finally:
         # --- shutdown ---
+        commerce_cron_task.cancel()
+        try:
+            await commerce_cron_task
+        except (asyncio.CancelledError, Exception):
+            pass
         await account_service.shutdown()
         if hasattr(repository, "close"):
             try:
@@ -99,7 +127,7 @@ async def lifespan(app: FastAPI):
         await pipeline.stop()
         from services.async_http import aclose_http_pool
         await aclose_http_pool()
-        from services.direct_db import close_direct_db
+        from repositories.direct_db import close_direct_db
         await close_direct_db()
         if not bot.simulation_mode and MT5_AVAILABLE:
             import MetaTrader5 as mt5  # type: ignore[import-not-found]
@@ -2342,6 +2370,181 @@ async def delete_bot_type(bot_type_id: str, request: Request, hard_delete: bool 
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ============================================================================
+# Phase A - Commerce (cart -> checkout -> PayOS -> licences)
+# Auth model: every buyer route authenticates the session principal; the PayOS
+# webhook is the ONE unauthenticated route and is protected by HMAC signature
+# verification (stronger than CSRF, which does not apply to server-to-server).
+# ============================================================================
+
+from services import commerce_service  # noqa: E402  (kept next to its routes)
+from repositories.commerce_repository import CommerceError  # noqa: E402
+from repositories.payos_client import is_configured as payos_is_configured  # noqa: E402
+
+
+def _commerce_user_id_or_401(principal) -> str:
+    """Map the session principal to a shop-capable user id.
+
+    ``commerce_user_id`` rejects fabricated identities (demo mode). Translating
+    that rejection to 401 here keeps buyer routes honest without masking real
+    business 409s raised deeper in the call.
+    """
+    from repositories.commerce_repository import CommerceError as _CommerceError
+
+    try:
+        return commerce_service.commerce_user_id(principal)
+    except _CommerceError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
+class AddCartItemRequest(BaseModel):
+    bot_id: str
+    qty: int = 1
+
+
+class CheckoutRequest(BaseModel):
+    cart_id: str
+    idempotency_key: str
+
+
+@app.get("/api/commerce/bots")
+@limiter.limit("60/minute")
+async def commerce_list_bots(request: Request):
+    await principal_from_request(request)
+    return {"bots": await commerce_service.repo().list_active_bots(),
+            "payments_enabled": payos_is_configured()}
+
+
+@app.get("/api/commerce/cart")
+@limiter.limit("60/minute")
+async def commerce_get_cart(request: Request):
+    principal = await principal_from_request(request)
+    repository = commerce_service.repo()
+    cart = await repository.get_or_create_active_cart(_commerce_user_id_or_401(principal))
+    return {"cart": cart, "items": await repository.list_cart_items(cart["id"])}
+
+
+@app.post("/api/commerce/cart/items")
+@limiter.limit("30/minute")
+async def commerce_add_cart_item(request: Request, payload: AddCartItemRequest):
+    """Add a bot to the cart. Same two validations as checkout, so a stale cart
+    can never carry a bot that stopped selling or is already owned (A.5 #4/#6)."""
+    principal = await principal_from_request(request)
+    uid = _commerce_user_id_or_401(principal)
+    repository = commerce_service.repo()
+    bot = await repository.get_bot(payload.bot_id)
+    if not bot or not bot.get("is_active"):
+        raise HTTPException(status_code=409, detail="Bot nay hien khong mo ban")
+    owned = await repository.count_usable_licenses(uid, payload.bot_id)
+    if int(owned or 0) >= int(bot.get("max_owned_per_user") or 1):
+        raise HTTPException(status_code=409,
+                            detail="Ban da so huu bot nay va chua dung het")
+    cart = await repository.get_or_create_active_cart(uid)
+    if cart.get("status") != "ACTIVE":
+        raise HTTPException(status_code=409,
+                            detail="Gio hang dang xu ly, vui long doi")
+    await repository.set_cart_item(cart["id"], payload.bot_id, max(1, payload.qty))
+    return {"cart": cart, "items": await repository.list_cart_items(cart["id"])}
+
+
+@app.delete("/api/commerce/cart/items/{bot_id}")
+@limiter.limit("30/minute")
+async def commerce_remove_cart_item(request: Request, bot_id: str):
+    principal = await principal_from_request(request)
+    repository = commerce_service.repo()
+    cart = await repository.get_or_create_active_cart(_commerce_user_id_or_401(principal))
+    if cart.get("status") != "ACTIVE":
+        raise HTTPException(status_code=409, detail="Gio hang dang khoa")
+    await repository.set_cart_item(cart["id"], bot_id, 0)
+    return {"cart": cart, "items": await repository.list_cart_items(cart["id"])}
+
+
+@app.post("/api/commerce/checkout")
+@limiter.limit("10/minute")
+async def commerce_checkout(request: Request, payload: CheckoutRequest):
+    """Two-phase checkout: order + locked cart in one DB unit, then the gateway
+    link with no transaction held. The idempotency key makes double clicks and
+    double tabs return the same order and the same payment link."""
+    principal = await principal_from_request(request)
+    uid = _commerce_user_id_or_401(principal)
+    try:
+        return await commerce_service.checkout(
+            uid, payload.cart_id, payload.idempotency_key
+        )
+    except CommerceError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/api/commerce/orders")
+@limiter.limit("60/minute")
+async def commerce_list_orders(request: Request):
+    principal = await principal_from_request(request)
+    return {"orders": await commerce_service.repo().list_orders_for_user(
+        _commerce_user_id_or_401(principal))}
+
+
+@app.post("/api/commerce/orders/{order_id}/refund")
+@limiter.limit("5/minute")
+async def commerce_request_refund(request: Request, order_id: str):
+    """Customer asks for a refund (7 days, never-activated, full order only)."""
+    principal = await principal_from_request(request)
+    uid = _commerce_user_id_or_401(principal)
+    try:
+        return await commerce_service.request_refund(
+            order_id, uid)
+    except CommerceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/payos/webhook")
+@limiter.limit("240/minute")
+async def payos_webhook(request: Request):
+    """PayOS callback. Unauthenticated BY DESIGN: security is the HMAC body
+    signature checked inside the handler, which fails closed without the key."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"message": "Invalid JSON"})
+    status, text = await commerce_service.handle_payos_webhook(body)
+    return JSONResponse(status_code=status, content={"message": text})
+
+
+@app.get("/api/admin/commerce/orders")
+@limiter.limit("60/minute")
+async def admin_commerce_orders(request: Request, status: Optional[str] = None,
+                                limit: int = 100):
+    """Reconciliation feed for the admin dashboard."""
+    await require_admin(request)
+    orders = await commerce_service.repo().list_orders_for_reconciliation(
+        status=status, limit=max(1, min(limit, 500))
+    )
+    return {"orders": orders, "count": len(orders)}
+
+
+@app.post("/api/admin/commerce/orders/{order_id}/refund")
+@limiter.limit("10/minute")
+async def admin_commerce_approve_refund(request: Request, order_id: str):
+    principal = await require_admin(request)
+    try:
+        return await commerce_service.approve_refund(order_id, principal.user_id)
+    except CommerceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/admin/commerce/cron/expire")
+@limiter.limit("10/minute")
+async def admin_commerce_cron_expire(request: Request):
+    await require_admin(request)
+    return {"expired": await commerce_service.expire_pending_orders()}
+
+
+@app.post("/api/admin/commerce/cron/poll")
+@limiter.limit("10/minute")
+async def admin_commerce_cron_poll(request: Request):
+    await require_admin(request)
+    return {"completed": await commerce_service.poll_pending_orders()}
 
 
 if __name__ == "__main__":

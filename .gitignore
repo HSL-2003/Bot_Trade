@@ -60,6 +60,7 @@ state_db.json
 *.7z
 *.tar.gz
 *.fbx
+*.webp
 
 # Heavy 3D models and generated/extracted assets
 # Keep these outside Git (store them in release/object storage instead).

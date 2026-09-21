@@ -258,6 +258,13 @@ on conflict (slug) do update set
     max_owned_per_user = excluded.max_owned_per_user,
     sort_order         = excluded.sort_order;
 
+-- ---------------------------------------------------------------------------
+-- 9) bot_magic_seq -- race-free magic numbers (plan decision P12).
+--    generate_unique_magic_number() reads nextval() instead of MAX(magic)+1,
+--    which two concurrent switch requests would otherwise collide on.
+-- ---------------------------------------------------------------------------
+create sequence if not exists public.bot_magic_seq start 100000;
+
 -- ===========================================================================
 -- VERIFY (optional, run manually to confirm):
 --   select b.slug, b.price, bt.name as tier, bt.min_capital

@@ -42,6 +42,29 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _parse_ts(value: Any) -> Optional[datetime]:
+    """Parse a timestamptz from asyncpg or PostgREST into an aware UTC datetime.
+
+    Both backends return timestamps differently (``datetime`` vs ISO string, with
+    or without offset), and comparing a naive datetime to an aware one raises
+    ``TypeError`` at runtime. Normalising here keeps every caller total.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
 def _rest_base() -> tuple[str, str]:
     base = os.getenv("SUPABASE_URL", "").rstrip("/")
     key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -61,7 +84,7 @@ def _rest_headers(key: str, *, represent: bool = False) -> dict:
 
 async def _pool():
     """Direct pool, or None when the deployment is not configured for it."""
-    from services.direct_db import get_direct_pool
+    from repositories.direct_db import get_direct_pool
 
     return await get_direct_pool()
 
@@ -398,7 +421,7 @@ class CommerceRepository:
     # ---------------------------------------------------------------- orders
     async def next_order_code(self) -> int:
         """Race-free order code from the sequence, clamped to PayOS' 9 digits."""
-        from services.payos_client import generate_order_code
+        from repositories.payos_client import generate_order_code
 
         pool = await _pool()
         if pool is not None:
@@ -482,7 +505,7 @@ class CommerceRepository:
 
         Returns ``{"order": {...}, "items": [...], "reused": bool}``.
         """
-        from services.db_locks import advisory_lock
+        from repositories.db_locks import advisory_lock
 
         expires_at = _now() + timedelta(minutes=ttl_minutes)
         pool = await _pool()
@@ -715,3 +738,373 @@ class CommerceRepository:
             "items": await self.get_order_items(order["id"]),
             "reused": False,
         }
+
+    # ------------------------------------------------- post-checkout operations
+    async def _patch_order(
+        self, order_id: str, fields: dict, *, only_if_status: Optional[str] = None
+    ) -> bool:
+        """Update order columns, optionally guarded by the current status.
+
+        The guard makes the write a compare-and-swap: when ``only_if_status`` is
+        given and the row already moved on, zero rows match and this returns
+        False, so the caller treats "someone else got there first" as a normal
+        outcome instead of an error.
+
+        ``fields`` keys are internal constants (never user input), so they are
+        interpolated as column names; values are always parameterised.
+        """
+        keys = list(fields)
+        if not keys:
+            return True
+        pool = await _pool()
+        if pool is not None:
+            assignments = ", ".join(f"{key} = ${i + 2}" for i, key in enumerate(keys))
+            sql = (
+                f"update orders set {assignments}, "
+                "updated_at = timezone('utc', now()) where id = $1"
+            )
+            args: list[Any] = [order_id, *[fields[key] for key in keys]]
+            if only_if_status is not None:
+                args.append(only_if_status)
+                sql += f" and status = ${len(args)}"
+            result = await pool.execute(sql, *args)
+            return result.endswith(" 1")
+
+        params = {"id": f"eq.{order_id}"}
+        if only_if_status is not None:
+            params["status"] = f"eq.{only_if_status}"
+        body = {**fields, "updated_at": _now().isoformat()}
+        changed = await _rest_request(
+            "PATCH", "orders", params=params, json_body=body, represent=True
+        )
+        return bool(changed)
+
+    async def attach_payment_link(
+        self, order_id: str, *, payment_link_id: str, checkout_url: Optional[str] = None
+    ) -> bool:
+        """Phase-2 write: store the gateway link on an order that already exists."""
+        return await self._patch_order(
+            order_id,
+            {
+                "payos_payment_link_id": payment_link_id,
+                "payos_payment_link_url": checkout_url,
+            },
+        )
+
+    async def mark_order_paid(
+        self, order_code: int, *, received_amount: Any
+    ) -> Optional[dict]:
+        """Atomically move an order to PAID; None when it was already handled.
+
+        Accepts both ``PENDING`` and ``EXPIRED`` as source states: a customer who
+        transfers late must still receive what they paid for (case A.5 #7), flagged
+        with ``late_payment``. This single compare-and-swap is what makes two
+        simultaneous PayOS webhooks credit the licence exactly once.
+        """
+        pool = await _pool()
+        if pool is not None:
+            row = await pool.fetchrow(
+                """
+                update orders
+                   set status = 'PAID',
+                       paid_at = timezone('utc', now()),
+                       received_amount = $2,
+                       late_payment = (status = 'EXPIRED'),
+                       manual_review_reason = null,
+                       updated_at = timezone('utc', now())
+                 where order_code = $1 and status = any($3::text[])
+                 returning *
+                """,
+                order_code,
+                received_amount,
+                list(OPEN_ORDER_STATUSES),
+            )
+            return dict(row) if row else None
+
+        current = await self.get_order_by_code(order_code)
+        if not current or current.get("status") not in OPEN_ORDER_STATUSES:
+            return None
+        was_late = current.get("status") == "EXPIRED"
+        changed = await self._patch_order(
+            current["id"],
+            {
+                "status": "PAID",
+                "paid_at": _now().isoformat(),
+                "received_amount": str(received_amount),
+                "late_payment": was_late,
+            },
+            only_if_status=current.get("status"),
+        )
+        if not changed:
+            return None
+        current.update({"status": "PAID", "late_payment": was_late})
+        return current
+
+    async def grant_licenses_for_order(self, order_id: str, user_id: str) -> int:
+        """Give the buyer one ``OWNED_INACTIVE`` licence per paid order item.
+
+        The caller guarantees single execution: only the webhook that won
+        ``mark_order_paid`` reaches here. The existence check keeps a manual
+        re-run (support tooling) from double-granting.
+        """
+        items = await self.get_order_items(order_id)
+        pool = await _pool()
+        granted = 0
+        for item in items:
+            if pool is not None:
+                exists = await pool.fetchval(
+                    "select 1 from user_bot_licenses "
+                    " where order_id = $1 and bot_id = $2 limit 1",
+                    order_id,
+                    item["bot_id"],
+                )
+                if exists:
+                    continue
+                await pool.execute(
+                    "insert into user_bot_licenses (user_id, bot_id, order_id, status) "
+                    "values ($1, $2, $3, 'OWNED_INACTIVE')",
+                    user_id,
+                    item["bot_id"],
+                    order_id,
+                )
+                granted += 1
+            else:
+                existing = await _rest_request(
+                    "GET",
+                    "user_bot_licenses",
+                    params={
+                        "order_id": f"eq.{order_id}",
+                        "bot_id": f"eq.{item['bot_id']}",
+                        "select": "id",
+                        "limit": "1",
+                    },
+                ) or []
+                if existing:
+                    continue
+                await _rest_request(
+                    "POST",
+                    "user_bot_licenses",
+                    json_body={
+                        "user_id": user_id,
+                        "bot_id": item["bot_id"],
+                        "order_id": order_id,
+                        "status": "OWNED_INACTIVE",
+                    },
+                )
+                granted += 1
+        return granted
+
+    async def fail_order(self, order_id: str, reason: str) -> None:
+        """Mark an order FAILED and release its cart so the buyer can retry.
+
+        Used when the gateway link could not be created: the order never had a
+        chance to be paid, so keeping the cart locked would strand the customer.
+        """
+        order = await self.get_order(order_id)
+        await self._patch_order(
+            order_id,
+            {"status": "FAILED", "manual_review_reason": reason},
+            only_if_status="PENDING",
+        )
+        if order and order.get("cart_id"):
+            await self.set_cart_status(order["cart_id"], "ACTIVE")
+
+    async def flag_manual_review(self, order_id: str, reason: str) -> None:
+        """Record why a payment needs a human. Deliberately does NOT change status.
+
+        An amount mismatch must not auto-reject (case A.5 #5): the money is real,
+        so the order stays payable while an admin reconciles it.
+        """
+        await self._patch_order(order_id, {"manual_review_reason": reason})
+
+    async def set_order_refund_status(
+        self, order_id: str, status: str, *, provider_txn_id: Optional[str] = None
+    ) -> None:
+        """Move an order through the refund states (REFUND_PENDING -> REFUNDED)."""
+        fields: dict[str, Any] = {"status": status}
+        if provider_txn_id is not None:
+            fields["refund_provider_txn_id"] = provider_txn_id
+        await self._patch_order(order_id, fields)
+
+    async def licenses_for_order(self, order_id: str) -> list[dict]:
+        """Licenses bought by one order — the refund eligibility check reads this."""
+        pool = await _pool()
+        if pool is not None:
+            rows = await pool.fetch(
+                "select * from user_bot_licenses where order_id = $1", order_id
+            )
+            return [dict(r) for r in rows]
+        return (
+            await _rest_request(
+                "GET",
+                "user_bot_licenses",
+                params={"order_id": f"eq.{order_id}", "select": "*"},
+            )
+            or []
+        )
+
+    async def refund_licenses_for_order(self, order_id: str) -> int:
+        """Set every license of a refunded order to REFUNDED (full-order policy).
+
+        PayOS refunds per payment link, so a single bot inside a combo cannot be
+        refunded alone (plan decision P8) — hence the whole set, no filtering.
+        """
+        pool = await _pool()
+        if pool is not None:
+            updated = await pool.execute(
+                "update user_bot_licenses set status = 'REFUNDED' where order_id = $1",
+                order_id,
+            )
+            return int(str(updated).rsplit(" ", 1)[-1] or 0)
+        rows = await self.licenses_for_order(order_id)
+        for row in rows:
+            await _rest_request(
+                "PATCH",
+                "user_bot_licenses",
+                params={"id": f"eq.{row['id']}"},
+                json_body={"status": "REFUNDED"},
+            )
+        return len(rows)
+
+    async def list_orders_for_user(self, user_id: str, *, limit: int = 50) -> list[dict]:
+        """A buyer's order history, newest first (Thư viện / order tracking)."""
+        pool = await _pool()
+        if pool is not None:
+            rows = await pool.fetch(
+                "select * from orders where user_id = $1 "
+                " order by created_at desc limit $2",
+                user_id,
+                limit,
+            )
+            return [dict(r) for r in rows]
+        return (
+            await _rest_request(
+                "GET",
+                "orders",
+                params={
+                    "user_id": f"eq.{user_id}",
+                    "select": "*",
+                    "order": "created_at.desc",
+                    "limit": str(limit),
+                },
+            )
+            or []
+        )
+
+    async def list_orders_for_reconciliation(
+        self, *, status: Optional[str] = None, limit: int = 100
+    ) -> list[dict]:
+        """Admin reconciliation feed: newest orders, optionally filtered by status."""
+        pool = await _pool()
+        if pool is not None:
+            if status:
+                rows = await pool.fetch(
+                    "select * from orders where status = $1 "
+                    " order by created_at desc limit $2",
+                    status,
+                    limit,
+                )
+            else:
+                rows = await pool.fetch(
+                    "select * from orders order by created_at desc limit $1", limit
+                )
+            return [dict(r) for r in rows]
+        params: dict[str, Any] = {"select": "*", "order": "created_at.desc",
+                                  "limit": str(limit)}
+        if status:
+            params["status"] = f"eq.{status}"
+        return await _rest_request("GET", "orders", params=params) or []
+
+    async def expire_stale_orders(self, *, limit: int = 100) -> int:
+        """Cron body: expire unpaid orders past their deadline and free their carts.
+
+        ``skip locked`` lets a second worker run this concurrently without
+        blocking or double-processing the same row.
+        """
+        pool = await _pool()
+        if pool is not None:
+            cart_ids = await pool.fetch(
+                """
+                with stale as (
+                    select id from orders
+                     where status = 'PENDING'
+                       and expires_at is not null
+                       and expires_at < timezone('utc', now())
+                     order by expires_at
+                     limit $1
+                     for update skip locked
+                )
+                update orders o
+                   set status = 'EXPIRED', updated_at = timezone('utc', now())
+                  from stale s
+                 where o.id = s.id
+                 returning o.cart_id
+                """,
+                limit,
+            )
+            carts = [row["cart_id"] for row in cart_ids if row["cart_id"]]
+            if carts:
+                await pool.execute(
+                    "update carts set status = 'ACTIVE', updated_at = timezone('utc', now()) "
+                    " where id = any($1::uuid[]) and status = 'LOCKED'",
+                    carts,
+                )
+            expired = len(cart_ids)
+            if expired:
+                logger.info("expired %d stale order(s)", expired)
+            return expired
+
+        stale = await _rest_request(
+            "GET",
+            "orders",
+            params={
+                "status": "eq.PENDING",
+                "expires_at": f"lt.{_now().isoformat()}",
+                "select": "id,cart_id",
+                "order": "expires_at.asc",
+                "limit": str(limit),
+            },
+        ) or []
+        for row in stale:
+            if await self._patch_order(row["id"], {"status": "EXPIRED"}, only_if_status="PENDING"):
+                if row.get("cart_id"):
+                    await self.set_cart_status(row["cart_id"], "ACTIVE")
+        if stale:
+            logger.info("expired %d stale order(s) via REST", len(stale))
+        return len(stale)
+
+    async def list_orders_for_polling(
+        self, *, window_minutes: int = 30, limit: int = 25
+    ) -> list[dict]:
+        """Unpaid orders that still have a gateway link, for the polling fallback.
+
+        This is the safety net for a webhook that never arrived: the checkout flow
+        must never depend solely on a callback.
+        """
+        since = (_now() - timedelta(minutes=window_minutes)).isoformat()
+        pool = await _pool()
+        if pool is not None:
+            rows = await pool.fetch(
+                "select * from orders "
+                " where status = 'PENDING' and payos_payment_link_id is not null "
+                "   and created_at >= $1 "
+                " order by created_at asc limit $2",
+                _now() - timedelta(minutes=window_minutes),
+                limit,
+            )
+            return [dict(r) for r in rows]
+        return (
+            await _rest_request(
+                "GET",
+                "orders",
+                params={
+                    "status": "eq.PENDING",
+                    "payos_payment_link_id": "not.is.null",
+                    "created_at": f"gte.{since}",
+                    "select": "*",
+                    "order": "created_at.asc",
+                    "limit": str(limit),
+                },
+            )
+            or []
+        )

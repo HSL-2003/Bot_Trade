@@ -62,6 +62,10 @@ _CSRF_EXEMPT_PATHS = frozenset({
     "/api/auth/forgot-password",
     "/api/auth/magic-link",
     "/api/auth/social/callback",
+    # PayOS server-to-server callback: it has no browser session and no cookie,
+    # so CSRF does not apply; its protection is the HMAC signature verified in
+    # commerce_service.handle_payos_webhook (fails closed without the key).
+    "/api/payos/webhook",
 })
 
 
